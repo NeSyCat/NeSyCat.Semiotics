@@ -1,12 +1,11 @@
 'use server'
 
 import { desc, eq } from 'drizzle-orm'
-import { redirect } from 'next/navigation'
+import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { withRLS } from '@/lib/db'
 import { diagrams, type Diagram } from '@/lib/db/schema'
 import type { DiagramData } from '@/components/editor/types'
-import { serverEditorHref } from '@/lib/editor-url'
 
 async function session() {
   const supabase = await createClient()
@@ -36,6 +35,8 @@ export async function createDiagram(title?: string): Promise<string> {
       })
       .returning({ id: diagrams.id }),
   )
+  revalidatePath('/editor', 'layout')
+  revalidatePath('/', 'layout')
   return rows[0].id
 }
 
@@ -60,6 +61,8 @@ export async function saveDiagram(id: string, data: DiagramData): Promise<void> 
 export async function deleteDiagram(id: string): Promise<void> {
   const { jwt } = await session()
   await withRLS(jwt, (tx) => tx.delete(diagrams).where(eq(diagrams.id, id)))
+  revalidatePath('/editor', 'layout')
+  revalidatePath('/', 'layout')
 }
 
 export async function renameDiagram(id: string, title: string): Promise<void> {
@@ -71,11 +74,8 @@ export async function renameDiagram(id: string, title: string): Promise<void> {
       .set({ title: trimmed, updatedAt: new Date() })
       .where(eq(diagrams.id, id)),
   )
-}
-
-export async function createDiagramAndRedirect(): Promise<never> {
-  const id = await createDiagram()
-  redirect(await serverEditorHref(id))
+  revalidatePath('/editor', 'layout')
+  revalidatePath('/', 'layout')
 }
 
 const emptyData: DiagramData = {

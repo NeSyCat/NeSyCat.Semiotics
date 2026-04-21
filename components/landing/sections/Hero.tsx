@@ -1,4 +1,5 @@
 import SignInButton, { GitHubIcon } from '../SignInButton'
+import DeferredIframe from '../DeferredIframe'
 
 const ACC = '59, 130, 246'
 
@@ -74,7 +75,7 @@ export default function Hero({ isSignedIn, editorHref, callbackUrl }: Props) {
             boxShadow: `0 30px 80px -20px rgba(${ACC},0.15), 0 0 0 1px rgba(255,255,255,0.04)`,
           }}
         >
-          <iframe
+          <DeferredIframe
             src="/embed/sample/hero"
             title="NeSyCat hero preview"
             style={{ width: '100%', height: '100%', border: 0, display: 'block' }}

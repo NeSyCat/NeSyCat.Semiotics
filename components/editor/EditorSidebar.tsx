@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useRef, useState, useTransition } from 'react'
 import {
-  createDiagramAndRedirect,
+  createDiagram,
   deleteDiagram,
   renameDiagram,
 } from '@/lib/actions/diagrams'
@@ -235,6 +235,7 @@ export default function EditorSidebar({ diagrams }: { diagrams: Diagram[] }) {
   const [open, setOpen] = useState(true)
   const [, startNavTransition] = useTransition()
   const [optimisticId, setOptimisticId] = useState<string | null>(null)
+  const [creating, setCreating] = useState(false)
   const [landingHref, setLandingHref] = useState('/')
 
   useEffect(() => {
@@ -256,6 +257,21 @@ export default function EditorSidebar({ diagrams }: { diagrams: Diagram[] }) {
     setOptimisticId(id)
     startNavTransition(() => {
       router.push(editorPath(id))
+    })
+  }
+
+  const onCreate = () => {
+    if (creating) return
+    setCreating(true)
+    startNavTransition(async () => {
+      try {
+        const id = await createDiagram()
+        setOptimisticId(id)
+        router.push(editorPath(id))
+        router.refresh()
+      } finally {
+        setCreating(false)
+      }
     })
   }
 
@@ -281,37 +297,75 @@ export default function EditorSidebar({ diagrams }: { diagrams: Diagram[] }) {
           </span>
         </Link>
 
-        <form action={createDiagramAndRedirect} className="px-3 pt-3">
+        <div className="px-3 pt-3">
           <button
-            type="submit"
-            className="w-full rounded-md border px-3 py-2 text-[13px] font-semibold transition-colors hover:bg-white/5"
+            type="button"
+            onClick={onCreate}
+            disabled={creating}
+            className="flex w-full items-center justify-center gap-2 rounded-md border px-3 py-2 text-[13px] font-semibold transition-colors hover:bg-white/5 disabled:opacity-70"
             style={{
               borderColor: 'var(--color-glass-border)',
               background: 'var(--color-glass-button-bg)',
               color: 'var(--color-text-primary)',
             }}
           >
-            + New diagram
+            {creating ? <Spinner /> : null}
+            <span>{creating ? 'Creating…' : '+ New diagram'}</span>
           </button>
-        </form>
+        </div>
 
         <div className="t-caption px-4 pt-4 pb-1">Diagrams</div>
 
         <div className="flex-1 overflow-auto">
-          {diagrams.length === 0 ? (
+          {diagrams.length === 0 && !creating ? (
             <div className="t-small px-4 py-4" style={{ color: 'var(--color-text-dimmed)' }}>
               No diagrams yet.
             </div>
           ) : (
-            diagrams.map((d) => (
-              <DiagramItem
-                key={d.id}
-                d={d}
-                active={selectedId === d.id}
-                pending={optimisticId === d.id}
-                onSelect={() => goTo(d.id)}
-              />
-            ))
+            <>
+              {creating && (
+                <div
+                  style={{
+                    borderLeft: `3px solid var(--color-accent-blue)`,
+                    background: 'rgba(59, 130, 246, 0.12)',
+                  }}
+                  className="block px-4 py-[10px]"
+                >
+                  <div
+                    className="truncate"
+                    style={{
+                      fontSize: 13,
+                      fontWeight: 500,
+                      color: 'var(--color-text-primary)',
+                    }}
+                  >
+                    Untitled
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 11,
+                      marginTop: 3,
+                      color: 'var(--color-accent-blue)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 6,
+                    }}
+                  >
+                    <Spinner />
+                    <span>Creating…</span>
+                  </div>
+                </div>
+              )}
+              {diagrams.map((d) => (
+                <DiagramItem
+                  key={d.id}
+                  d={d}
+                  active={selectedId === d.id}
+                  pending={optimisticId === d.id}
+                  onSelect={() => goTo(d.id)}
+                />
+              ))}
+            </>
           )}
         </div>
       </aside>
