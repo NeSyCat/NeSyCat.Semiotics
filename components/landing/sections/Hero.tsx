@@ -2,7 +2,13 @@ import SignInButton, { GitHubIcon } from '../SignInButton'
 
 const ACC = '59, 130, 246'
 
-export default function Hero({ isSignedIn }: { isSignedIn: boolean }) {
+interface Props {
+  isSignedIn: boolean
+  editorHref: string
+  callbackUrl: string
+}
+
+export default function Hero({ isSignedIn, editorHref, callbackUrl }: Props) {
   return (
     <>
       <section style={{ padding: '88px 48px 28px', textAlign: 'center', maxWidth: 1100, margin: '0 auto' }}>
@@ -38,7 +44,7 @@ export default function Hero({ isSignedIn }: { isSignedIn: boolean }) {
           neuro-symbolic research.
         </p>
         <div style={{ marginTop: 36, display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
-          <SignInButton isSignedIn={isSignedIn} big />
+          <SignInButton isSignedIn={isSignedIn} editorHref={editorHref} callbackUrl={callbackUrl} big />
           <a href="#cite" style={secondaryBig}>Read the paper <span style={{ opacity: 0.7 }}>↗</span></a>
           <a
             href="https://github.com/NeSyCat/Diagrams"

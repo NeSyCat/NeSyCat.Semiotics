@@ -8,6 +8,8 @@ export type SignInVariant = 'primary' | 'secondary'
 
 interface Props {
   isSignedIn: boolean
+  editorHref: string
+  callbackUrl: string
   variant?: SignInVariant
   big?: boolean
   label?: string
@@ -50,6 +52,8 @@ export function GitHubIcon({ size = 16 }: { size?: number }) {
 
 export default function SignInButton({
   isSignedIn,
+  editorHref,
+  callbackUrl,
   variant = 'primary',
   big,
   label,
@@ -60,7 +64,7 @@ export default function SignInButton({
 
   if (isSignedIn) {
     return (
-      <Link href="/editor" style={style}>
+      <Link href={editorHref} style={style}>
         {icon}
         {label ?? 'Open editor'}
         {suffix && <span style={{ opacity: 0.7, fontSize: big ? 14 : 12 }}>{suffix ?? '→'}</span>}
@@ -70,11 +74,10 @@ export default function SignInButton({
 
   const onClick = async () => {
     const supabase = createClient()
+    const redirectTo = callbackUrl.startsWith('http') ? callbackUrl : `${window.location.origin}${callbackUrl}`
     await supabase.auth.signInWithOAuth({
       provider: 'github',
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
-      },
+      options: { redirectTo },
     })
   }
 

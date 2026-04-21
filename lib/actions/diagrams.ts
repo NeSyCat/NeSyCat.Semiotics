@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/server'
 import { withRLS } from '@/lib/db'
 import { diagrams, type Diagram } from '@/lib/db/schema'
 import type { DiagramData } from '@/components/editor/types'
+import { serverEditorHref } from '@/lib/editor-url'
 
 async function session() {
   const supabase = await createClient()
@@ -74,7 +75,7 @@ export async function renameDiagram(id: string, title: string): Promise<void> {
 
 export async function createDiagramAndRedirect(): Promise<never> {
   const id = await createDiagram()
-  redirect(`/editor/${id}`)
+  redirect(await serverEditorHref(id))
 }
 
 const emptyData: DiagramData = {

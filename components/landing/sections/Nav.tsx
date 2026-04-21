@@ -1,7 +1,13 @@
 import Logo from '../Logo'
 import SignInButton from '../SignInButton'
 
-export default function Nav({ isSignedIn }: { isSignedIn: boolean }) {
+interface Props {
+  isSignedIn: boolean
+  editorHref: string
+  callbackUrl: string
+}
+
+export default function Nav({ isSignedIn, editorHref, callbackUrl }: Props) {
   return (
     <nav
       style={{
@@ -34,7 +40,7 @@ export default function Nav({ isSignedIn }: { isSignedIn: boolean }) {
         <a href="#cite" style={linkStyle}>Paper</a>
         <a href="https://github.com/NeSyCat/Diagrams" style={linkStyle} target="_blank" rel="noreferrer">GitHub</a>
       </div>
-      <SignInButton isSignedIn={isSignedIn} />
+      <SignInButton isSignedIn={isSignedIn} editorHref={editorHref} callbackUrl={callbackUrl} />
     </nav>
   )
 }

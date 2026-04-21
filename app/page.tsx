@@ -7,21 +7,26 @@ import Examples from '@/components/landing/sections/Examples'
 import Roadmap from '@/components/landing/sections/Roadmap'
 import FinalCTA from '@/components/landing/sections/FinalCTA'
 import Footer from '@/components/landing/sections/Footer'
+import { serverCallbackUrl, serverEditorHref } from '@/lib/editor-url'
 
 export default async function Landing() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   const isSignedIn = !!user
+  const editorHref = await serverEditorHref()
+  const callbackUrl = await serverCallbackUrl()
+
+  const authProps = { isSignedIn, editorHref, callbackUrl }
 
   return (
     <div className="w-full flex-1">
-      <Nav isSignedIn={isSignedIn} />
-      <Hero isSignedIn={isSignedIn} />
+      <Nav {...authProps} />
+      <Hero {...authProps} />
       <Motivation />
       <Features />
       <Examples />
       <Roadmap />
-      <FinalCTA isSignedIn={isSignedIn} />
+      <FinalCTA {...authProps} />
       <Footer />
     </div>
   )

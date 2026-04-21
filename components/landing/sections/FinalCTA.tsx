@@ -1,6 +1,12 @@
 import SignInButton from '../SignInButton'
 
-export default function FinalCTA({ isSignedIn }: { isSignedIn: boolean }) {
+interface Props {
+  isSignedIn: boolean
+  editorHref: string
+  callbackUrl: string
+}
+
+export default function FinalCTA({ isSignedIn, editorHref, callbackUrl }: Props) {
   return (
     <section
       id="cite"
@@ -41,7 +47,7 @@ export default function FinalCTA({ isSignedIn }: { isSignedIn: boolean }) {
           Launches in-browser. Sign in to save your diagrams to your account.
         </p>
         <div style={{ marginTop: 28, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-          <SignInButton isSignedIn={isSignedIn} big />
+          <SignInButton isSignedIn={isSignedIn} editorHref={editorHref} callbackUrl={callbackUrl} big />
           <a href="#motivation" style={secondaryBig}>Read docs</a>
         </div>
       </div>

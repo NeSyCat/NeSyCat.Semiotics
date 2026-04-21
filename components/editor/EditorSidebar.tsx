@@ -115,8 +115,16 @@ function DiagramItem({
     if (!confirm(`Delete "${d.title || 'Untitled'}"? This can't be undone.`)) return
     startRowTransition(async () => {
       await deleteDiagram(d.id)
-      if (pathname === `/editor/${d.id}`) router.push('/editor')
-      else router.refresh()
+      const onThis = pathname.includes(d.id)
+      if (onThis) {
+        const resolver =
+          typeof window !== 'undefined' && window.location.host === 'semiotics.nesycat.com'
+            ? '/'
+            : '/editor'
+        router.push(resolver)
+      } else {
+        router.refresh()
+      }
     })
   }
 
@@ -171,7 +179,7 @@ function DiagramItem({
               color: active ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
             }}
           >
-            {d.title || 'Untitled'}
+            {title || 'Untitled'}
           </div>
         )}
         <div style={{ fontSize: 11, marginTop: 3, color: 'var(--color-text-dimmed)', display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -212,26 +220,42 @@ function DiagramItem({
   )
 }
 
+const UUID_IN_PATH = /\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?:\/|$)/i
+
+function editorPath(id: string): string {
+  if (typeof window !== 'undefined' && window.location.host === 'semiotics.nesycat.com') {
+    return `/${id}`
+  }
+  return `/editor/${id}`
+}
+
 export default function EditorSidebar({ diagrams }: { diagrams: Diagram[] }) {
   const router = useRouter()
   const pathname = usePathname()
   const [open, setOpen] = useState(true)
   const [, startNavTransition] = useTransition()
   const [optimisticId, setOptimisticId] = useState<string | null>(null)
+  const [landingHref, setLandingHref] = useState('/')
 
   useEffect(() => {
-    const match = pathname.match(/^\/editor\/([^/]+)/)
+    if (typeof window !== 'undefined' && window.location.host === 'semiotics.nesycat.com') {
+      setLandingHref('https://www.nesycat.com/')
+    }
+  }, [])
+
+  useEffect(() => {
+    const match = pathname.match(UUID_IN_PATH)
     if (match && optimisticId === match[1]) setOptimisticId(null)
   }, [pathname, optimisticId])
 
-  const activePathId = pathname.match(/^\/editor\/([^/]+)/)?.[1] ?? null
+  const activePathId = pathname.match(UUID_IN_PATH)?.[1] ?? null
   const selectedId = optimisticId ?? activePathId
 
   const goTo = (id: string) => {
     if (selectedId === id) return
     setOptimisticId(id)
     startNavTransition(() => {
-      router.push(`/editor/${id}`)
+      router.push(editorPath(id))
     })
   }
 
@@ -246,14 +270,14 @@ export default function EditorSidebar({ diagrams }: { diagrams: Diagram[] }) {
         }}
       >
         <Link
-          href="/"
+          href={landingHref}
           className="flex items-center gap-[10px] px-4 py-[14px] transition-colors hover:bg-white/5"
           style={{ borderBottom: `1px solid var(--color-glass-border)`, textDecoration: 'none' }}
           title="Back to landing"
         >
           <LogoMark />
           <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--color-text-primary)', letterSpacing: '-0.3px' }}>
-            semiotics.nesycat
+            Semiotics.NeSyCat
           </span>
         </Link>
 

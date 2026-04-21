@@ -16,7 +16,6 @@ export const metadata: Metadata = {
   title: "NeSyCat — Draw string diagrams. Compile to Haskell.",
   description:
     "A web editor for category-theoretic string diagrams. Compose shapes, wire their points, and round-trip the whole diagram as JSON.",
-  icons: { icon: "/logo.svg" },
 };
 
 export default function RootLayout({
