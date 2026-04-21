@@ -73,7 +73,7 @@ export default function SignInButton({
     await supabase.auth.signInWithOAuth({
       provider: 'github',
       options: {
-        redirectTo: `${window.location.origin}/auth/callback?next=/editor`,
+        redirectTo: `${window.location.origin}/auth/callback`,
       },
     })
   }
