@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
-import { useStore } from './store'
+import { useStore, isHydrating } from './store'
 import { saveDiagram } from '@/lib/actions/diagrams'
 import type { DiagramData } from './types'
 
@@ -29,6 +29,11 @@ export function useAutosave(diagramId: string | null) {
 
     const unsub = useStore.subscribe((state, prev) => {
       if (state.diagram === prev.diagram) return
+      // Skip the swap when initStore loads a new diagram's data into the store.
+      // Otherwise the autosave would treat the load as an edit and write the
+      // NEW diagram's content back to the OLD diagramId from this effect's
+      // closure — wiping the source diagram on every navigation.
+      if (isHydrating()) return
       pendingRef.current = state.diagram
       if (timerRef.current) clearTimeout(timerRef.current)
       timerRef.current = setTimeout(flush, DEBOUNCE_MS)

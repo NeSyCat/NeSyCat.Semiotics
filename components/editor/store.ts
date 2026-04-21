@@ -176,7 +176,22 @@ export const useStore = create<State>((set, get) => {
   }
 })
 
+// Hydration flag. Autosave reads this to distinguish "the store was just
+// loaded with DB data" from "the user edited the diagram". Without it,
+// navigating between diagrams swaps store data via setState → subscribers fire
+// → autosave treats the swap as an edit and writes the NEW diagram's data back
+// to the OLD diagramId (closure), corrupting the source diagram. See save.ts.
+let _hydrating = false
+export function isHydrating(): boolean {
+  return _hydrating
+}
+
 export function initStore(initial: DiagramData) {
   const d = { ...emptyDiagram, ...initial }
-  useStore.setState({ diagram: d, history: [d], historyIndex: 0 })
+  _hydrating = true
+  try {
+    useStore.setState({ diagram: d, history: [d], historyIndex: 0 })
+  } finally {
+    _hydrating = false
+  }
 }

@@ -275,8 +275,10 @@ export default function EditorSidebar({ diagrams }: { diagrams: Diagram[] }) {
         const row = await createDiagram()
         setOptimisticNew(row)
         setOptimisticId(row.id)
+        // Navigation re-fetches the layout RSC (which calls listDiagrams),
+        // so no router.refresh() needed — and combining the two with
+        // revalidatePath can cause RSC races in production.
         router.push(editorPath(row.id))
-        router.refresh()
       } catch (err) {
         console.error('createDiagram failed', err)
       } finally {

@@ -36,7 +36,6 @@ export async function createDiagram(title?: string): Promise<Diagram> {
       .returning(),
   )
   revalidatePath('/editor', 'layout')
-  revalidatePath('/', 'layout')
   return rows[0]
 }
 
@@ -62,7 +61,6 @@ export async function deleteDiagram(id: string): Promise<void> {
   const { jwt } = await session()
   await withRLS(jwt, (tx) => tx.delete(diagrams).where(eq(diagrams.id, id)))
   revalidatePath('/editor', 'layout')
-  revalidatePath('/', 'layout')
 }
 
 export async function renameDiagram(id: string, title: string): Promise<void> {
@@ -75,7 +73,6 @@ export async function renameDiagram(id: string, title: string): Promise<void> {
       .where(eq(diagrams.id, id)),
   )
   revalidatePath('/editor', 'layout')
-  revalidatePath('/', 'layout')
 }
 
 const emptyData: DiagramData = {
