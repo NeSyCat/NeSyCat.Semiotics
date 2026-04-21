@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 540 180" width="540" height="180" role="img" aria-label="NeSyCat">
+  <g transform="translate(10, 10)" fill="none" stroke="rgb(59,130,246)" stroke-width="2.5" stroke-linejoin="round">
+    <rect x="0" y="0" width="160" height="160" rx="2" fill="rgba(59,130,246,0.06)"></rect>
+    <circle cx="80" cy="80" r="80" fill="rgba(59,130,246,0.10)"></circle>
+    <polygon points="80,0 160,80 80,160 0,80" fill="rgba(59,130,246,0.22)"></polygon>
+    <circle cx="80" cy="80" r="5" fill="rgb(59,130,246)" stroke="none"></circle>
+  </g>
+  <text x="200" y="107" font-family="-apple-system, BlinkMacSystemFont, &#39;Segoe UI&#39;, Roboto, sans-serif" font-size="58" font-weight="600" letter-spacing="-1.5" fill="#ffffff">NeSyCat</text>
+</svg>

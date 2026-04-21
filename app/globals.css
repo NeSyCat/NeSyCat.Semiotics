@@ -3,6 +3,22 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+
+  /* NeSyCat design tokens — mirror of the 'NeSyCat Tokens' Variables
+     collection in the Figma DS file (R9aAlSBIxMZjXt1SmtDrxy).
+     Source of truth is Figma; keep values in sync. */
+  --color-canvas-bg:       #0f0f14;
+  --color-grid:            rgba(255, 255, 255, 0.03);
+  --color-glass-panel-bg:  rgba(15, 15, 20, 0.4);
+  --color-glass-button-bg: rgba(255, 255, 255, 0.06);
+  --color-glass-border:    rgba(255, 255, 255, 0.08);
+  --color-text-primary:    #ffffff;
+  --color-text-secondary:  rgba(255, 255, 255, 0.8);
+  --color-text-muted:      rgba(255, 255, 255, 0.55);
+  --color-text-dimmed:     rgba(255, 255, 255, 0.35);
+  --color-accent-blue:     rgb(59, 130, 246);
+  --size-radius-md:        8px;
+  --effect-blur:           3px;
 }
 
 @theme inline {
@@ -12,15 +28,175 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+body {
+  background: var(--color-canvas-bg);
+  color: var(--color-text-secondary);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  min-height: 100vh;
+}
+
+@layer components {
+  .t-display {
+    font-size: 48px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: 1.05;
+    color: var(--color-text-primary);
+  }
+  .t-h1 {
+    font-size: 28px;
+    font-weight: 600;
+    line-height: 1.2;
+    letter-spacing: -0.01em;
+    color: var(--color-text-primary);
+  }
+  .t-h2 {
+    font-size: 20px;
+    font-weight: 600;
+    line-height: 1.3;
+    color: var(--color-text-primary);
+  }
+  .t-body {
+    font-size: 16px;
+    font-weight: 400;
+    line-height: 1.5;
+    color: var(--color-text-secondary);
+  }
+  .t-small {
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 1.5;
+    color: var(--color-text-secondary);
+  }
+  .t-caption {
+    font-family: var(--font-mono), 'SF Mono', Menlo, ui-monospace, monospace;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+  }
+  .t-mono {
+    font-family: var(--font-mono), 'SF Mono', Menlo, ui-monospace, monospace;
+    font-size: 14px;
+    font-weight: 500;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* React Flow — neutralise every default panel (no white boxes). */
+.react-flow__panel,
+.react-flow__attribution {
+  background: transparent !important;
+  color: var(--color-text-dimmed) !important;
+  box-shadow: none !important;
 }
+.react-flow__attribution a { color: inherit !important; }
+
+/* React Flow Controls — dark glass, bottom-left. */
+.react-flow__controls {
+  box-shadow: none !important;
+  border: 1px solid var(--color-glass-border) !important;
+  border-radius: var(--size-radius-md) !important;
+  overflow: hidden;
+  background: var(--color-glass-panel-bg) !important;
+  backdrop-filter: blur(var(--effect-blur)) !important;
+  -webkit-backdrop-filter: blur(var(--effect-blur)) !important;
+}
+.react-flow__controls-button {
+  background: transparent !important;
+  border: none !important;
+  border-bottom: 1px solid var(--color-glass-border) !important;
+  color: var(--color-text-secondary) !important;
+  fill: currentColor !important;
+  width: 28px;
+  height: 28px;
+}
+.react-flow__controls-button:last-child {
+  border-bottom: none !important;
+}
+.react-flow__controls-button:hover {
+  background: var(--color-glass-button-bg) !important;
+}
+.react-flow__controls-button svg {
+  fill: currentColor;
+  max-width: 14px;
+  max-height: 14px;
+}
+
+/* React Flow selection rectangle — accent-blue glass, not white. */
+.react-flow__selection,
+.react-flow__nodesselection-rect {
+  background: rgba(59, 130, 246, 0.08) !important;
+  border: 1px solid rgba(59, 130, 246, 0.5) !important;
+}
+
+/* Make edges easier to click */
+.react-flow__edge-interaction {
+  stroke-width: 20px !important;
+}
+
+/* GPU-promote animated edge paths to prevent stutter from node repaints */
+.react-flow__edge.animated path.react-flow__edge-path {
+  will-change: stroke-dashoffset;
+}
+
+/* Hide point dots and labels via CSS — no React re-render needed. */
+.points-hidden .react-flow__handle:not(.total-handle) {
+  width: 1px !important;
+  height: 1px !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  border: none !important;
+  opacity: 0 !important;
+  box-shadow: none !important;
+}
+.points-hidden .point-label:not(.total-label) {
+  display: none !important;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+/* Selection glow — radiating pulse driven by --glow / --soft CSS variables
+   from selectionGlow(). Pulses the inner glow and the outer soft halo. */
+@keyframes glow-radiate {
+  0%, 100% {
+    filter:
+      drop-shadow(0 0 1px var(--glow))
+      drop-shadow(0 0 4px var(--glow))
+      drop-shadow(0 0 10px var(--glow))
+      drop-shadow(0 0 20px var(--soft));
+  }
+  50% {
+    filter:
+      drop-shadow(0 0 5px var(--glow))
+      drop-shadow(0 0 20px var(--glow))
+      drop-shadow(0 0 48px var(--glow))
+      drop-shadow(0 0 95px var(--soft));
+  }
+}
+
+/* Thin glass scrollbar — applies everywhere (sidebar, JSON panel, etc). */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
+}
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.22);
+}
+::-webkit-scrollbar-corner { background: transparent; }
+
+/* Embed (landing iframes) — hide editor chrome. */
+.embed-canvas .react-flow__controls,
+.embed-canvas .react-flow__panel { display: none !important; }

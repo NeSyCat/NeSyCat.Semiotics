@@ -1,0 +1,115 @@
+{
+  "empties": [
+    {
+      "id": "E_title",
+      "position": { "x": 1400, "y": 230 },
+      "points": { "left": { "name": "text" } }
+    },
+    {
+      "id": "E_data",
+      "position": { "x": 1400, "y": 310 },
+      "points": { "left": { "name": "jsonb" } }
+    },
+    {
+      "id": "E_created",
+      "position": { "x": 1400, "y": 390 },
+      "points": { "left": { "name": "tstz" } }
+    },
+    {
+      "id": "E_updated",
+      "position": { "x": 1400, "y": 470 },
+      "points": { "left": { "name": "tstz" } }
+    }
+  ],
+  "lines": [
+    {
+      "id": "owned_by",
+      "points": {
+        "source": { "name": "uuid", "node": "R1", "side": "left", "slot": "center", "index": 0 },
+        "targets": [
+          { "name": "uuid", "node": "R2", "side": "center", "slot": "center", "index": 0 }
+        ]
+      }
+    },
+    {
+      "id": "Diagram_title",
+      "points": {
+        "source": { "name": "text", "node": "R1", "side": "right", "slot": "center", "index": 0 },
+        "targets": [
+          { "name": "text", "node": "E_title", "side": "left", "index": 0 }
+        ]
+      }
+    },
+    {
+      "id": "Diagram_data",
+      "points": {
+        "source": { "name": "jsonb", "node": "R1", "side": "right", "slot": "center", "index": 1 },
+        "targets": [
+          { "name": "jsonb", "node": "E_data", "side": "left", "index": 0 }
+        ]
+      }
+    },
+    {
+      "id": "Diagram_created_at",
+      "points": {
+        "source": { "name": "tstz", "node": "R1", "side": "right", "slot": "center", "index": 2 },
+        "targets": [
+          { "name": "tstz", "node": "E_created", "side": "left", "index": 0 }
+        ]
+      }
+    },
+    {
+      "id": "Diagram_updated_at",
+      "points": {
+        "source": { "name": "tstz", "node": "R1", "side": "right", "slot": "center", "index": 3 },
+        "targets": [
+          { "name": "tstz", "node": "E_updated", "side": "left", "index": 0 }
+        ]
+      }
+    }
+  ],
+  "triangles": [],
+  "rhombuses": [],
+  "circles": [],
+  "rectangles": [
+    {
+      "id": "R1",
+      "position": { "x": 700, "y": 300 },
+      "points": {
+        "left": {
+          "center": [
+            { "name": "uuid" }
+          ]
+        },
+        "right": {
+          "center": [
+            { "name": "text" },
+            { "name": "jsonb" },
+            { "name": "tstz" },
+            { "name": "tstz" }
+          ]
+        },
+        "center": {
+          "center": { "name": "uuid" }
+        },
+        "down": [],
+        "up": [],
+        "total": { "name": "Diagram" }
+      }
+    },
+    {
+      "id": "R2",
+      "position": { "x": 50, "y": 300 },
+      "points": {
+        "left": { "center": [] },
+        "right": { "center": [] },
+        "center": {
+          "center": { "name": "uuid" }
+        },
+        "down": [],
+        "up": [],
+        "total": { "name": "User (auth.users)" }
+      }
+    }
+  ]
+}
