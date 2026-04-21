@@ -4,11 +4,10 @@
   --background: #ffffff;
   --foreground: #171717;
 
-  /* NeSyCat design tokens — mirror of the 'NeSyCat Tokens' Variables
-     collection in the Figma DS file (R9aAlSBIxMZjXt1SmtDrxy).
-     Source of truth is Figma; keep values in sync. */
+  /* NeSyCat design tokens — single source of truth.
+     TypeScript consumers access these via components/editor/style/theme.ts,
+     whose helpers return `var(--…)` strings (no duplicated literals). */
   --color-canvas-bg:       #0f0f14;
-  --color-grid:            rgba(255, 255, 255, 0.03);
   --color-glass-panel-bg:  rgba(15, 15, 20, 0.4);
   --color-glass-button-bg: rgba(255, 255, 255, 0.06);
   --color-glass-border:    rgba(255, 255, 255, 0.08);
@@ -17,6 +16,7 @@
   --color-text-muted:      rgba(255, 255, 255, 0.55);
   --color-text-dimmed:     rgba(255, 255, 255, 0.35);
   --color-accent-blue:     rgb(59, 130, 246);
+  --color-accent-rgb:      59, 130, 246;
   --size-radius-md:        8px;
   --effect-blur:           3px;
 }

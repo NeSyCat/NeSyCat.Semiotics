@@ -1,15 +1,24 @@
 import type { CSSProperties } from 'react'
 
+/**
+ * Typed facade over the design tokens in app/globals.css.
+ *
+ * Fields that exist as CSS variables resolve via `var(--…)` — globals.css is
+ * the single source of truth. Fields unique to TS (node opacities, font sizes,
+ * text shadows, the SVG grid color that can't consume CSS vars) are literals
+ * here and nowhere else.
+ */
 const theme = {
   glass: {
-    blur: 3,
-    panelBg: 'rgba(15,15,20,0.4)',
-    buttonBg: 'rgba(255,255,255,0.06)',
-    borderColor: 'rgba(255,255,255,0.08)',
+    blur: 'var(--effect-blur)',
+    panelBg: 'var(--color-glass-panel-bg)',
+    buttonBg: 'var(--color-glass-button-bg)',
+    borderColor: 'var(--color-glass-border)',
   },
 
   node: {
-    accentBlue: '59,130,246',
+    // R,G,B triple so consumers can splice opacity: rgba(var(--color-accent-rgb), 0.5)
+    accentBlue: 'var(--color-accent-rgb)',
     fillOpacity: 0.18,
     borderOpacity: 0.35,
     selectedFillOpacity: 0.35,
@@ -20,24 +29,26 @@ const theme = {
   smallFontSize: 14,
 
   text: {
-    primary: '#fff',
-    secondary: 'rgba(255,255,255,0.8)',
-    muted: 'rgba(255,255,255,0.55)',
-    dimmed: 'rgba(255,255,255,0.35)',
+    primary: 'var(--color-text-primary)',
+    secondary: 'var(--color-text-secondary)',
+    muted: 'var(--color-text-muted)',
+    dimmed: 'var(--color-text-dimmed)',
     shadow: '0 1px 3px rgba(0,0,0,0.5)',
     shadowLight: '0 1px 2px rgba(0,0,0,0.3)',
   },
 
   canvas: {
-    background: '#0f0f14',
+    background: 'var(--color-canvas-bg)',
+    // Passed as an SVG `fill` attribute to React Flow's <Background>, which
+    // doesn't resolve CSS custom properties in SVG presentation attrs.
     gridColor: 'rgba(255,255,255,0.03)',
   },
 } as const
 
 export function glassBlur(): CSSProperties {
   return {
-    backdropFilter: `blur(${theme.glass.blur}px)`,
-    WebkitBackdropFilter: `blur(${theme.glass.blur}px)`,
+    backdropFilter: `blur(${theme.glass.blur})`,
+    WebkitBackdropFilter: `blur(${theme.glass.blur})`,
   }
 }
 
@@ -47,16 +58,6 @@ export function panelStyle(): CSSProperties {
     ...glassBlur(),
     border: `1px solid ${theme.glass.borderColor}`,
   }
-}
-
-export function injectThemeVars(): void {
-  const root = document.documentElement
-  root.style.setProperty('--glass-blur', `blur(${theme.glass.blur}px)`)
-  root.style.setProperty('--glass-panel-bg', theme.glass.panelBg)
-  root.style.setProperty('--glass-button-bg', theme.glass.buttonBg)
-  root.style.setProperty('--glass-border', theme.glass.borderColor)
-  root.style.setProperty('--text-secondary', theme.text.secondary)
-  root.style.setProperty('--canvas-bg', theme.canvas.background)
 }
 
 export function selectionGlow(accent: string, selected: boolean, size: 'normal' | 'small' = 'normal'): CSSProperties {
