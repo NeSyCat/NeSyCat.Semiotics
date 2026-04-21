@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { listDiagrams } from '@/lib/actions/diagrams'
 import EditorSidebar from '@/components/editor/EditorSidebar'
+import StarPrompt from '@/components/StarPrompt'
 import { serverLandingHref } from '@/lib/editor-url'
 
 export default async function EditorLayout({ children }: { children: React.ReactNode }) {
@@ -15,6 +16,7 @@ export default async function EditorLayout({ children }: { children: React.React
     <div className="relative h-screen w-screen overflow-hidden">
       <main className="absolute inset-0">{children}</main>
       <EditorSidebar diagrams={diagrams} />
+      <StarPrompt repoUrl="https://github.com/cherryfunk/semiotics.nesycat" />
     </div>
   )
 }
