@@ -166,17 +166,14 @@ function Canvas() {
 
   // ===== Build nodes from abstract diagram =====
   const builtNodes: Node[] = useMemo(() => {
-    const emptyNodes = diagram.empties.map((e) => {
-      const nPts = (e.points.left ? 1 : 0) + (e.points.right ? 1 : 0)
-      const label = nPts === 2 ? ':=' : ''
-      return ({
+    const emptyNodes = diagram.empties.map((e) => ({
       id: e.id,
       type: 'node',
       hidden: !visibility.empties,
       position: e.position,
       data: {
         kind: 'empty' as const,
-        label,
+        label: '',
         accent: theme.node.accentBlue,
         points: {
           left: e.points.left ? [e.points.left] : [],
@@ -187,7 +184,7 @@ function Canvas() {
           setPointLabel(nodeName, side, index, label),
         onRename: (newName: string) => renameNode('empty', e.id, newName),
       },
-    })})
+    }))
 
     const triNodes = diagram.triangles.map((t) => ({
       id: t.id,
@@ -744,22 +741,22 @@ function Canvas() {
         <Background variant={BackgroundVariant.Dots} color={theme.canvas.gridColor} gap={20} size={1} />
       </ReactFlow>
 
-      {/* Kinds + edge-path toggle (top left) */}
-      <div style={{ position: 'absolute', top: 12, left: 12, zIndex: 10, display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+      {/* Kinds + edge-path toggle (top left) — slides with sidebar via --sidebar-offset */}
+      <div style={{ position: 'absolute', top: 12, left: 'calc(12px + var(--sidebar-offset, 0px))', zIndex: 10, display: 'flex', gap: 8, alignItems: 'flex-start', transition: 'left 200ms' }}>
         <div style={{ position: 'relative' }} onMouseEnter={() => setKindsOpen(true)} onMouseLeave={() => setKindsOpen(false)}>
           <button style={{ ...panelStyle(), borderRadius: 8, padding: '6px 14px', fontSize: 12, fontWeight: 600, color: theme.text.secondary, cursor: 'pointer', fontFamily: 'inherit' }}>
             Kinds
           </button>
           {kindsOpen && (
             <div style={{ position: 'absolute', top: '100%', left: 0, paddingTop: 6 }}>
-              <div style={{ ...panelStyle(), borderRadius: 8, padding: '6px 6px', minWidth: 160 }}>
-                <KindRow label="Empties" on={visibility.empties} onToggle={() => toggleVisibility('empties')} />
-                <KindRow label="Points" on={visibility.points} onToggle={() => toggleVisibility('points')} />
-                <KindRow label="Lines" on={visibility.lines} onToggle={() => toggleVisibility('lines')} />
-                <KindRow label="Triangles" on={visibility.triangles} onToggle={() => toggleVisibility('triangles')} />
-                <KindRow label="Rhombuses" on={visibility.rhombuses} onToggle={() => toggleVisibility('rhombuses')} />
-                <KindRow label="Circles" on={visibility.circles} onToggle={() => toggleVisibility('circles')} />
-                <KindRow label="Rectangles" on={visibility.rectangles} onToggle={() => toggleVisibility('rectangles')} />
+              <div style={{ ...panelStyle(), borderRadius: 8, padding: '6px 6px', minWidth: 220 }}>
+                <KindRow label="Empties" on={visibility.empties} onToggle={() => toggleVisibility('empties')} shortcut={['2×']} />
+                <KindRow label="Points" on={visibility.points} onToggle={() => toggleVisibility('points')} shortcut={['click +']} />
+                <KindRow label="Lines" on={visibility.lines} onToggle={() => toggleVisibility('lines')} shortcut={['drag ○→○']} />
+                <KindRow label="Triangles" on={visibility.triangles} onToggle={() => toggleVisibility('triangles')} shortcut={['Alt/⌥', '2×']} />
+                <KindRow label="Rhombuses" on={visibility.rhombuses} onToggle={() => toggleVisibility('rhombuses')} shortcut={['⇧', '2×']} />
+                <KindRow label="Circles" on={visibility.circles} onToggle={() => toggleVisibility('circles')} shortcut={['␣', '2×']} />
+                <KindRow label="Rectangles" on={visibility.rectangles} onToggle={() => toggleVisibility('rectangles')} shortcut={['Ctrl/⌘', '2×']} />
               </div>
             </div>
           )}
@@ -817,12 +814,26 @@ function Canvas() {
   )
 }
 
-function KindRow({ label, on, onToggle }: { label: string; on: boolean; onToggle: () => void }) {
+function Kbd({ children }: { children: React.ReactNode }) {
+  return (
+    <kbd style={{
+      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+      minWidth: 18, height: 18, padding: '0 5px',
+      border: `1px solid ${theme.glass.borderColor}`, borderRadius: 4,
+      background: 'rgba(255,255,255,0.05)', color: theme.text.secondary,
+      fontFamily: 'var(--font-mono), ui-monospace, SFMono-Regular, Menlo, monospace',
+      fontSize: 10, fontWeight: 500, lineHeight: 1, letterSpacing: 0,
+      whiteSpace: 'nowrap',
+    }}>{children}</kbd>
+  )
+}
+
+function KindRow({ label, on, onToggle, shortcut }: { label: string; on: boolean; onToggle: () => void; shortcut?: string[] }) {
   return (
     <div
       onClick={onToggle}
       style={{
-        display: 'flex', alignItems: 'center', gap: 12, padding: '5px 10px', cursor: 'pointer',
+        display: 'flex', alignItems: 'center', gap: 10, padding: '5px 10px', cursor: 'pointer',
         color: on ? theme.text.secondary : theme.text.dimmed, fontSize: 11, fontWeight: 500,
         userSelect: 'none', borderRadius: 4, transition: 'color 0.12s, background 0.12s',
       }}
@@ -837,6 +848,11 @@ function KindRow({ label, on, onToggle }: { label: string; on: boolean; onToggle
         transition: 'all 0.12s ease', flexShrink: 0, marginLeft: 2,
       }} />
       <span>{label}</span>
+      {shortcut && shortcut.length > 0 && (
+        <span style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+          {shortcut.map((t, i) => <Kbd key={i}>{t}</Kbd>)}
+        </span>
+      )}
     </div>
   )
 }

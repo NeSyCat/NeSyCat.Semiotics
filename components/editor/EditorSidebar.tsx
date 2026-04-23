@@ -239,6 +239,15 @@ export default function EditorSidebar({ diagrams }: { diagrams: Diagram[] }) {
   const [optimisticNew, setOptimisticNew] = useState<Diagram | null>(null)
   const [landingHref, setLandingHref] = useState('/')
 
+  // Expose sidebar width so canvas-overlay controls (Kinds/Straight, React Flow
+  // Controls) can shift with the slide. Cleared on unmount so non-editor routes
+  // don't see a stale offset.
+  useEffect(() => {
+    const root = document.documentElement
+    root.style.setProperty('--sidebar-offset', open ? '240px' : '0px')
+    return () => { root.style.removeProperty('--sidebar-offset') }
+  }, [open])
+
   useEffect(() => {
     if (typeof window !== 'undefined' && window.location.host === 'semiotics.nesycat.com') {
       setLandingHref('https://www.nesycat.com/')
@@ -313,7 +322,7 @@ export default function EditorSidebar({ diagrams }: { diagrams: Diagram[] }) {
               className="whitespace-nowrap"
               style={{ fontSize: 15, fontWeight: 600, color: 'var(--color-text-primary)', letterSpacing: '-0.3px' }}
             >
-              Semiotics.NeSyCat
+              NeSyCat Semiotics
             </span>
           </Link>
 
@@ -334,9 +343,7 @@ export default function EditorSidebar({ diagrams }: { diagrams: Diagram[] }) {
             </button>
           </div>
 
-          <div className="t-caption px-4 pt-4 pb-1">Diagrams</div>
-
-          <div className="flex-1 overflow-auto">
+          <div className="flex-1 overflow-auto pt-3">
             {renderedDiagrams.length === 0 ? (
               <div className="t-small px-4 py-4" style={{ color: 'var(--color-text-dimmed)' }}>
                 {creating ? 'Creating…' : 'No diagrams yet.'}
@@ -360,14 +367,14 @@ export default function EditorSidebar({ diagrams }: { diagrams: Diagram[] }) {
         type="button"
         aria-label={open ? 'Collapse sidebar' : 'Expand sidebar'}
         onClick={() => setOpen((v) => !v)}
-        className="absolute top-1/2 z-20 -translate-y-1/2 cursor-pointer border border-l-0 px-[6px] py-[20px] backdrop-blur-[3px] transition-[left] duration-200"
+        className="absolute top-1/2 z-20 -translate-y-1/2 cursor-pointer border border-l-0 px-[10px] py-[36px] backdrop-blur-[3px] transition-[left] duration-200"
         style={{
           left: open ? 240 : 0,
           background: 'var(--color-glass-panel-bg)',
           borderColor: 'var(--color-glass-border)',
-          borderRadius: '0 8px 8px 0',
+          borderRadius: '0 10px 10px 0',
           color: 'var(--color-text-secondary)',
-          fontSize: 18,
+          fontSize: 28,
           lineHeight: 1,
         }}
       >

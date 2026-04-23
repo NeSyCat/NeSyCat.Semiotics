@@ -1,36 +1,77 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# NeSyCat Semiotics
 
-## Getting Started
+A web editor for category-theoretic **string diagrams**. Compose shapes,
+wire their points, and round-trip the whole diagram as JSON — the visible
+surface of the [NeSyCat](https://github.com/NeSyCat) toolkit for
+neuro-symbolic research. Haskell codegen is on the roadmap.
 
-First, run the development server:
+Live at **[nesycat.com](https://nesycat.com)** — sign in with GitHub and
+start drawing.
+
+## What you can draw
+
+| Kind       | Role in the diagram                                                  |
+| ---------- | -------------------------------------------------------------------- |
+| Empty      | Anonymous carrier — a labelled stub with a single side point.        |
+| Point      | A named port on a shape's side (left / right / center, top / bottom).|
+| Line       | A named wire from one point to one or more target points.            |
+| Triangle   | Shape with a `total` apex point and a `center` column.               |
+| Rhombus    | Shape with `total` + 3-slot columns on left/right (down/center/up).  |
+| Circle     | Shape with `total` + 3-slot columns on left/right.                   |
+| Rectangle  | Shape with `total` + 3-slot columns on left/right and top/bottom.    |
+
+## Creating things
+
+Everything is a gesture on the canvas. Double-click creates; modifier keys
+pick the shape.
+
+| Gesture                   | Creates       |
+| ------------------------- | ------------- |
+| `2×` double-click pane    | Empty         |
+| `Alt` / `⌥` + `2×`        | Triangle      |
+| `⇧` + `2×`                | Rhombus       |
+| `␣` (hold space) + `2×`   | Circle        |
+| `Ctrl` / `⌘` + `2×`       | Rectangle     |
+| Click `+` on a node side  | Point         |
+| Drag point → point        | Line          |
+
+The Kinds menu in the upper-left shows the same cheat sheet and lets you
+toggle visibility per kind.
+
+## Editing
+
+- **Select** — click a node, edge, or point. `⌘` / `Ctrl` + click adds to
+  selection.
+- **Move** — drag nodes; lines follow their endpoints.
+- **Rename** — click a label to edit it inline.
+- **Delete** — `Delete` / `Backspace` on any selection.
+- **Undo / Redo** — `⌘Z` / `⌘⇧Z` (or `Ctrl` on non-Mac).
+- **Edge style** — toggle between `Straight` and `Smooth` in the upper-left.
+- **JSON** — the `JSON` button in the upper-right exports / imports the
+  diagram. Diagrams are pure data (see
+  [`diagrams/schema.nesycat.json`](./diagrams/schema.nesycat.json) for an
+  example) — versionable in git, reviewable in a PR.
+
+Autosave is on. Changes persist per-diagram to your account.
+
+## Run locally
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+npm run dev -- -p 3456
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Then open <http://localhost:3456>.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Authentication uses Supabase + GitHub OAuth. Copy `.env.example` to
+`.env.local` and fill in the Supabase URL and anon key; point a GitHub
+OAuth app at `http://localhost:3456/auth/callback` for local sign-in.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Database migrations live under [`supabase/`](./supabase) and
+[`drizzle/`](./drizzle); schema generation is driven by
+[`codegen/diagram-to-drizzle.ts`](./codegen/diagram-to-drizzle.ts).
 
-## Learn More
+## Stack
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Next.js · React · TypeScript · [@xyflow/react](https://reactflow.dev) ·
+Zustand · Supabase (Postgres + Auth) · Drizzle · Tailwind.

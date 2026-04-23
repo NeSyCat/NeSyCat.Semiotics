@@ -80,6 +80,9 @@ function BiHandle({ id, position, style, className }: {
     padding: 0,
     overflow: 'visible',
     cursor: 'crosshair',
+    // Sit above point labels (zIndex 1) so drag-to-connect on the dot isn't
+    // masked by the label's hit box when the two overlap.
+    zIndex: 3,
   }
 
   // Visible 12×12 dot, centered on its 1×1 parent.
@@ -1575,24 +1578,6 @@ function DiagramNode({ id, data, selected }: NodeProps) {
       {renderSelectionFrame()}
       {bg}
       {renderTotalBlock()}
-
-      {/* ":=" marker for rename-empty carriers (both sides occupied) */}
-      {isEmpty && d.label && (
-        <div style={{
-          position: 'absolute', left: '50%', top: '50%',
-          transform: 'translate(-50%, -50%)',
-          textAlign: 'center', zIndex: 2,
-          maxWidth: nodeSize * 0.6,
-          fontWeight: 600,
-          fontSize: theme.fontSize,
-          color: theme.text.primary,
-          textShadow: theme.text.shadow,
-          lineHeight: 1.3,
-          whiteSpace: 'nowrap',
-        }}>
-          {d.label}
-        </div>
-      )}
 
       {/* Left point labels — external */}
       {showLeftLabels && d.points.left.map((pt, i) => {
