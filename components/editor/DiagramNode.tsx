@@ -117,7 +117,6 @@ function clipForBody(body: CanonicalBody): React.CSSProperties {
     return { clipPath: `polygon(${inside})` }
   }
   if (body.type === 'circle') return { borderRadius: '50%' }
-  if (body.type === 'rect') return {}
   return {}
 }
 
@@ -139,7 +138,6 @@ function clipForFrameContainer(frame: CanonicalFrame): React.CSSProperties {
 // Always-on 2× selection frame outline. Glow is never attached here — every kind
 // glows through NodeBg's body-fill drop-shadow, clipped to the frame container.
 function FrameOutline({ frame, n, accent }: { frame: CanonicalFrame; n: number; accent: string }) {
-  if (frame.type === 'none') return null
   const stroke = `rgba(${accent}, 0.6)`
   const frameOffset = n / 2
 
@@ -184,7 +182,6 @@ function BodyFill({ body, n, accent, fillOpacity, borderOpacity }: {
   fillOpacity: number
   borderOpacity: number
 }) {
-  if (body.type === 'none') return null
   const bg = `rgba(${accent}, ${fillOpacity})`
   const borderColor = `rgba(${accent}, ${borderOpacity})`
 
@@ -236,7 +233,6 @@ function NodeBg({ body, frame, n, accent, fillOpacity, borderOpacity, selected }
   borderOpacity: number
   selected: boolean
 }) {
-  if (body.type === 'none') return null
   const frameOffset = n / 2
   return (
     <div style={{

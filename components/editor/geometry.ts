@@ -28,13 +28,11 @@ export interface SlotAnchor {
 // (origin at top-left of the body box, +x right, +y down). Frame fractions can
 // fall outside [0, 1] because the 2× frame extends beyond the body.
 export type CanonicalBody =
-  | { type: 'none' }
   | { type: 'polygon'; pointsFrac: ReadonlyArray<readonly [number, number]> }
   | { type: 'circle' }
   | { type: 'rect' }
 
 export type CanonicalFrame =
-  | { type: 'none' }
   | { type: 'polygon'; pointsFrac: ReadonlyArray<readonly [number, number]>; cornerRadius: number }
   | { type: 'circle' }
   | { type: 'rect'; cornerRadius: number }
@@ -56,7 +54,6 @@ function polygonCentroid(pts: ReadonlyArray<readonly [number, number]>): readonl
 // the body's centroid so that body.centroid === frame.centroid for every kind
 // — i.e. the body is genuinely centered inside its frame.
 export function deriveFrame(body: CanonicalBody): CanonicalFrame {
-  if (body.type === 'none')   return { type: 'none' }
   if (body.type === 'circle') return { type: 'circle' }
   if (body.type === 'rect')   return { type: 'rect', cornerRadius: FRAME_CORNER }
   const [cx, cy] = polygonCentroid(body.pointsFrac)
@@ -82,9 +79,6 @@ export function frameNWAnchor(body: CanonicalBody, n: number): SlotAnchor {
   const cx = cxFrac * n
   const cy = cyFrac * n
 
-  if (frame.type === 'none') {
-    return { x: cx, y: cy, position: Position.Top }
-  }
   if (frame.type === 'circle') {
     // Frame circle: center (n/2, n/2), radius = n. NW intersection at angle
     // 225° (screen coords): (n/2 − n/√2, n/2 − n/√2).
