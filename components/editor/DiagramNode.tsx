@@ -130,9 +130,7 @@ function clipForFrameContainer(frame: CanonicalFrame): React.CSSProperties {
       .join(', ')
     return { clipPath: `polygon(${inside})` }
   }
-  if (frame.type === 'circle') return { borderRadius: '50%' }
-  if (frame.type === 'rect') return { borderRadius: frame.cornerRadius }
-  return {}
+  return { borderRadius: '50%' }
 }
 
 // Always-on 2× selection frame outline. Glow is never attached here — every kind
@@ -141,7 +139,7 @@ function FrameOutline({ frame, n, accent }: { frame: CanonicalFrame; n: number; 
   const stroke = `rgba(${accent}, 0.6)`
   const frameOffset = n / 2
 
-  if (frame.type === 'rect' || frame.type === 'circle') {
+  if (frame.type === 'circle') {
     return (
       <div style={{
         position: 'absolute',
@@ -150,7 +148,7 @@ function FrameOutline({ frame, n, accent }: { frame: CanonicalFrame; n: number; 
         width: n + 2 * frameOffset,
         height: n + 2 * frameOffset,
         border: `${FRAME_STROKE_WIDTH}px solid ${stroke}`,
-        borderRadius: frame.type === 'circle' ? '50%' : (frame as { cornerRadius: number }).cornerRadius,
+        borderRadius: '50%',
         pointerEvents: 'none',
         zIndex: 0,
         boxSizing: 'border-box',
@@ -204,11 +202,11 @@ function BodyFill({ body, n, accent, fillOpacity, borderOpacity }: {
       </>
     )
   }
-  // circle / rect
+  // circle
   return (
     <div style={{
       position: 'absolute', inset: 0,
-      borderRadius: body.type === 'circle' ? '50%' : 0,
+      borderRadius: '50%',
       background: bg,
       outline: `1px solid ${borderColor}`,
       outlineOffset: -0.5,

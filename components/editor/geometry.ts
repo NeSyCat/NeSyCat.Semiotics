@@ -30,20 +30,17 @@ export interface SlotAnchor {
 export type CanonicalBody =
   | { type: 'polygon'; pointsFrac: ReadonlyArray<readonly [number, number]> }
   | { type: 'circle' }
-  | { type: 'rect' }
 
 export type CanonicalFrame =
   | { type: 'polygon'; pointsFrac: ReadonlyArray<readonly [number, number]>; cornerRadius: number }
   | { type: 'circle' }
-  | { type: 'rect'; cornerRadius: number }
 
 // 2× scale about the unit-square center (0.5, 0.5). Convenience for kinds whose
-// centroid coincides with the bbox center (circle, rect, rhombus). Triangle
+// centroid coincides with the bbox center (circle, rhombus, rectangle). Triangle
 // uses centroid-based scaling because its centroid ≠ bbox center.
 export const scale2 = (frac: number) => 2 * frac - 0.5
 
-// Vertex centroid of a polygon body (avg of vertices). For circle/rect, the
-// centroid equals (0.5, 0.5) by construction.
+// Vertex centroid of a polygon body (avg of vertices).
 function polygonCentroid(pts: ReadonlyArray<readonly [number, number]>): readonly [number, number] {
   let sx = 0, sy = 0
   for (const [x, y] of pts) { sx += x; sy += y }
@@ -55,7 +52,6 @@ function polygonCentroid(pts: ReadonlyArray<readonly [number, number]>): readonl
 // — i.e. the body is genuinely centered inside its frame.
 export function deriveFrame(body: CanonicalBody): CanonicalFrame {
   if (body.type === 'circle') return { type: 'circle' }
-  if (body.type === 'rect')   return { type: 'rect', cornerRadius: FRAME_CORNER }
   const [cx, cy] = polygonCentroid(body.pointsFrac)
   return {
     type: 'polygon',
@@ -69,8 +65,9 @@ export function deriveFrame(body: CanonicalBody): CanonicalFrame {
 
 // Title / "total" label position. ONE rule for every kind: cast a 45° NW ray
 // from the body centroid and intersect with the FRAME outline (= 2× body via
-// deriveFrame). No per-kind data, no per-kind branching — circle, empty, rect,
-// rhombus, triangle all derive their total-label position from this one rule.
+// deriveFrame). No per-kind data, no per-kind branching — circle, empty,
+// rectangle, rhombus, triangle all derive their total-label position from this
+// one rule.
 export function frameNWAnchor(body: CanonicalBody, n: number): SlotAnchor {
   const frame = deriveFrame(body)
   const [cxFrac, cyFrac] = body.type === 'polygon'
@@ -84,11 +81,6 @@ export function frameNWAnchor(body: CanonicalBody, n: number): SlotAnchor {
     // 225° (screen coords): (n/2 − n/√2, n/2 − n/√2).
     const k = n / Math.SQRT2
     return { x: n / 2 - k, y: n / 2 - k, position: Position.Top }
-  }
-  if (frame.type === 'rect') {
-    // Frame rect spans (-n/2, -n/2) to (3n/2, 3n/2). The 45° NW ray from
-    // (n/2, n/2) hits exactly the NW corner.
-    return { x: -n / 2, y: -n / 2, position: Position.Top }
   }
   // Polygon: solve ray-edge intersection for each frame edge, keep the
   // smallest positive t. Ray: (cx − t, cy − t), t > 0. Edge: (x1 + s·dx,
@@ -405,7 +397,15 @@ const circleGeometry: ShapeGeometry<'circle'> = {
 }
 
 // === RECTANGLE ===
-const rectangleBody: CanonicalBody = { type: 'rect' }
+const rectangleBody: CanonicalBody = {
+  type: 'polygon',
+  pointsFrac: [
+    [0, 0],
+    [1, 0],
+    [1, 1],
+    [0, 1],
+  ],
+}
 
 const rectangleGeometry: ShapeGeometry<'rectangle'> = {
   body: rectangleBody,
