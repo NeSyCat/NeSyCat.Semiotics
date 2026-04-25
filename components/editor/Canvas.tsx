@@ -21,8 +21,8 @@ import DiagramNode from './DiagramNode'
 import DiagramEdge from './DiagramEdge'
 import { useStore, initStore } from './store'
 import { useAutosave } from './save'
-import { enumeratePoints, findShape, getPointAt } from './points'
-import type { Diagram, ShapeKind, Slot, Subslot } from './types'
+import { enumerateAddable, enumeratePoints, findShape, getPointAt, slotSchema } from './points'
+import type { AnyShape, Diagram, ShapeKind, Slot, Subslot } from './types'
 import theme, { panelStyle, glassBlur } from './style/theme'
 
 const nodeTypes: NodeTypes = { node: DiagramNode }
@@ -79,12 +79,40 @@ function pointIdToHandle(d: Diagram, pointId: string): { nodeId: string; handleI
   }
 }
 
-// Pick the rhombus subslot ('up'/'down') or rectangle subslot ('center') for
-// drops on left/right sides. Other (slot, kind) combos: no subslot.
+// Resolve a drop's subslot from cursor's vertical position. Triad slots have
+// 3 subslots (down/center/up); non-triad slots have none. The rhombus and
+// rectangle left/right rules predate this generalization and are preserved
+// as-is. The new branch handles triad center slots (rhombus/circle/rectangle)
+// uniformly via schema lookup — no per-kind list maintenance.
 function resolveDropSubslot(kind: ShapeKind, slot: Slot, ry: number): Subslot | undefined {
   if (kind === 'rhombus' && (slot === 'left' || slot === 'right')) return ry < 0.5 ? 'up' : 'down'
   if (kind === 'rectangle' && (slot === 'left' || slot === 'right')) return 'center'
+  if (slot === 'center' && slotSchema(kind, 'center').type === 'triad') {
+    if (ry < 1 / 3) return 'up'
+    if (ry > 2 / 3) return 'down'
+    return 'center'
+  }
   return undefined
+}
+
+// Pick a drop's (slot, subslot) on `shape` from cursor (rx, ry) ∈ [0,1]².
+// Same five candidates for every kind — no per-kind exceptions. Filtered against
+// `enumerateAddable` so occupied MAYBE slots drop out (no overwrite, no fall-
+// through guard needed downstream); then sorted by proximity. Returns undefined
+// when nothing is addable.
+function pickDropSlot(shape: AnyShape, rx: number, ry: number): { slot: Slot; subslot?: Subslot } | undefined {
+  const addable = enumerateAddable(shape.kind, shape.points)
+  const dists: Array<{ slot: Slot; dist: number }> = [
+    { slot: 'left',   dist: rx },
+    { slot: 'right',  dist: 1 - rx },
+    { slot: 'up',     dist: ry },
+    { slot: 'down',   dist: 1 - ry },
+    { slot: 'center', dist: Math.max(Math.abs(rx - 0.5), Math.abs(ry - 0.5)) },
+  ]
+  return dists
+    .map((c) => ({ slot: c.slot, subslot: resolveDropSubslot(shape.kind, c.slot, ry), dist: c.dist }))
+    .filter((c) => addable.some((a) => a.slot === c.slot && a.subslot === c.subslot))
+    .sort((a, b) => a.dist - b.dist)[0]
 }
 
 function Canvas() {
@@ -328,50 +356,18 @@ function Canvas() {
       if (dropTarget) {
         const dropShape = d.nodes.find((n) => n.id === dropTarget.id)
         if (!dropShape) return
-
-        // Drop on an empty: line attaches to the empty's CENTER point — the
-        // empty IS a point of identity, so an incoming line lands at that
-        // identity, never on a side. Reuse the existing center if present so
-        // re-dropping on the same empty merges into the same referent instead
-        // of overwriting it.
-        if (dropShape.kind === 'empty') {
-          const existingCenter = dropShape.points.center
-          let centerPtId: string | undefined = existingCenter?.id
-          if (!centerPtId) {
-            centerPtId = addPoint(dropTarget.id, 'center', undefined, attachedName)
-            if (!centerPtId) return
-          }
-          if (existingLine) addLineTarget(existingLine.id, centerPtId)
-          else addLine(attachedPtId, centerPtId)
-          return
-        }
-
         const w = dropTarget.measured?.width ?? dropTarget.width ?? 1
         const h = dropTarget.measured?.height ?? dropTarget.height ?? 1
         const clamp01 = (v: number) => Math.max(0, Math.min(1, v))
         const rx = clamp01((position.x - dropTarget.position.x) / w)
         const ry = clamp01((position.y - dropTarget.position.y) / h)
 
-        // All four sides are always candidates — handles are bipolar, so flow
-        // direction comes from the drag (source→drop), not the side's role.
-        // up/down only present on shapes whose schema includes them; triangle
-        // keeps the OLD restriction (left/right only) since `up` is MAYBE and
-        // `down` is awkwardly placed for cursor-side picking.
-        type EdgeSide = 'left' | 'right' | 'up' | 'down'
-        const isTriangle = dropShape.kind === 'triangle'
-        const candidates: Array<{ side: EdgeSide; dist: number }> = [
-          { side: 'left',  dist: rx },
-          { side: 'right', dist: 1 - rx },
-          ...(!isTriangle ? [
-            { side: 'up'   as EdgeSide, dist: ry },
-            { side: 'down' as EdgeSide, dist: 1 - ry },
-          ] : []),
-        ]
-        candidates.sort((a, b) => a.dist - b.dist)
-        const dropSide: EdgeSide = candidates[0].side
-        const dropSubslot = resolveDropSubslot(dropShape.kind, dropSide, ry)
-
-        const newPtId = addPoint(dropTarget.id, dropSide, dropSubslot, attachedName)
+        // Same pipeline for every kind, including empty. `pickDropSlot` only
+        // returns slots that are currently addable, so we never overwrite an
+        // existing referent.
+        const pick = pickDropSlot(dropShape, rx, ry)
+        if (!pick) return
+        const newPtId = addPoint(dropTarget.id, pick.slot, pick.subslot, attachedName)
         if (!newPtId) return
         if (existingLine) addLineTarget(existingLine.id, newPtId)
         else addLine(attachedPtId, newPtId)
@@ -449,21 +445,10 @@ function Canvas() {
     const clamp01 = (v: number) => Math.max(0, Math.min(1, v))
     const rx = clamp01((nodeCenter.x - target.position.x) / w)
     const ry = clamp01((nodeCenter.y - target.position.y) / h)
-    type EdgeSide = 'left' | 'right' | 'up' | 'down'
-    const isTriangle = targetShape.kind === 'triangle'
-    const candidates: Array<{ side: EdgeSide; dist: number }> = [
-      { side: 'left',  dist: rx },
-      { side: 'right', dist: 1 - rx },
-      ...(!isTriangle ? [
-        { side: 'up'   as EdgeSide, dist: ry },
-        { side: 'down' as EdgeSide, dist: 1 - ry },
-      ] : []),
-    ]
-    candidates.sort((a, b) => a.dist - b.dist)
-    const dropSide = candidates[0].side
-    const attachSubslot = resolveDropSubslot(targetShape.kind, dropSide, ry)
+    const pick = pickDropSlot(targetShape, rx, ry)
+    if (!pick) return
 
-    attachLine(lineId, end, target.id, dropSide, attachSubslot)
+    attachLine(lineId, end, target.id, pick.slot, pick.subslot)
   }, [getNodes, attachLine])
 
   const clearSelectedPoints = useCallback(() => {

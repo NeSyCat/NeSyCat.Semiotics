@@ -8,8 +8,8 @@
 
 import type { AnyLine, AnyShape, Diagram, ShapeKind, Slot, Subslot } from './types'
 import {
-  addPointAt, emptyShapePoints, findShape, getPointAt, modifyAtPath,
-  replaceEdge, replaceNode, walkShape,
+  addPointAt, emptyShapePoints, findShape, getPointAt,
+  modifyAtPath, replaceEdge, replaceNode, walkShape,
 } from './points'
 import { newLineId, newNodeId, newPointId } from './ids'
 import { defaultSpaceTime, withTranslation } from './transform'
@@ -186,8 +186,45 @@ function walkToPath(top: AnyShape, path: { slot: Slot; subslot?: Subslot; index:
   return cur
 }
 
+// Same name = same referent. Renaming one point propagates to every other
+// shape in its connected referent component:
+//   • Line connectivity: source ↔ all targets of any line they share.
+//   • Empty-container bridge: all inner points of an empty share its identity
+//     (the empty IS a point of identity; its inner-point slots are different
+//     visual occurrences of the same referent).
+// Without this, renaming "P1" → "x" on one occurrence leaves the other
+// connected occurrences stuck on the old "P1" — they visibly desynchronize
+// from a referent they're supposed to share.
 export function renamePoint(d: Diagram, id: string, newName: string): Diagram {
-  return renameShape(d, id, newName)
+  if (!newName.trim()) return d
+  const component = referentComponent(d, id)
+  let nd = d
+  for (const sid of component) nd = renameShape(nd, sid, newName)
+  return nd
+}
+
+function referentComponent(d: Diagram, startId: string): Set<string> {
+  const seen = new Set<string>([startId])
+  const queue: string[] = [startId]
+  while (queue.length > 0) {
+    const cur = queue.shift()!
+    for (const l of d.edges) {
+      const refs = [l.source, ...l.targets]
+      if (!refs.includes(cur)) continue
+      for (const r of refs) {
+        if (!seen.has(r)) { seen.add(r); queue.push(r) }
+      }
+    }
+    const loc = findShape(d, cur)
+    if (!loc || loc.topContainer !== 'nodes' || loc.topShape.kind !== 'empty') continue
+    for (const inner of walkShape(loc.topShape)) {
+      if (inner.id !== loc.topShape.id && !seen.has(inner.id)) {
+        seen.add(inner.id)
+        queue.push(inner.id)
+      }
+    }
+  }
+  return seen
 }
 
 // === Line mutations ===
