@@ -21,81 +21,56 @@ import DiagramNode from './DiagramNode'
 import DiagramEdge from './DiagramEdge'
 import { useStore, initStore } from './store'
 import { useAutosave } from './save'
-import type { DiagramData, DiagramPoint } from './types'
+import { enumeratePoints, findShape } from './points'
+import type { Diagram, ShapeKind, Slot, Subslot } from './types'
 import theme, { panelStyle, glassBlur } from './style/theme'
 
 const nodeTypes: NodeTypes = { node: DiagramNode }
 const edgeTypes: EdgeTypes = { editable: DiagramEdge }
 
-type NodeSide = 'left' | 'right' | 'center' | 'down' | 'up' | 'total'
-type Slot = 'down' | 'center' | 'up'
-
-// Parse handle ID: "left-0" → {side,index}, "left-down-0" → {side,slot,index}, "center-0" → {side:'center',index}
-// Rectangle edges: "up-0", "down-0" (stackable).
-function parseHandle(handleId: string): { side: NodeSide; slot?: Slot; index: number } {
+// Handle id grammar (mirrors DiagramNode's `handleIdFor`):
+//   "total-0"                  → self anchor (the shape itself)
+//   "${slot}-${index}"         → list/maybe slot (slot ∈ Slot)
+//   "${slot}-${subslot}-${idx}"→ triadic slot
+function parseHandle(handleId: string): { slot: Slot; subslot?: Subslot; index: number } {
   const parts = handleId.split('-')
-  if (parts.length === 3) return { side: parts[0] as 'left' | 'right', slot: parts[1] as Slot, index: parseInt(parts[2]) }
-  return { side: parts[0] as NodeSide, index: parseInt(parts[1]) }
+  if (parts.length === 3) return { slot: parts[0] as Slot, subslot: parts[1] as Subslot, index: parseInt(parts[2]) }
+  return { slot: parts[0] as Slot, index: parseInt(parts[1]) }
 }
 
-// Build handle ID from DiagramPoint fields
-function handleIdFromPt(pt: DiagramPoint): string {
-  if (pt.slot) return `${pt.side}-${pt.slot}-${pt.index}`
-  return `${pt.side}-${pt.index}`
+// (nodeId, handleId) → universal point id. "total-0" resolves to the shape's
+// own id; other handles look up the direct child point at the matching slot.
+function lookupPointId(d: Diagram, nodeId: string, handleId: string): string | undefined {
+  const top = d.nodes.find((n) => n.id === nodeId)
+  if (!top) return undefined
+  if (handleId === 'total-0') return top.id
+  const { slot, subslot, index } = parseHandle(handleId)
+  for (const e of enumeratePoints(top.kind, top.points)) {
+    if (e.slot === slot && e.subslot === subslot && e.index === index) return e.point.id
+  }
+  return undefined
 }
 
-// Unified point lookup by handle ID (works for all shapes including rhombus, triangle, rectangle, empty)
-function lookupPtByHandle(diagram: DiagramData, nodeName: string, handleId: string): DiagramPoint | undefined {
-  const { side, slot, index } = parseHandle(handleId)
-  if (side === 'total') {
-    const tri = diagram.triangles.find((t) => t.id === nodeName); if (tri) return tri.points.total
-    const rect = diagram.rectangles.find((r) => r.id === nodeName); if (rect) return rect.points.total
-    const circle = diagram.circles.find((c) => c.id === nodeName); if (circle) return circle.points.total
-    const rhombus = diagram.rhombuses.find((r) => r.id === nodeName); if (rhombus) return rhombus.points.total
-    return undefined
+// Inverse: point id → (RF node id, handle id) for edge endpoint resolution.
+// Top-level shapes resolve to their own self-handle; nested points resolve via
+// findShape's path (only the last segment matters since handles only render for
+// direct children of top-level shapes).
+function pointIdToHandle(d: Diagram, pointId: string): { nodeId: string; handleId: string } | undefined {
+  if (d.nodes.some((n) => n.id === pointId)) return { nodeId: pointId, handleId: 'total-0' }
+  const loc = findShape(d, pointId)
+  if (!loc || loc.topContainer !== 'nodes' || loc.path.length === 0) return undefined
+  const last = loc.path[loc.path.length - 1]
+  return {
+    nodeId: loc.topShape.id,
+    handleId: last.subslot ? `${last.slot}-${last.subslot}-${last.index}` : `${last.slot}-${last.index}`,
   }
-  if (side === 'center') {
-    // Triangle: single-point legacy — no slot.
-    const tri = diagram.triangles.find((t) => t.id === nodeName); if (tri) return tri.points.center
-    // Rectangle/circle/rhombus: 3-slot column. Handle id carries the slot.
-    const sl: Slot = slot ?? 'center'
-    const rect = diagram.rectangles.find((r) => r.id === nodeName); if (rect) return rect.points.center[sl]
-    const circle = diagram.circles.find((c) => c.id === nodeName); if (circle) return circle.points.center[sl]
-    const rhombus = diagram.rhombuses.find((r) => r.id === nodeName); if (rhombus) return rhombus.points.center[sl]
-    return undefined
-  }
-  const rect = diagram.rectangles.find((r) => r.id === nodeName)
-  if (rect) {
-    if (side === 'down' || side === 'up') return rect.points[side][index]
-    const s = rect.points[side]
-    if (slot === 'down') return s.down
-    if (slot === 'up') return s.up
-    return s.center[index]
-  }
-  const rhombus = diagram.rhombuses.find((r) => r.id === nodeName)
-  if (rhombus) {
-    if (side === 'left' || side === 'right') {
-      const s = rhombus.points[side]
-      if (slot === 'center') return s.center
-      if (slot === 'down') return s.down[index]
-      if (slot === 'up') return s.up[index]
-      return undefined
-    }
-    if (side === 'up') return rhombus.points.up
-    if (side === 'down') return rhombus.points.down
-  }
-  const tri = diagram.triangles.find((t) => t.id === nodeName)
-  if (tri) {
-    if (side === 'left') return tri.points.left[index]
-    if (side === 'right') return tri.points.right[index]
-    return undefined
-  }
-  const circle = diagram.circles.find((c) => c.id === nodeName)
-  if (circle && (side === 'left' || side === 'right' || side === 'up' || side === 'down')) {
-    return circle.points[side][index]
-  }
-  const empty = diagram.empties.find((e) => e.id === nodeName)
-  if (empty && (side === 'left' || side === 'right')) return empty.points[side]
+}
+
+// Pick the rhombus subslot ('up'/'down') or rectangle subslot ('center') for
+// drops on left/right sides. Other (slot, kind) combos: no subslot.
+function resolveDropSubslot(kind: ShapeKind, slot: Slot, ry: number): Subslot | undefined {
+  if (kind === 'rhombus' && (slot === 'left' || slot === 'right')) return ry < 0.5 ? 'up' : 'down'
+  if (kind === 'rectangle' && (slot === 'left' || slot === 'right')) return 'center'
   return undefined
 }
 
@@ -108,11 +83,9 @@ function Canvas() {
   const addNode = useStore((s) => s.addNode)
   const addEmpty = useStore((s) => s.addEmpty)
   const deleteNode = useStore((s) => s.deleteNode)
-  const renameNode = useStore((s) => s.renameNode)
   const addPoint = useStore((s) => s.addPoint)
-  const setPointLabel = useStore((s) => s.setPointLabel)
-  const removePointOnNode = useStore((s) => s.removePointOnNode)
-  const attachPoint = useStore((s) => s.attachPoint)
+  const removePoint = useStore((s) => s.removePoint)
+  const attachLine = useStore((s) => s.attachLine)
   const addLine = useStore((s) => s.addLine)
   const addLineTarget = useStore((s) => s.addLineTarget)
   const addLineWithFreeEnd = useStore((s) => s.addLineWithFreeEnd)
@@ -156,7 +129,7 @@ function Canvas() {
     const reader = new FileReader()
     reader.onload = () => {
       try {
-        importDiagram(JSON.parse(reader.result as string) as DiagramData)
+        importDiagram(JSON.parse(reader.result as string))
       } catch (err) {
         alert('Invalid JSON: ' + (err as Error).message)
       }
@@ -165,119 +138,34 @@ function Canvas() {
   }
 
   // ===== Build nodes from abstract diagram =====
+  // One pass over diagram.nodes — kind-agnostic. DiagramNode reads its render
+  // data from `data.shape` exclusively; the canvas just supplies position +
+  // visibility wrapping.
   const builtNodes: Node[] = useMemo(() => {
-    const emptyNodes = diagram.empties.map((e) => ({
-      id: e.id,
+    return diagram.nodes.map((node) => ({
+      id: node.id,
       type: 'node',
-      hidden: !visibility.empties,
-      position: e.position,
-      data: {
-        kind: 'empty' as const,
-        label: '',
-        accent: theme.node.accentBlue,
-        points: {
-          left: e.points.left ? [e.points.left] : [],
-          right: e.points.right ? [e.points.right] : [],
-        },
-        onAddPoint: (side: 'left' | 'right') => addPoint(e.id, side),
-        onSetPointLabel: (nodeName: string, side: 'left' | 'right', index: number, label: string) =>
-          setPointLabel(nodeName, side, index, label),
-        onRename: (newName: string) => renameNode('empty', e.id, newName),
-      },
+      hidden: !visibility[node.kind],
+      position: { x: node.transform.space.translation[0], y: node.transform.space.translation[1] },
+      data: { shape: node },
     }))
+  }, [diagram, visibility])
 
-    const triNodes = diagram.triangles.map((t) => ({
-      id: t.id,
-      type: 'node',
-      hidden: !visibility.triangles,
-      position: t.position,
-      data: {
-        kind: 'triangle' as const,
-        label: t.id,
-        accent: theme.node.accentBlue,
-        points: { left: t.points.left, right: t.points.right },
-        centerPoint: t.points.center,
-        totalPoint: t.points.total,
-        onAddPoint: (side: NodeSide) => addPoint(t.id, side),
-        onSetPointLabel: (nodeName: string, side: NodeSide, index: number, label: string) => setPointLabel(nodeName, side, index, label),
-        onRename: (newName: string) => renameNode('triangle', t.id, newName),
-      },
-    }))
-
-    const rectNodes = diagram.rectangles.map((r) => ({
-      id: r.id,
-      type: 'node',
-      hidden: !visibility.rectangles,
-      position: r.position,
-      data: {
-        kind: 'rectangle' as const,
-        label: r.id,
-        accent: theme.node.accentBlue,
-        points: { left: [] as DiagramPoint[], right: [] as DiagramPoint[] },
-        rectanglePoints: r.points,
-        centerColumn: r.points.center,
-        totalPoint: r.points.total,
-        onAddPoint: (side: NodeSide, slot?: Slot) => addPoint(r.id, side, undefined, slot),
-        onSetPointLabel: (nodeName: string, side: NodeSide, index: number, label: string, slot?: Slot) =>
-          setPointLabel(nodeName, side, index, label, slot),
-        onRename: (newName: string) => renameNode('rectangle', r.id, newName),
-      },
-    }))
-
-    const circleNodes = diagram.circles.map((c) => ({
-      id: c.id,
-      type: 'node',
-      hidden: !visibility.circles,
-      position: c.position,
-      data: {
-        kind: 'circle' as const,
-        label: c.id,
-        accent: theme.node.accentBlue,
-        points: { left: c.points.left, right: c.points.right, up: c.points.up, down: c.points.down },
-        centerColumn: c.points.center,
-        totalPoint: c.points.total,
-        onAddPoint: (side: NodeSide, slot?: Slot) => addPoint(c.id, side, undefined, slot),
-        onSetPointLabel: (nodeName: string, side: NodeSide, index: number, label: string, slot?: Slot) =>
-          setPointLabel(nodeName, side, index, label, slot),
-        onRename: (newName: string) => renameNode('circle', c.id, newName),
-      },
-    }))
-
-    const rhombusNodes = diagram.rhombuses.map((r) => ({
-      id: r.id,
-      type: 'node',
-      hidden: !visibility.rhombuses,
-      position: r.position,
-      data: {
-        kind: 'rhombus' as const,
-        label: r.id,
-        accent: theme.node.accentBlue,
-        points: { left: [] as DiagramPoint[], right: [] as DiagramPoint[] },
-        rhombusPoints: r.points,
-        centerColumn: r.points.center,
-        totalPoint: r.points.total,
-        onAddPoint: (side: NodeSide, slot?: Slot) => addPoint(r.id, side, undefined, slot),
-        onSetPointLabel: (nodeName: string, side: NodeSide, index: number, label: string, slot?: Slot) =>
-          setPointLabel(nodeName, side, index, label, slot),
-        onRename: (newName: string) => renameNode('rhombus', r.id, newName),
-      },
-    }))
-
-    return [...emptyNodes, ...triNodes, ...rectNodes, ...circleNodes, ...rhombusNodes]
-  }, [diagram, visibility.rectangles, visibility.triangles, visibility.circles, visibility.rhombuses, visibility.empties, addPoint, setPointLabel, renameNode])
-
-  // Build edges from lines. One DiagramLine → N xyflow edges (one per target branch).
+  // Build edges from lines. One AnyLine → N RF edges (one per target branch).
   const derivedEdges: Edge[] = useMemo(() => {
     const out: Edge[] = []
-    for (const line of diagram.lines) {
-      const sp = line.points.source
-      line.points.targets.forEach((tp, i) => {
+    for (const line of diagram.edges) {
+      const sp = pointIdToHandle(diagram, line.source)
+      if (!sp) continue
+      line.targets.forEach((tpId, i) => {
+        const tp = pointIdToHandle(diagram, tpId)
+        if (!tp) return
         out.push({
           id: `${line.id}#${i}`,
-          source: sp.node!,
-          sourceHandle: handleIdFromPt(sp),
-          target: tp.node!,
-          targetHandle: handleIdFromPt(tp),
+          source: sp.nodeId,
+          sourceHandle: sp.handleId,
+          target: tp.nodeId,
+          targetHandle: tp.handleId,
           type: 'editable',
           animated: true,
           hidden: !visibility.lines,
@@ -297,14 +185,11 @@ function Canvas() {
     // overlap at the midpoint. Short labels (≲ NUDGE_THRESHOLD_PX) keep their
     // natural midpoint. Wide ones get a GENTLE centered spread around 0.5
     // (step 0.1 per index) so labels stay near the line center instead of
-    // being pushed toward the endpoints:
-    //   N=2 → 0.45 / 0.55    N=3 → 0.40 / 0.50 / 0.60
-    //   N=4 → 0.35 / 0.45 / 0.55 / 0.65
-    // Deterministic order (by edge id) keeps assignment stable across renders.
-    const CHAR_W = 7              // approximate char width for the label font
-    const LABEL_PADDING = 16      // left+right padding in the label background
+    // being pushed toward the endpoints.
+    const CHAR_W = 7
+    const LABEL_PADDING = 16
     const NUDGE_THRESHOLD_PX = 100
-    const STEP = 0.1              // fractional distance between neighboring labels
+    const STEP = 0.1
     const groups = new Map<string, Edge[]>()
     for (const e of out) {
       const key = `${e.source}|${e.target}`
@@ -365,11 +250,8 @@ function Canvas() {
       if (!source || !target || !sourceHandle || !targetHandle) return false
       if (source === target) return false
       const d = useStore.getState().diagram
-      const srcName = lookupPtByHandle(d, source, sourceHandle)?.name
-      const tgtName = lookupPtByHandle(d, target, targetHandle)?.name
-      if (srcName === undefined || tgtName === undefined) return false
-      if (srcName === '' || tgtName === '') return true
-      return srcName === tgtName
+      return lookupPointId(d, source, sourceHandle) !== undefined
+        && lookupPointId(d, target, targetHandle) !== undefined
     },
     []
   )
@@ -379,17 +261,13 @@ function Canvas() {
       if (!params.source || !params.target || !params.sourceHandle || !params.targetHandle) return
       if (params.source === params.target) return
       const d = useStore.getState().diagram
-      const src = parseHandle(params.sourceHandle)
-      const tgt = parseHandle(params.targetHandle)
-      const srcPt = lookupPtByHandle(d, params.source, params.sourceHandle)
-      const tgtPt = lookupPtByHandle(d, params.target, params.targetHandle)
-      if (!srcPt?.name || !tgtPt?.name) return
-      const source: DiagramPoint = { name: srcPt.name, node: params.source, side: src.side, index: src.index, ...(src.slot ? { slot: src.slot } : {}) }
-      const target: DiagramPoint = { name: tgtPt.name, node: params.target, side: tgt.side, index: tgt.index, ...(tgt.slot ? { slot: tgt.slot } : {}) }
-      // Branch if this source handle already has a line; else create a new line.
-      const existing = d.lines.find((l) => l.points.source.node === source.node && l.points.source.side === source.side && l.points.source.index === source.index && l.points.source.slot === source.slot)
-      if (existing) addLineTarget(existing.id, target)
-      else addLine(source, target)
+      const srcPtId = lookupPointId(d, params.source, params.sourceHandle)
+      const tgtPtId = lookupPointId(d, params.target, params.targetHandle)
+      if (!srcPtId || !tgtPtId) return
+      // Branch if this source point already has a line; else create new.
+      const existing = d.edges.find((l) => l.source === srcPtId)
+      if (existing) addLineTarget(existing.id, tgtPtId)
+      else addLine(srcPtId, tgtPtId)
     },
     [addLine, addLineTarget]
   )
@@ -401,12 +279,10 @@ function Canvas() {
       if (connectionState.isValid || !connectionState.fromNode || !connectionState.fromHandle?.id) return
 
       const handleId = connectionState.fromHandle.id as string
-      const parsed = parseHandle(handleId)
       const nodeName = connectionState.fromNode.id as string
       const d = useStore.getState().diagram
-      const attachedPt = lookupPtByHandle(d, nodeName, handleId)
-      if (!attachedPt?.name) return
-      const attached: DiagramPoint = { name: attachedPt.name, node: nodeName, side: parsed.side, index: parsed.index, ...(parsed.slot ? { slot: parsed.slot } : {}) }
+      const attachedPtId = lookupPointId(d, nodeName, handleId)
+      if (!attachedPtId) return
       const fromType = connectionState.fromHandle.type as string
 
       const { clientX, clientY } = 'changedTouches' in event ? (event as TouchEvent).changedTouches[0] : (event as MouseEvent)
@@ -428,17 +304,14 @@ function Canvas() {
         )
       })
 
-      // If the drag originated from a SOURCE handle that already has a line, we branch that line.
+      // If dragging from a SOURCE handle that already has a line, branch that line.
       const existingLine = fromType === 'source'
-        ? d.lines.find((l) => l.points.source.node === attached.node && l.points.source.side === attached.side && l.points.source.index === attached.index && l.points.source.slot === attached.slot)
+        ? d.edges.find((l) => l.source === attachedPtId)
         : undefined
 
       if (dropTarget) {
-        const isRhombus = d.rhombuses.some((r) => r.id === dropTarget.id)
-        const isRectangle = d.rectangles.some((r) => r.id === dropTarget.id)
-        const isCircle = d.circles.some((c) => c.id === dropTarget.id)
-        const isTriangle = d.triangles.some((t) => t.id === dropTarget.id)
-
+        const dropShape = d.nodes.find((n) => n.id === dropTarget.id)
+        if (!dropShape) return
         const w = dropTarget.measured?.width ?? dropTarget.width ?? 1
         const h = dropTarget.measured?.height ?? dropTarget.height ?? 1
         const clamp01 = (v: number) => Math.max(0, Math.min(1, v))
@@ -447,58 +320,41 @@ function Canvas() {
 
         // All four sides are always candidates — handles are bipolar, so flow
         // direction comes from the drag (source→drop), not the side's role.
-        // up/down are only present on shapes that support them.
+        // up/down only present on shapes whose schema includes them; triangle
+        // keeps the OLD restriction (left/right only) since `up` is MAYBE and
+        // `down` is awkwardly placed for cursor-side picking.
         type EdgeSide = 'left' | 'right' | 'up' | 'down'
-        const hasUpDown = isRectangle || isRhombus || isCircle
+        const isTriangle = dropShape.kind === 'triangle'
         const candidates: Array<{ side: EdgeSide; dist: number }> = [
           { side: 'left',  dist: rx },
           { side: 'right', dist: 1 - rx },
-          ...(hasUpDown ? [
+          ...(!isTriangle ? [
             { side: 'up'   as EdgeSide, dist: ry },
             { side: 'down' as EdgeSide, dist: 1 - ry },
           ] : []),
         ]
-        // Triangle-specific: only left/right sides carry point arrays.
-        const filtered = isTriangle
-          ? candidates.filter((c) => c.side === 'left' || c.side === 'right')
-          : candidates
-        filtered.sort((a, b) => a.dist - b.dist)
-        const dropSide: EdgeSide = filtered[0].side
+        candidates.sort((a, b) => a.dist - b.dist)
+        const dropSide: EdgeSide = candidates[0].side
+        const dropSubslot = resolveDropSubslot(dropShape.kind, dropSide, ry)
 
-        // Rhombus: pick up/down slot from the drop y-position.
-        // Rectangle: left/right drops must be anchored to the 'center' slot so the
-        // stored point's slot matches the rendered handle id (left-center-i).
-        const dropSlot: 'up' | 'down' | 'center' | undefined =
-          isRhombus && (dropSide === 'left' || dropSide === 'right')
-            ? (ry < 0.5 ? 'up' : 'down')
-            : isRectangle && (dropSide === 'left' || dropSide === 'right')
-              ? 'center'
-              : undefined
-
-        const newIndex = addPoint(dropTarget.id, dropSide, attachedPt.name, dropSlot)
-        const newPoint: DiagramPoint = {
-          name: attachedPt.name, node: dropTarget.id,
-          side: dropSide, index: newIndex,
-          ...(dropSlot ? { slot: dropSlot } : {}),
-        }
-        if (existingLine) {
-          addLineTarget(existingLine.id, newPoint)
-        } else {
-          // Flow = drag direction. The drag starts at `attached` and ends at the
-          // new point, so attached is the source and newPoint the target.
-          addLine(attached, newPoint)
-        }
+        const newPtId = addPoint(dropTarget.id, dropSide, dropSubslot)
+        if (!newPtId) return
+        if (existingLine) addLineTarget(existingLine.id, newPtId)
+        else addLine(attachedPtId, newPtId)
         return
       }
 
-      // Dropped on empty space → create empty carrier; either extend existing line or new line.
+      // Dropped on empty space → either extend existing line or create a new
+      // line with a free-end empty carrier.
       if (existingLine) {
-        const emptyName = addEmpty(position, 'left', attachedPt.name)
-        const target: DiagramPoint = { name: attachedPt.name, node: emptyName, side: 'left', index: 0 }
-        addLineTarget(existingLine.id, target)
+        // Extending a line: drop-spawn a single-point empty carrier and
+        // attach a new target on its left side.
+        const emptyId = addEmpty([position.x, position.y])
+        const newPtId = addPoint(emptyId, 'left')
+        if (newPtId) addLineTarget(existingLine.id, newPtId)
       } else {
         const freeRole: 'source' | 'target' = fromType === 'target' ? 'source' : 'target'
-        addLineWithFreeEnd(attached, freeRole, position)
+        addLineWithFreeEnd(attachedPtId, freeRole, [position.x, position.y])
       }
     },
     [screenToFlowPosition, getNodes, addLine, addLineTarget, addLineWithFreeEnd, addEmpty, addPoint]
@@ -508,13 +364,16 @@ function Canvas() {
     // React Flow passes every node that moved during this drag (multi-select
     // drags move them all together). Commit all positions as one history entry.
     const all = draggedNodes && draggedNodes.length > 0 ? draggedNodes : [node]
-    useStore.getState().updateNodePositions(all.map((n) => ({ id: n.id, position: n.position })))
+    useStore.getState().updateNodeTranslations(
+      all.map((n) => ({ id: n.id, translation: [n.position.x, n.position.y] as [number, number] })),
+    )
 
     // Drag-to-attach only applies to a single empty being dropped on a shape.
     // Multi-node drags skip auto-attach.
     if (all.length > 1) return
-    const kind = (node.data as { kind?: string })?.kind
-    if (kind !== 'empty') return
+    const d0 = useStore.getState().diagram
+    const draggedShape = d0.nodes.find((n) => n.id === node.id)
+    if (!draggedShape || draggedShape.kind !== 'empty') return
 
     const SNAP_DIST = 15
     const nodeCenter = {
@@ -533,60 +392,45 @@ function Canvas() {
 
     if (!target) return
 
-    const d = useStore.getState().diagram
-    const empty = d.empties.find((e) => e.id === node.id)
-    if (!empty) return
-    // Only auto-attach single-point carriers (rename-empties with both sides are skipped)
-    const hasLeft = !!empty.points.left
-    const hasRight = !!empty.points.right
-    if (hasLeft === hasRight) return
+    const targetShape = d0.nodes.find((n) => n.id === target.id)
+    if (!targetShape) return
 
-    // Collect references to this empty across all lines (as source or as any target).
-    type Ref = { line: typeof d.lines[number]; end: { kind: 'source' } | { kind: 'target'; index: number } }
+    // Auto-attach only single-point carriers (skip rename-empties with both sides).
+    const innerPoints = enumeratePoints(draggedShape.kind, draggedShape.points)
+    if (innerPoints.length !== 1) return
+    const innerId = innerPoints[0].point.id
+
+    // Find the line that references this inner point.
+    type Ref = { lineId: string; end: { kind: 'source' } | { kind: 'target'; index: number } }
     const refs: Ref[] = []
-    for (const l of d.lines) {
-      if (l.points.source.node === empty.id) refs.push({ line: l, end: { kind: 'source' } })
-      l.points.targets.forEach((t, i) => { if (t.node === empty.id) refs.push({ line: l, end: { kind: 'target', index: i } }) })
+    for (const l of d0.edges) {
+      if (l.source === innerId) refs.push({ lineId: l.id, end: { kind: 'source' } })
+      l.targets.forEach((t, i) => { if (t === innerId) refs.push({ lineId: l.id, end: { kind: 'target', index: i } }) })
     }
     if (refs.length !== 1) return
-    const { line, end } = refs[0]
+    const { lineId, end } = refs[0]
 
-    const isRhombus = d.rhombuses.some((r) => r.id === target.id)
-    const isRectangle = d.rectangles.some((r) => r.id === target.id)
-    const isCircle = d.circles.some((c) => c.id === target.id)
-    const isTriangle = d.triangles.some((t) => t.id === target.id)
-
-    // Any side is reachable — handles are bipolar.
     const w = target.measured?.width ?? target.width ?? 1
     const h = target.measured?.height ?? target.height ?? 1
     const clamp01 = (v: number) => Math.max(0, Math.min(1, v))
     const rx = clamp01((nodeCenter.x - target.position.x) / w)
     const ry = clamp01((nodeCenter.y - target.position.y) / h)
     type EdgeSide = 'left' | 'right' | 'up' | 'down'
-    const hasUpDown = isRectangle || isRhombus || isCircle
-    const allCandidates: Array<{ side: EdgeSide; dist: number }> = [
+    const isTriangle = targetShape.kind === 'triangle'
+    const candidates: Array<{ side: EdgeSide; dist: number }> = [
       { side: 'left',  dist: rx },
       { side: 'right', dist: 1 - rx },
-      ...(hasUpDown ? [
+      ...(!isTriangle ? [
         { side: 'up'   as EdgeSide, dist: ry },
         { side: 'down' as EdgeSide, dist: 1 - ry },
       ] : []),
     ]
-    const candidates = isTriangle
-      ? allCandidates.filter((c) => c.side === 'left' || c.side === 'right')
-      : allCandidates
     candidates.sort((a, b) => a.dist - b.dist)
     const dropSide = candidates[0].side
+    const attachSubslot = resolveDropSubslot(targetShape.kind, dropSide, ry)
 
-    const attachSlot: 'up' | 'down' | 'center' | undefined =
-      isRhombus && (dropSide === 'left' || dropSide === 'right')
-        ? (ry < 0.5 ? 'up' : 'down')
-        : isRectangle && (dropSide === 'left' || dropSide === 'right')
-          ? 'center'
-          : undefined
-
-    attachPoint(line.id, end, target.id, dropSide, attachSlot)
-  }, [getNodes, attachPoint])
+    attachLine(lineId, end, target.id, dropSide, attachSubslot)
+  }, [getNodes, attachLine])
 
   const clearSelectedPoints = useCallback(() => {
     if (useStore.getState().selectedPoints.length > 0) setSelectedPoints([], true)
@@ -612,11 +456,12 @@ function Canvas() {
       const now = Date.now()
       if (now - lastPaneClickRef.current < 350) {
         const position = screenToFlowPosition({ x: event.clientX, y: event.clientY })
-        if (event.metaKey || event.ctrlKey) addNode('rectangle', position)
-        else if (event.shiftKey)             addNode('rhombus',   position)
-        else if (event.altKey)               addNode('triangle',  position)
-        else if (spaceHeldRef.current)       addNode('circle',    position)
-        else                                  addEmpty(position)
+        const xy: [number, number] = [position.x, position.y]
+        if (event.metaKey || event.ctrlKey) addNode('rectangle', xy)
+        else if (event.shiftKey)             addNode('rhombus',   xy)
+        else if (event.altKey)               addNode('triangle',  xy)
+        else if (spaceHeldRef.current)       addNode('circle',    xy)
+        else                                  addEmpty(xy)
         lastPaneClickRef.current = 0
         return
       }
@@ -664,37 +509,17 @@ function Canvas() {
       if (pts.length === 0) return
       e.preventDefault()
       e.stopPropagation()
-      for (const s of pts) {
-        // container format: "${nodeId}|${handleId}" — single uniform pipeline.
-        const pipe = s.container.indexOf('|')
-        if (pipe < 0) continue
-        const nodeName = s.container.slice(0, pipe)
-        const { side, slot, index } = parseHandle(s.container.slice(pipe + 1))
-        removePointOnNode(nodeName, side, index, slot)
-      }
+      for (const s of pts) removePoint(s.pointId)
     }
     window.addEventListener('keydown', onKeyDown, true)
     return () => window.removeEventListener('keydown', onKeyDown, true)
-  }, [removePointOnNode])
+  }, [removePoint])
 
   const onNodesDelete = useCallback(
     (deleted: Node[]) => {
-      deleted.forEach((n) => {
-        const kind = (n.data as { kind?: string })?.kind
-        if (kind === 'empty') {
-          deleteNode('empty', n.id)
-        } else if (diagram.triangles.some((t) => t.id === n.id)) {
-          deleteNode('triangle', n.id)
-        } else if (diagram.circles.some((c) => c.id === n.id)) {
-          deleteNode('circle', n.id)
-        } else if (diagram.rhombuses.some((r) => r.id === n.id)) {
-          deleteNode('rhombus', n.id)
-        } else {
-          deleteNode('rectangle', n.id)
-        }
-      })
+      deleted.forEach((n) => deleteNode(n.id))
     },
-    [diagram, deleteNode]
+    [deleteNode]
   )
 
   const onEdgesDelete = useCallback(
@@ -750,13 +575,13 @@ function Canvas() {
           {kindsOpen && (
             <div style={{ position: 'absolute', top: '100%', left: 0, paddingTop: 6 }}>
               <div style={{ ...panelStyle(), borderRadius: 8, padding: '6px 6px', minWidth: 220 }}>
-                <KindRow label="Empties" on={visibility.empties} onToggle={() => toggleVisibility('empties')} shortcut={['2×']} />
+                <KindRow label="Empties" on={visibility.empty} onToggle={() => toggleVisibility('empty')} shortcut={['2×']} />
                 <KindRow label="Points" on={visibility.points} onToggle={() => toggleVisibility('points')} shortcut={['click +']} />
                 <KindRow label="Lines" on={visibility.lines} onToggle={() => toggleVisibility('lines')} shortcut={['drag ○→○']} />
-                <KindRow label="Triangles" on={visibility.triangles} onToggle={() => toggleVisibility('triangles')} shortcut={['Alt/⌥', '2×']} />
-                <KindRow label="Rhombuses" on={visibility.rhombuses} onToggle={() => toggleVisibility('rhombuses')} shortcut={['⇧', '2×']} />
-                <KindRow label="Circles" on={visibility.circles} onToggle={() => toggleVisibility('circles')} shortcut={['␣', '2×']} />
-                <KindRow label="Rectangles" on={visibility.rectangles} onToggle={() => toggleVisibility('rectangles')} shortcut={['Ctrl/⌘', '2×']} />
+                <KindRow label="Triangles" on={visibility.triangle} onToggle={() => toggleVisibility('triangle')} shortcut={['Alt/⌥', '2×']} />
+                <KindRow label="Rhombuses" on={visibility.rhombus} onToggle={() => toggleVisibility('rhombus')} shortcut={['⇧', '2×']} />
+                <KindRow label="Circles" on={visibility.circle} onToggle={() => toggleVisibility('circle')} shortcut={['␣', '2×']} />
+                <KindRow label="Rectangles" on={visibility.rectangle} onToggle={() => toggleVisibility('rectangle')} shortcut={['Ctrl/⌘', '2×']} />
               </div>
             </div>
           )}
@@ -859,7 +684,7 @@ function KindRow({ label, on, onToggle, shortcut }: { label: string; on: boolean
 
 interface CanvasProps {
   diagramId: string | null
-  initialData: DiagramData
+  initialData: Diagram
 }
 
 export default function CanvasRoot({ diagramId, initialData }: CanvasProps) {
