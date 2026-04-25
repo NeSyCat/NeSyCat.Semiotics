@@ -239,10 +239,9 @@ export function addLineWithFreeEnd(
 ): [Diagram, { emptyId: string; lineId: string }] {
   const anchorName = findShapeName(d, anchorPtId)
   const [d1, emptyId] = addEmpty(d, emptyPosition)
-  // Side mirrors the OLD UX: source-end carrier sits to the right (input var),
-  // target-end carrier sits to the left (output var).
-  const slot: Slot = freeRole === 'source' ? 'right' : 'left'
-  const [d2, freePtId] = addPoint(d1, emptyId, slot, undefined, anchorName)
+  // Free endpoint sits at the empty's center — the empty IS a point, so its
+  // identity is the natural attach site for an incoming line.
+  const [d2, freePtId] = addPoint(d1, emptyId, 'center', undefined, anchorName)
   if (!freePtId) return [d, { emptyId: '', lineId: '' }]
   const [source, target] = freeRole === 'source' ? [freePtId, anchorPtId] : [anchorPtId, freePtId]
   const [d3, lineId] = addLine(d2, source, target)

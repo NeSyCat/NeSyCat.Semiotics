@@ -328,6 +328,24 @@ function Canvas() {
       if (dropTarget) {
         const dropShape = d.nodes.find((n) => n.id === dropTarget.id)
         if (!dropShape) return
+
+        // Drop on an empty: line attaches to the empty's CENTER point — the
+        // empty IS a point of identity, so an incoming line lands at that
+        // identity, never on a side. Reuse the existing center if present so
+        // re-dropping on the same empty merges into the same referent instead
+        // of overwriting it.
+        if (dropShape.kind === 'empty') {
+          const existingCenter = dropShape.points.center
+          let centerPtId: string | undefined = existingCenter?.id
+          if (!centerPtId) {
+            centerPtId = addPoint(dropTarget.id, 'center', undefined, attachedName)
+            if (!centerPtId) return
+          }
+          if (existingLine) addLineTarget(existingLine.id, centerPtId)
+          else addLine(attachedPtId, centerPtId)
+          return
+        }
+
         const w = dropTarget.measured?.width ?? dropTarget.width ?? 1
         const h = dropTarget.measured?.height ?? dropTarget.height ?? 1
         const clamp01 = (v: number) => Math.max(0, Math.min(1, v))
@@ -364,9 +382,9 @@ function Canvas() {
       // line with a free-end empty carrier. Both paths inherit the source's name.
       if (existingLine) {
         // Extending a line: drop-spawn a single-point empty carrier and
-        // attach a new target on its left side.
+        // attach a new target at its center (the empty's identity point).
         const emptyId = addEmpty([position.x, position.y])
-        const newPtId = addPoint(emptyId, 'left', undefined, attachedName)
+        const newPtId = addPoint(emptyId, 'center', undefined, attachedName)
         if (newPtId) addLineTarget(existingLine.id, newPtId)
       } else {
         const freeRole: 'source' | 'target' = fromType === 'target' ? 'source' : 'target'
