@@ -499,9 +499,10 @@ function ShapeView({ data, selected }: NodeProps) {
 
   // Self / "total" anchor — always rendered. The shape's `name` is the visible
   // self-label; selection identity uses the immutable `id`. The handle id is
-  // "total-0". When points are hidden the anchor collapses to body center so
-  // only one anchor remains visible per shape.
-  const selfAnchor: SlotAnchor = pointsVisible
+  // "total-0". Anchors at the frame's NW corner when there's a visible frame
+  // outline to anchor to; collapses to body center when there isn't (points
+  // hidden, OR bodyOpacity=0 kinds like empty whose 2× frame is invisible).
+  const selfAnchor: SlotAnchor = (pointsVisible && geom.bodyOpacity > 0)
     ? frameNWAnchor(geom.body, n)
     : { x: n / 2, y: n / 2, position: Position.Top }
   const selfBlock = (
