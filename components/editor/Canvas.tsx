@@ -411,12 +411,14 @@ function Canvas() {
       all.map((n) => ({ id: n.id, translation: [n.position.x, n.position.y] as [number, number] })),
     )
 
-    // Drag-to-attach only applies to a single empty being dropped on a shape.
-    // Multi-node drags skip auto-attach.
+    // Drag-to-attach only applies to single-shape carrier drops (per geom.isCarrier).
+    // Carriers (empties) have no identity of their own, so dragging one onto a
+    // shape is interpreted as "attach my inner point to that shape." Multi-node
+    // drags and non-carrier kinds skip auto-attach.
     if (all.length > 1) return
     const d0 = useStore.getState().diagram
     const draggedShape = d0.nodes.find((n) => n.id === node.id)
-    if (!draggedShape || draggedShape.kind !== 'empty') return
+    if (!draggedShape || !geometryFor(draggedShape.kind).isCarrier) return
 
     const SNAP_DIST = 15
     const nodeCenter = {

@@ -143,19 +143,17 @@ export interface ShapeGeometry<K extends ShapeKind> {
   // returns the subslot the new point should land in (undefined ⇒ no subslot).
   // Replaces hard-coded `kind === 'rhombus' || kind === 'rectangle'` switches in Canvas.
   dropSubslot: (slot: Slot, ry: number) => Subslot | undefined
-  // True if a top-level node of this kind should self-delete when it has no
-  // remaining inner points (carrier kinds like empty). False for kinds that
-  // remain meaningful as bare bodies.
-  cleanupWhenInnerEmpty: boolean
+  // True if this kind is a carrier — a wrapper that exists only to hold inner
+  // points, with no meaningful identity of its own. Carriers self-delete when
+  // their inner points are removed (mutations cleanup) AND their inner points
+  // bridge identity with the outer (rename propagation through referent BFS).
+  // False for kinds whose body itself is meaningful (triangle, circle, etc.).
+  isCarrier: boolean
 }
 
 // === Per-slot length helpers ===
 function listLen(v: unknown): number {
   return Array.isArray(v) ? v.length : 0
-}
-
-function maybeLen(v: unknown): number {
-  return v === undefined ? 0 : 1
 }
 
 // Triad-center subslot resolution from a normalized vertical cursor position.
@@ -248,7 +246,7 @@ const emptyGeometry: ShapeGeometry<'empty'> = {
   },
   framedHandles: false,
   dropSubslot: defaultDropSubslot('empty'),
-  cleanupWhenInnerEmpty: true,
+  isCarrier: true,
 }
 
 // === TRIANGLE (apex up) ===
@@ -304,7 +302,7 @@ const triangleGeometry: ShapeGeometry<'triangle'> = {
   },
   framedHandles: true,
   dropSubslot: defaultDropSubslot('triangle'),
-  cleanupWhenInnerEmpty: false,
+  isCarrier: false,
 }
 
 // === RHOMBUS ===
@@ -405,7 +403,7 @@ const rhombusGeometry: ShapeGeometry<'rhombus'> = {
     if (slot === 'center') return triadCenterSubslot(ry)
     return undefined
   },
-  cleanupWhenInnerEmpty: false,
+  isCarrier: false,
 }
 
 // === CIRCLE ===
@@ -453,7 +451,7 @@ const circleGeometry: ShapeGeometry<'circle'> = {
   },
   framedHandles: true,
   dropSubslot: defaultDropSubslot('circle'),
-  cleanupWhenInnerEmpty: false,
+  isCarrier: false,
 }
 
 // === RECTANGLE ===
@@ -541,7 +539,7 @@ const rectangleGeometry: ShapeGeometry<'rectangle'> = {
     if (slot === 'center') return triadCenterSubslot(ry)
     return undefined
   },
-  cleanupWhenInnerEmpty: false,
+  isCarrier: false,
 }
 
 // === Registry ===
@@ -557,7 +555,3 @@ export const geometryRegistry: { [K in ShapeKind]: ShapeGeometry<K> } = {
 export function geometryFor<K extends ShapeKind>(kind: K): ShapeGeometry<K> {
   return geometryRegistry[kind] as ShapeGeometry<K>
 }
-
-// Read maybeLen so the import isn't dead-code-eliminated; reserved for future
-// nodeSize formulas that include MaybePoint slots.
-void maybeLen

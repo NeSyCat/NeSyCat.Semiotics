@@ -2,7 +2,6 @@ import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import { Handle, Position, type NodeProps } from '@xyflow/react'
 import theme, { glassBlur, pointDotStyle, selectionGlow } from './style/theme'
 import {
-  BASE_SIZE,
   FRAME_STROKE_WIDTH,
   LABEL_PAD,
   PLUS_LARGE,
@@ -534,10 +533,5 @@ function ShapeView({ data, selected }: NodeProps) {
     </div>
   )
 }
-
-// ESLint pacifier — id is used by RF internally for the wrapping node element,
-// so the prop signature must include it even though we don't read it.
-void BASE_SIZE
-void ROW_HEIGHT
 
 export default memo(ShapeView)

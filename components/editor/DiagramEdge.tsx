@@ -10,6 +10,8 @@ import {
 import theme, { selectionGlow } from './style/theme'
 import { useStore } from './store'
 import { geometryFor } from './geometry'
+import { SLOT_AXIAL } from './points'
+import type { Slot } from './types'
 
 interface EditableEdgeData {
   label: string
@@ -27,6 +29,17 @@ interface EditableEdgeData {
 function dirPosition(dx: number, dy: number): Position {
   if (Math.abs(dx) >= Math.abs(dy)) return dx >= 0 ? Position.Right : Position.Left
   return dy >= 0 ? Position.Bottom : Position.Top
+}
+
+// Whether a handle's Position should be recomputed dynamically per-edge.
+// True when the source kind has no framed handles (carriers like empty), OR
+// when the slot is non-axial (center / total — no physical side). Reads slot
+// from the canonical handle-id grammar (`slot-...`), per SLOT_AXIAL data.
+function handleIsDynamic(handleId: string | null | undefined, kindUnframed: boolean): boolean {
+  if (kindUnframed) return true
+  if (!handleId) return false
+  const slot = handleId.split('-')[0] as Slot
+  return SLOT_AXIAL[slot] === false
 }
 
 function EditableEdge({
@@ -65,9 +78,11 @@ function EditableEdge({
 
   // Center-slot handles (no physical side) and all handles on unframed carriers
   // get their Position recomputed per-edge so smoothstep routing exits on the
-  // side closest to the other end.
-  const srcIsDynamic = !!sourceHandleId?.startsWith('center-') || srcUnframed
-  const tgtIsDynamic = !!targetHandleId?.startsWith('center-') || tgtUnframed
+  // side closest to the other end. Handle id grammar is owned by Canvas's
+  // `parseHandle` / `handleIdFor` — read the slot from there, not via string
+  // surgery on the raw id.
+  const srcIsDynamic = handleIsDynamic(sourceHandleId, srcUnframed)
+  const tgtIsDynamic = handleIsDynamic(targetHandleId, tgtUnframed)
   const srcPos = srcIsDynamic ? dirPosition(targetX - sourceX, targetY - sourceY) : sourcePosition
   const tgtPos = tgtIsDynamic ? dirPosition(sourceX - targetX, sourceY - targetY) : targetPosition
 

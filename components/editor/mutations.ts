@@ -216,8 +216,11 @@ function referentComponent(d: Diagram, startId: string): Set<string> {
         if (!seen.has(r)) { seen.add(r); queue.push(r) }
       }
     }
+    // Carrier kinds (per geom.isCarrier) have no identity of their own — their
+    // inner points share identity with the carrier, so the BFS bridges through
+    // them. Non-carrier kinds stop the bridge here.
     const loc = findShape(d, cur)
-    if (!loc || loc.topContainer !== 'nodes' || loc.topShape.kind !== 'empty') continue
+    if (!loc || loc.topContainer !== 'nodes' || !geometryFor(loc.topShape.kind).isCarrier) continue
     for (const inner of walkShape(loc.topShape)) {
       if (inner.id !== loc.topShape.id && !seen.has(inner.id)) {
         seen.add(inner.id)
@@ -342,12 +345,12 @@ export function attachLine(
   let d3 = removePoint(d2, oldPtId)
 
   // Orphaned-carrier cleanup: if the old point lived in a top-level node whose
-  // kind is flagged as a transient carrier (geom.cleanupWhenInnerEmpty) and
+  // kind is flagged as a transient carrier (geom.isCarrier) and
   // that node now has no remaining inner points, drop the carrier. Per-kind
   // DATA in geometry.ts decides — no kind-name switching here.
   if (oldTopId) {
     const top = d3.nodes.find((n) => n.id === oldTopId)
-    if (top && geometryFor(top.kind).cleanupWhenInnerEmpty) {
+    if (top && geometryFor(top.kind).isCarrier) {
       let hasInner = false
       for (const inner of walkShape(top)) {
         if (inner.id !== top.id) {

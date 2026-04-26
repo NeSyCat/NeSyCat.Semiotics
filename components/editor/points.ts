@@ -32,6 +32,16 @@ export function slotSchema(kind: ShapeKind, slot: Slot): SlotSchema {
   return SCHEMAS[kind][slot]
 }
 
+// Per-slot metadata, kind-agnostic. `axial` slots (left, right, up, down)
+// have a definite physical side: their handles' Position matches the slot
+// name and edges route to that side. Non-axial slots (center, total) live
+// inside or above the body without a meaningful side, so edges to/from them
+// must orient dynamically toward the other endpoint.
+export const SLOT_AXIAL: Record<Slot, boolean> = {
+  left: true, right: true, up: true, down: true,
+  center: false, total: false,
+}
+
 export function subslotKind(schema: SlotSchema, sub: Subslot): 'maybe' | 'list' | undefined {
   if (schema.type !== 'triad') return undefined
   return sub === 'center' ? schema.center : schema.other
