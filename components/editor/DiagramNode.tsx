@@ -2,20 +2,19 @@ import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import { Handle, Position, type NodeProps } from '@xyflow/react'
 import theme, { glassBlur, pointDotStyle, selectionGlow } from './style/theme'
 import {
-  BASE_SIZE,
   FRAME_STROKE_WIDTH,
   LABEL_PAD,
   PLUS_LARGE,
   PLUS_SMALL,
   ROW_HEIGHT,
   deriveFrame,
-  frameNWAnchor,
   geometryRegistry,
   type CanonicalBody,
   type CanonicalFrame,
   type SlotAnchor,
 } from './geometry'
-import { enumerateAddable, enumeratePoints, walkShape } from './points'
+import { enumerateAddable, enumeratePoints, shapeLabel, walkShape } from './points'
+import { handleIdFor } from './handles'
 import { toRgbTriple } from './color'
 import { useStore } from './store'
 import type { AnyShape, ShapeKind, Slot, Subslot } from './types'
@@ -265,11 +264,6 @@ function NodeBg({ body, frame, n, accent, fillOpacity, borderOpacity, selected }
   )
 }
 
-// Build handle id from slot/subslot/index. Mirrors the OLD parseHandle grammar.
-function handleIdFor(slot: Slot, subslot: Subslot | undefined, index: number): string {
-  return subslot ? `${slot}-${subslot}-${index}` : `${slot}-${index}`
-}
-
 // Position-driven label CSS — places the label external to the body, oriented
 // by the anchor's Position, with a 2px gap from the dot.
 function labelStyle(anchor: SlotAnchor, n: number): React.CSSProperties {
@@ -362,7 +356,6 @@ function ShapeView({ data, selected }: NodeProps) {
   const setSelectedPoints = useStore((s) => s.setSelectedPoints)
   const toggleSelectedPoint = useStore((s) => s.toggleSelectedPoint)
   const renamePoint = useStore((s) => s.renamePoint)
-  const renameNode = useStore((s) => s.renameNode)
 
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editText, setEditText] = useState('')
@@ -378,40 +371,34 @@ function ShapeView({ data, selected }: NodeProps) {
     setEditingId(pid)
     setEditText(currentName)
   }
-  function commitEdit(isSelf: boolean) {
+  function commitEdit() {
     if (!editingId) return
     const next = editText.trim()
-    if (next) {
-      if (isSelf) renameNode(editingId, next)
-      else renamePoint(editingId, next)
-    }
+    if (next) renamePoint(editingId, next)
     setEditingId(null)
   }
 
   // Render a label. `pid` is the stable internal id (drives selection state
   // and edit-target identity); `name` is the user-visible text and may collide
-  // across shapes. Editing edits `name`; the id is immutable.
-  function renderLabel(pid: string, name: string, anchor: SlotAnchor, isSelf: boolean) {
+  // across shapes. Editing edits `name`; the id is immutable. ONE styling for
+  // every point — total has no special "self" treatment.
+  function renderLabel(pid: string, name: string, anchor: SlotAnchor) {
     const editing = editingId === pid
     const sel = isSelected(pid)
     const baseStyle: React.CSSProperties = {
-      fontSize: isSelf ? theme.fontSize : theme.smallFontSize,
-      fontWeight: isSelf ? 600 : 500,
-      color: isSelf ? theme.text.primary : (sel ? theme.text.primary : theme.text.secondary),
-      textShadow: isSelf ? theme.text.shadow : undefined,
-      fontFamily: isSelf ? 'inherit' : "'SF Mono', Menlo, monospace",
-      background: !isSelf && sel ? `rgba(${accent}, 0.25)` : 'transparent',
-      border: !isSelf && sel ? `1px solid rgba(${accent}, 0.7)` : '1px solid transparent',
+      fontSize: theme.smallFontSize,
+      fontWeight: 500,
+      color: sel ? theme.text.primary : theme.text.secondary,
+      fontFamily: "'SF Mono', Menlo, monospace",
+      background: sel ? `rgba(${accent}, 0.25)` : 'transparent',
+      border: sel ? `1px solid rgba(${accent}, 0.7)` : '1px solid transparent',
       borderRadius: 3,
-      padding: isSelf ? 0 : '1px 5px',
+      padding: '1px 5px',
       boxSizing: 'border-box',
       lineHeight: 1.3,
       whiteSpace: 'nowrap',
     }
-    const containerStyle: React.CSSProperties = {
-      ...labelStyle(anchor, n),
-      ...(isSelf ? { zIndex: 2 } : {}),
-    }
+    const containerStyle: React.CSSProperties = labelStyle(anchor, n)
     if (editing) {
       const textAlign = anchor.position === Position.Left ? 'right'
         : anchor.position === Position.Right ? 'left' : 'center'
@@ -422,10 +409,10 @@ function ShapeView({ data, selected }: NodeProps) {
             value={editText}
             onChange={(e) => setEditText(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === 'Enter') commitEdit(isSelf)
+              if (e.key === 'Enter') commitEdit()
               if (e.key === 'Escape') setEditingId(null)
             }}
-            onBlur={() => commitEdit(isSelf)}
+            onBlur={() => commitEdit()}
             size={Math.max(1, editText.length)}
             style={{ ...baseStyle, outline: 'none', textAlign }}
           />
@@ -435,7 +422,7 @@ function ShapeView({ data, selected }: NodeProps) {
     return (
       <div key={`lbl-${pid}`} style={containerStyle}>
         <span
-          className={isSelf ? 'point-label total-label' : 'point-label'}
+          className="point-label"
           onClick={(e) => {
             e.stopPropagation()
             const sp = { pointId: pid }
@@ -469,59 +456,38 @@ function ShapeView({ data, selected }: NodeProps) {
   const fillOpacity = (selected ? theme.node.selectedFillOpacity : theme.node.fillOpacity) * geom.bodyOpacity
   const borderOpacity = (selected ? theme.node.selectedBorderOpacity : theme.node.borderOpacity) * geom.bodyOpacity
 
-  // Per-point handles + labels.
+  // Per-point handles + labels — every slot the schema enumerates, including
+  // `total`. The total slot is just another MaybePoint: when set it renders
+  // here like any other point; when unset it gets a plus button (below). No
+  // per-slot styling — one pipeline governs every point.
   const present = enumeratePoints(kind, shape.points)
-  const pointVisuals = present
-    .filter((e) => e.slot !== 'total')   // total is rendered specially below
-    .map((e) => {
-      const anchor = geom.pointAnchor(shape.points as never, e.slot, e.subslot, e.index, n)
-      if (!anchor) return null
-      const handleId = handleIdFor(e.slot, e.subslot, e.index)
-      const pid = e.point.id
-      return (
-        <span key={`pt-${pid}`}>
-          {renderLabel(pid, e.point.name, anchor, false)}
-          <BiHandle
-            position={anchor.position}
-            id={handleId}
-            style={{
-              ...pointDotStyle(accent, isSelected(pid)),
-              top: anchor.y,
-              left: anchor.x,
-              right: 'auto',
-              bottom: 'auto',
-              transform: 'translate(-50%, -50%)',
-            }}
-          />
-        </span>
-      )
-    })
-
-  // Self / "total" anchor — always rendered. The shape's `name` is the visible
-  // self-label; selection identity uses the immutable `id`. The handle id is
-  // "total-0". When points are hidden the anchor collapses to body center so
-  // only one anchor remains visible per shape.
-  const selfAnchor: SlotAnchor = pointsVisible
-    ? frameNWAnchor(geom.body, n)
-    : { x: n / 2, y: n / 2, position: Position.Top }
-  const selfBlock = (
-    <span key="self">
-      {renderLabel(shape.id, shape.name, selfAnchor, true)}
-      <BiHandle
-        position={Position.Top}
-        id="total-0"
-        className="total-handle"
-        style={{
-          ...pointDotStyle(accent, isSelected(shape.id)),
-          top: selfAnchor.y,
-          left: selfAnchor.x,
-          right: 'auto',
-          bottom: 'auto',
-          transform: 'translate(-50%, -50%)',
-        }}
-      />
-    </span>
-  )
+  const pointVisuals = present.map((e) => {
+    const anchor = geom.pointAnchor(shape.points as never, e.slot, e.subslot, e.index, n)
+    if (!anchor) return null
+    const handleId = handleIdFor(e.slot, e.subslot, e.index)
+    const pid = e.point.id
+    // Label resolves through the total chain — for a labeled leaf returns its
+    // own .name; for an intermediate shape, walks down to the terminator. If
+    // no shape in the chain has a name, the label is suppressed.
+    const label = shapeLabel(e.point)
+    return (
+      <span key={`pt-${pid}`}>
+        {label !== undefined && renderLabel(pid, label, anchor)}
+        <BiHandle
+          position={anchor.position}
+          id={handleId}
+          style={{
+            ...pointDotStyle(accent, isSelected(pid)),
+            top: anchor.y,
+            left: anchor.x,
+            right: 'auto',
+            bottom: 'auto',
+            transform: 'translate(-50%, -50%)',
+          }}
+        />
+      </span>
+    )
+  })
 
   // Plus buttons for addable slots — only visible when the shape is selected.
   const plusButtons = selected && enumerateAddable(kind, shape.points).map((e) => {
@@ -562,16 +528,10 @@ function ShapeView({ data, selected }: NodeProps) {
         borderOpacity={borderOpacity}
         selected={!!selected}
       />
-      {selfBlock}
       {pointVisuals}
       {plusButtons}
     </div>
   )
 }
-
-// ESLint pacifier — id is used by RF internally for the wrapping node element,
-// so the prop signature must include it even though we don't read it.
-void BASE_SIZE
-void ROW_HEIGHT
 
 export default memo(ShapeView)

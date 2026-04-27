@@ -21,29 +21,21 @@ import DiagramNode from './DiagramNode'
 import DiagramEdge from './DiagramEdge'
 import { useStore, initStore } from './store'
 import { useAutosave } from './save'
-import { enumerateAddable, enumeratePoints, findShape, getPointAt, slotSchema } from './points'
-import type { AnyShape, Diagram, ShapeKind, Slot, Subslot } from './types'
+import { enumerateAddable, enumeratePoints, findShape, getPointAt, shapeLabel } from './points'
+import { geometryFor, geometryRegistry } from './geometry'
+import { handleIdFor, parseHandle } from './handles'
+import { SLOTS, type AnyShape, type Diagram, type ShapeKind, type Slot, type Subslot } from './types'
 import theme, { panelStyle, glassBlur } from './style/theme'
 
 const nodeTypes: NodeTypes = { node: DiagramNode }
 const edgeTypes: EdgeTypes = { editable: DiagramEdge }
 
-// Handle id grammar (mirrors DiagramNode's `handleIdFor`):
-//   "total-0"                  → self anchor (the shape itself)
-//   "${slot}-${index}"         → list/maybe slot (slot ∈ Slot)
-//   "${slot}-${subslot}-${idx}"→ triadic slot
-function parseHandle(handleId: string): { slot: Slot; subslot?: Subslot; index: number } {
-  const parts = handleId.split('-')
-  if (parts.length === 3) return { slot: parts[0] as Slot, subslot: parts[1] as Subslot, index: parseInt(parts[2]) }
-  return { slot: parts[0] as Slot, index: parseInt(parts[1]) }
-}
-
-// (nodeId, handleId) → universal point id. "total-0" resolves to the shape's
-// own id; other handles look up the direct child point at the matching slot.
+// (nodeId, handleId) → universal point id. Pure schema-driven lookup —
+// every handle id (including total-0) resolves through the same enumeratePoints
+// walk; there is no special case for the "self" anywhere.
 function lookupPointId(d: Diagram, nodeId: string, handleId: string): string | undefined {
   const top = d.nodes.find((n) => n.id === nodeId)
   if (!top) return undefined
-  if (handleId === 'total-0') return top.id
   const { slot, subslot, index } = parseHandle(handleId)
   for (const e of enumeratePoints(top.kind, top.points)) {
     if (e.slot === slot && e.subslot === subslot && e.index === index) return e.point.id
@@ -51,7 +43,9 @@ function lookupPointId(d: Diagram, nodeId: string, handleId: string): string | u
   return undefined
 }
 
-// Resolve a point id → its current `name` for endpoint-name inheritance on drop.
+// Resolve a point id → its current visible label for endpoint-name inheritance
+// on drop. Walks the total chain via shapeLabel — for a labeled leaf returns
+// its own .name; for an intermediate shape walks down to the terminator.
 function lookupShapeName(d: Diagram, id: string): string | undefined {
   const loc = findShape(d, id)
   if (!loc) return undefined
@@ -61,58 +55,47 @@ function lookupShapeName(d: Diagram, id: string): string | undefined {
     if (!next) return undefined
     cur = next
   }
-  return cur.name
+  return shapeLabel(cur)
 }
 
 // Inverse: point id → (RF node id, handle id) for edge endpoint resolution.
-// Top-level shapes resolve to their own self-handle; nested points resolve via
-// findShape's path (only the last segment matters since handles only render for
-// direct children of top-level shapes).
+// Pure path-based lookup — only nested children resolve. A line endpoint that
+// references a top-level outer node id has no handle to render against (an
+// outer shape's identity is `points.total`, which is just one of its children
+// like any other slot); such endpoints fail to render.
 function pointIdToHandle(d: Diagram, pointId: string): { nodeId: string; handleId: string } | undefined {
-  if (d.nodes.some((n) => n.id === pointId)) return { nodeId: pointId, handleId: 'total-0' }
   const loc = findShape(d, pointId)
   if (!loc || loc.topContainer !== 'nodes' || loc.path.length === 0) return undefined
   const last = loc.path[loc.path.length - 1]
   return {
     nodeId: loc.topShape.id,
-    handleId: last.subslot ? `${last.slot}-${last.subslot}-${last.index}` : `${last.slot}-${last.index}`,
+    handleId: handleIdFor(last.slot, last.subslot, last.index),
   }
-}
-
-// Resolve a drop's subslot from cursor's vertical position. Triad slots have
-// 3 subslots (down/center/up); non-triad slots have none. The rhombus and
-// rectangle left/right rules predate this generalization and are preserved
-// as-is. The new branch handles triad center slots (rhombus/circle/rectangle)
-// uniformly via schema lookup — no per-kind list maintenance.
-function resolveDropSubslot(kind: ShapeKind, slot: Slot, ry: number): Subslot | undefined {
-  if (kind === 'rhombus' && (slot === 'left' || slot === 'right')) return ry < 0.5 ? 'up' : 'down'
-  if (kind === 'rectangle' && (slot === 'left' || slot === 'right')) return 'center'
-  if (slot === 'center' && slotSchema(kind, 'center').type === 'triad') {
-    if (ry < 1 / 3) return 'up'
-    if (ry > 2 / 3) return 'down'
-    return 'center'
-  }
-  return undefined
 }
 
 // Pick a drop's (slot, subslot) on `shape` from cursor (rx, ry) ∈ [0,1]².
-// Same five candidates for every kind — no per-kind exceptions. Filtered against
-// `enumerateAddable` so occupied MAYBE slots drop out (no overwrite, no fall-
-// through guard needed downstream); then sorted by proximity. Returns undefined
-// when nothing is addable.
+// Schema-driven: walk every slot the kind declares, ask the geometry where its
+// `+` button would sit, pick the addable one whose anchor is closest to the
+// cursor in pixel space. No hard-coded slot list, no per-slot distance heuristic
+// — the position comes entirely from per-kind data in geometry.ts.
 function pickDropSlot(shape: AnyShape, rx: number, ry: number): { slot: Slot; subslot?: Subslot } | undefined {
+  const geom = geometryFor(shape.kind)
+  const n = geom.nodeSize(shape.points as never)
+  const cx = rx * n
+  const cy = ry * n
   const addable = enumerateAddable(shape.kind, shape.points)
-  const dists: Array<{ slot: Slot; dist: number }> = [
-    { slot: 'left',   dist: rx },
-    { slot: 'right',  dist: 1 - rx },
-    { slot: 'up',     dist: ry },
-    { slot: 'down',   dist: 1 - ry },
-    { slot: 'center', dist: Math.max(Math.abs(rx - 0.5), Math.abs(ry - 0.5)) },
-  ]
-  return dists
-    .map((c) => ({ slot: c.slot, subslot: resolveDropSubslot(shape.kind, c.slot, ry), dist: c.dist }))
-    .filter((c) => addable.some((a) => a.slot === c.slot && a.subslot === c.subslot))
-    .sort((a, b) => a.dist - b.dist)[0]
+  let best: { slot: Slot; subslot?: Subslot; dist: number } | undefined
+  for (const slot of SLOTS) {
+    const subslot = geom.dropSubslot(slot, ry)
+    if (!addable.some((a) => a.slot === slot && a.subslot === subslot)) continue
+    const anchor = geom.plusAnchor(shape.points as never, slot, subslot, n)
+    if (!anchor) continue
+    const dx = anchor.x - cx
+    const dy = anchor.y - cy
+    const dist = Math.sqrt(dx * dx + dy * dy)
+    if (!best || dist < best.dist) best = { slot, subslot, dist }
+  }
+  return best && { slot: best.slot, subslot: best.subslot }
 }
 
 function Canvas() {
@@ -233,7 +216,7 @@ function Canvas() {
           animated: true,
           hidden: !visibility.lines,
           data: {
-            label: line.id,
+            label: line.name ?? line.id,
             onRename: (newName: string) => renameLine(line.id, newName),
           },
         })
@@ -399,8 +382,9 @@ function Canvas() {
       // Dropped on empty space → either extend existing line or create a new
       // line with a free-end empty carrier. Both paths inherit the source's name.
       if (existingLine) {
-        // Extending a line: drop-spawn a single-point empty carrier and
-        // attach a new target at its center (the empty's identity point).
+        // Extending a line: drop-spawn an empty carrier and attach the new
+        // target to its center (the empty's outer id is no longer a renderable
+        // handle, so a real center child is the connection target).
         const emptyId = addEmpty([position.x, position.y])
         const newPtId = addPoint(emptyId, 'center', undefined, attachedName)
         if (newPtId) addLineTarget(existingLine.id, newPtId)
@@ -420,12 +404,14 @@ function Canvas() {
       all.map((n) => ({ id: n.id, translation: [n.position.x, n.position.y] as [number, number] })),
     )
 
-    // Drag-to-attach only applies to a single empty being dropped on a shape.
-    // Multi-node drags skip auto-attach.
+    // Drag-to-attach only applies to single-shape carrier drops (per geom.isCarrier).
+    // Carriers (empties) have no identity of their own, so dragging one onto a
+    // shape is interpreted as "attach my inner point to that shape." Multi-node
+    // drags and non-carrier kinds skip auto-attach.
     if (all.length > 1) return
     const d0 = useStore.getState().diagram
     const draggedShape = d0.nodes.find((n) => n.id === node.id)
-    if (!draggedShape || draggedShape.kind !== 'empty') return
+    if (!draggedShape || !geometryFor(draggedShape.kind).isCarrier) return
 
     const SNAP_DIST = 15
     const nodeCenter = {
@@ -498,17 +484,28 @@ function Canvas() {
       if (now - lastPaneClickRef.current < 350) {
         const position = screenToFlowPosition({ x: event.clientX, y: event.clientY })
         const xy: [number, number] = [position.x, position.y]
-        if (event.metaKey || event.ctrlKey) addNode('rectangle', xy)
-        else if (event.shiftKey)             addNode('rhombus',   xy)
-        else if (event.altKey)               addNode('triangle',  xy)
-        else if (spaceHeldRef.current)       addNode('circle',    xy)
-        else                                  addEmpty(xy)
+        // Schema-driven kind dispatch: walk the geometry registry sorted by
+        // hotkey priority (highest first) and pick the first kind whose
+        // hotkey.test matches the current modifier state. Empty's test is
+        // a catch-all (priority 0), so it always wins as the fallback.
+        const mods = {
+          meta: event.metaKey, ctrl: event.ctrlKey, shift: event.shiftKey,
+          alt: event.altKey, space: spaceHeldRef.current,
+        }
+        const sorted = (Object.entries(geometryRegistry) as Array<[ShapeKind, typeof geometryRegistry[ShapeKind]]>)
+          .sort(([, a], [, b]) => b.hotkey.priority - a.hotkey.priority)
+        for (const [kind, geom] of sorted) {
+          if (geom.hotkey.test(mods)) {
+            addNode(kind, xy)
+            break
+          }
+        }
         lastPaneClickRef.current = 0
         return
       }
       lastPaneClickRef.current = now
     },
-    [screenToFlowPosition, addNode, addEmpty, clearSelectedPoints]
+    [screenToFlowPosition, addNode, clearSelectedPoints]
   )
 
   useEffect(() => {
@@ -618,13 +615,14 @@ function Canvas() {
           {kindsOpen && (
             <div style={{ position: 'absolute', top: '100%', left: 0, paddingTop: 6 }}>
               <div style={{ ...panelStyle(), borderRadius: 8, padding: '6px 6px', minWidth: 220 }}>
-                <KindRow label="Empties" on={visibility.empty} onToggle={() => toggleVisibility('empty')} shortcut={['2×']} />
+                {/* Per-kind toggles iterate the geometry registry — adding a
+                    new kind to types.ts auto-extends this menu. */}
+                {(Object.entries(geometryRegistry) as Array<[ShapeKind, typeof geometryRegistry[ShapeKind]]>).map(([kind, geom]) => (
+                  <KindRow key={kind} label={geom.displayName} on={visibility[kind]} onToggle={() => toggleVisibility(kind)} shortcut={geom.hotkey.hint} />
+                ))}
+                {/* Orthogonal toggles — apply across every kind. */}
                 <KindRow label="Points" on={visibility.points} onToggle={() => toggleVisibility('points')} shortcut={['click +']} />
                 <KindRow label="Lines" on={visibility.lines} onToggle={() => toggleVisibility('lines')} shortcut={['drag ○→○']} />
-                <KindRow label="Triangles" on={visibility.triangle} onToggle={() => toggleVisibility('triangle')} shortcut={['Alt/⌥', '2×']} />
-                <KindRow label="Rhombuses" on={visibility.rhombus} onToggle={() => toggleVisibility('rhombus')} shortcut={['⇧', '2×']} />
-                <KindRow label="Circles" on={visibility.circle} onToggle={() => toggleVisibility('circle')} shortcut={['␣', '2×']} />
-                <KindRow label="Rectangles" on={visibility.rectangle} onToggle={() => toggleVisibility('rectangle')} shortcut={['Ctrl/⌘', '2×']} />
               </div>
             </div>
           )}

@@ -1,5 +1,6 @@
 import { Position } from '@xyflow/react'
 import type { ShapeKind, ShapePoints, Slot, Subslot, AnyShape } from './types'
+import { slotSchema } from './points'
 
 // === Layout constants (pixel sizes from visual contract) ===
 export const BASE_SIZE = 200
@@ -134,6 +135,41 @@ export interface ShapeGeometry<K extends ShapeKind> {
     subslot: Subslot | undefined,
     nodeSize: number,
   ) => SlotAnchor | undefined
+  // True if the kind's point handles sit on definite frame sides (so edges can
+  // route to their declared Position). False for carrier kinds whose handles
+  // float freely; DiagramEdge then orients dynamically toward the other endpoint.
+  framedHandles: boolean
+  // Per-kind drop-zone resolution: given a (slot, ry) drop target on this shape,
+  // returns the subslot the new point should land in (undefined ⇒ no subslot).
+  // Replaces hard-coded `kind === 'rhombus' || kind === 'rectangle'` switches in Canvas.
+  dropSubslot: (slot: Slot, ry: number) => Subslot | undefined
+  // True if this kind is a carrier — a wrapper that exists only to hold inner
+  // points, with no meaningful identity of its own. Carriers self-delete when
+  // their inner points are removed (mutations cleanup) AND their inner points
+  // bridge identity with the outer (rename propagation through referent BFS).
+  // False for kinds whose body itself is meaningful (triangle, circle, etc.).
+  isCarrier: boolean
+  // Plural label shown in the Kinds visibility menu.
+  displayName: string
+  // Keyboard hotkey for double-click create. `test` decides whether the
+  // current modifier state matches; `priority` orders dispatch (highest wins
+  // when multiple kinds match, e.g. Ctrl+Shift would resolve to whichever has
+  // higher priority); `hint` is rendered in the Kinds menu next to the label.
+  hotkey: {
+    test: (mods: HotkeyMods) => boolean
+    hint: string[]
+    priority: number
+  }
+}
+
+// Modifier-state snapshot passed to each kind's hotkey.test for keyboard
+// dispatch. Sourced from a React.MouseEvent + a separate spaceHeld ref.
+export interface HotkeyMods {
+  meta: boolean
+  ctrl: boolean
+  shift: boolean
+  alt: boolean
+  space: boolean
 }
 
 // === Per-slot length helpers ===
@@ -141,8 +177,23 @@ function listLen(v: unknown): number {
   return Array.isArray(v) ? v.length : 0
 }
 
-function maybeLen(v: unknown): number {
-  return v === undefined ? 0 : 1
+// Triad-center subslot resolution from a normalized vertical cursor position.
+// Used for every kind whose `center` slot is a triad — kept here as DATA so
+// Canvas's drop pipeline doesn't switch on kind.
+function triadCenterSubslot(ry: number): Subslot {
+  if (ry < 1 / 3) return 'up'
+  if (ry > 2 / 3) return 'down'
+  return 'center'
+}
+
+// Default dropSubslot — schema-driven: only the triad-center slot resolves to a
+// subslot via `triadCenterSubslot`; every other slot is non-triad → undefined.
+// Kinds whose left/right are also triads (rhombus, rectangle) override.
+function defaultDropSubslot(kind: ShapeKind): (slot: Slot, ry: number) => Subslot | undefined {
+  return (slot, ry) => {
+    if (slot === 'center' && slotSchema(kind, 'center').type === 'triad') return triadCenterSubslot(ry)
+    return undefined
+  }
 }
 
 // Triangle apex-up helpers.
@@ -191,16 +242,18 @@ const arcPosition: Record<'up' | 'down' | 'left' | 'right', Position> = {
 }
 
 // === EMPTY ===
+const emptyBody: CanonicalBody = { type: 'circle' }
 const emptyGeometry: ShapeGeometry<'empty'> = {
-  body: { type: 'circle' },
+  body: emptyBody,
   bodyOpacity: 0,
-  nodeSize: () => BASE_SIZE / 2,
+  nodeSize: () => BASE_SIZE / 4,
   pointAnchor: (_p, slot, _sub, _idx, n) => {
     if (slot === 'left')   return { x: 0,     y: n / 2, position: Position.Left   }
     if (slot === 'right')  return { x: n,     y: n / 2, position: Position.Right  }
     if (slot === 'up')     return { x: n / 2, y: 0,     position: Position.Top    }
     if (slot === 'down')   return { x: n / 2, y: n,     position: Position.Bottom }
     if (slot === 'center') return { x: n / 2, y: n / 2, position: Position.Top    }
+    if (slot === 'total')  return frameNWAnchor(emptyBody, n)
     return undefined
   },
   plusAnchor: (_p, slot, _sub, n) => {
@@ -209,8 +262,14 @@ const emptyGeometry: ShapeGeometry<'empty'> = {
     if (slot === 'up')     return { x: n / 2,  y: -50,    position: Position.Top    }
     if (slot === 'down')   return { x: n / 2,  y: n + 50, position: Position.Bottom }
     if (slot === 'center') return { x: n / 2,  y: n / 2,  position: Position.Top    }
+    if (slot === 'total')  return frameNWAnchor(emptyBody, n)
     return undefined
   },
+  framedHandles: false,
+  dropSubslot: defaultDropSubslot('empty'),
+  isCarrier: true,
+  displayName: 'Empties',
+  hotkey: { test: () => true, hint: ['2×'], priority: 0 },
 }
 
 // === TRIANGLE (apex up) ===
@@ -252,6 +311,7 @@ const triangleGeometry: ShapeGeometry<'triangle'> = {
       return { x, y, position: Position.Right }
     }
     if (slot === 'center') return { x: n / 2, y: triCenterY(n), position: Position.Top }
+    if (slot === 'total')  return frameNWAnchor(triangleBody, n)
     return undefined
   },
   plusAnchor: (_p, slot, _sub, n) => {
@@ -260,8 +320,14 @@ const triangleGeometry: ShapeGeometry<'triangle'> = {
     if (slot === 'left')   return { x: -30,         y: triCenterY(n),    position: Position.Left   }
     if (slot === 'right')  return { x: n + 30,      y: triCenterY(n),    position: Position.Right  }
     if (slot === 'center') return { x: n / 2,       y: triCenterY(n),    position: Position.Top    }
+    if (slot === 'total')  return frameNWAnchor(triangleBody, n)
     return undefined
   },
+  framedHandles: true,
+  dropSubslot: defaultDropSubslot('triangle'),
+  isCarrier: false,
+  displayName: 'Triangles',
+  hotkey: { test: (m) => m.alt, hint: ['Alt/⌥', '2×'], priority: 3 },
 }
 
 // === RHOMBUS ===
@@ -320,6 +386,7 @@ const rhombusGeometry: ShapeGeometry<'rhombus'> = {
       if (sub === 'center') return { x: half, y: half,      position: Position.Top }
       if (sub === 'down')   return { x: half, y: 3 * n / 4, position: Position.Top }
     }
+    if (slot === 'total') return frameNWAnchor(rhombusBody, n)
     return undefined
   },
   plusAnchor: (p, slot, sub, n) => {
@@ -349,8 +416,21 @@ const rhombusGeometry: ShapeGeometry<'rhombus'> = {
       if (sub === 'center' && p.center.center === undefined) return { x: half, y: half,      position: Position.Top }
       if (sub === 'down'   && p.center.down   === undefined) return { x: half, y: 3 * n / 4, position: Position.Top }
     }
+    if (slot === 'total') return frameNWAnchor(rhombusBody, n)
     return undefined
   },
+  framedHandles: true,
+  // Rhombus left/right are PointedSlot triads — drop's vertical position picks
+  // up/down (PointedSlot has no center list; cursor inside body's central band
+  // resolves to up by convention).
+  dropSubslot: (slot, ry) => {
+    if (slot === 'left' || slot === 'right') return ry < 0.5 ? 'up' : 'down'
+    if (slot === 'center') return triadCenterSubslot(ry)
+    return undefined
+  },
+  isCarrier: false,
+  displayName: 'Rhombuses',
+  hotkey: { test: (m) => m.shift, hint: ['⇧', '2×'], priority: 4 },
 }
 
 // === CIRCLE ===
@@ -376,6 +456,7 @@ const circleGeometry: ShapeGeometry<'circle'> = {
       if (sub === 'center') return { x: n / 2, y: n / 2,     position: Position.Top }
       if (sub === 'down')   return { x: n / 2, y: 3 * n / 4, position: Position.Top }
     }
+    if (slot === 'total') return frameNWAnchor(circleBody, n)
     return undefined
   },
   plusAnchor: (p, slot, sub, n) => {
@@ -392,8 +473,14 @@ const circleGeometry: ShapeGeometry<'circle'> = {
       if (sub === 'center' && p.center.center === undefined) return { x: n / 2, y: n / 2,     position: Position.Top }
       if (sub === 'down'   && p.center.down   === undefined) return { x: n / 2, y: 3 * n / 4, position: Position.Top }
     }
+    if (slot === 'total') return frameNWAnchor(circleBody, n)
     return undefined
   },
+  framedHandles: true,
+  dropSubslot: defaultDropSubslot('circle'),
+  isCarrier: false,
+  displayName: 'Circles',
+  hotkey: { test: (m) => m.space, hint: ['␣', '2×'], priority: 2 },
 }
 
 // === RECTANGLE ===
@@ -443,6 +530,7 @@ const rectangleGeometry: ShapeGeometry<'rectangle'> = {
       if (sub === 'center') return { x: n / 2, y: n / 2,     position: Position.Top }
       if (sub === 'down')   return { x: n / 2, y: 3 * n / 4, position: Position.Top }
     }
+    if (slot === 'total') return frameNWAnchor(rectangleBody, n)
     return undefined
   },
   plusAnchor: (p, slot, sub, n) => {
@@ -467,8 +555,22 @@ const rectangleGeometry: ShapeGeometry<'rectangle'> = {
       if (sub === 'center' && p.center.center === undefined) return { x: n / 2, y: n / 2,     position: Position.Top }
       if (sub === 'down'   && p.center.down   === undefined) return { x: n / 2, y: 3 * n / 4, position: Position.Top }
     }
+    if (slot === 'total') return frameNWAnchor(rectangleBody, n)
     return undefined
   },
+  framedHandles: true,
+  // Rectangle left/right are FlatSlot triads — center is a list, up/down are
+  // maybes. The original drop heuristic put every left/right drop into the
+  // center list (visually, that's the only addable subslot the user is likely
+  // to mean). Preserve as data here.
+  dropSubslot: (slot, ry) => {
+    if (slot === 'left' || slot === 'right') return 'center'
+    if (slot === 'center') return triadCenterSubslot(ry)
+    return undefined
+  },
+  isCarrier: false,
+  displayName: 'Rectangles',
+  hotkey: { test: (m) => m.meta || m.ctrl, hint: ['Ctrl/⌘', '2×'], priority: 5 },
 }
 
 // === Registry ===
@@ -484,7 +586,3 @@ export const geometryRegistry: { [K in ShapeKind]: ShapeGeometry<K> } = {
 export function geometryFor<K extends ShapeKind>(kind: K): ShapeGeometry<K> {
   return geometryRegistry[kind] as ShapeGeometry<K>
 }
-
-// Read maybeLen so the import isn't dead-code-eliminated; reserved for future
-// nodeSize formulas that include MaybePoint slots.
-void maybeLen

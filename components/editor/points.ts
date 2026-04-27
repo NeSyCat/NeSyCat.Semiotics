@@ -32,6 +32,16 @@ export function slotSchema(kind: ShapeKind, slot: Slot): SlotSchema {
   return SCHEMAS[kind][slot]
 }
 
+// Per-slot metadata, kind-agnostic. `axial` slots (left, right, up, down)
+// have a definite physical side: their handles' Position matches the slot
+// name and edges route to that side. Non-axial slots (center, total) live
+// inside or above the body without a meaningful side, so edges to/from them
+// must orient dynamically toward the other endpoint.
+export const SLOT_AXIAL: Record<Slot, boolean> = {
+  left: true, right: true, up: true, down: true,
+  center: false, total: false,
+}
+
 export function subslotKind(schema: SlotSchema, sub: Subslot): 'maybe' | 'list' | undefined {
   if (schema.type !== 'triad') return undefined
   return sub === 'center' ? schema.center : schema.other
@@ -105,7 +115,6 @@ export function enumerateAddable(kind: ShapeKind, points: ShapePoints[ShapeKind]
   const out: AddableEntry[] = []
   const p = points as Record<Slot, unknown>
   for (const slot of SLOTS) {
-    if (slot === 'total') continue                      // total is auto-managed (the shape itself)
     const sch = SCHEMAS[kind][slot]
     const v = p[slot]
     if (sch.type === 'maybe') {
@@ -265,6 +274,21 @@ export function* walkShape(s: AnyShape): Generator<AnyShape> {
 export function* walkAllShapes(d: Diagram): Generator<AnyShape> {
   for (const n of d.nodes) yield* walkShape(n)
   for (const e of d.edges) yield* walkShape(e)
+}
+
+// Walk the `points.total` chain down to its terminator (the deepest shape
+// whose own `points.total` is undefined) and return that terminator's name.
+// The shape's identity is the leaf at the end of the total chain — for an
+// outer shape with `points.total = leaf{name:"Cats"}`, returns "Cats". For
+// a bare leaf with `points.total = undefined`, returns the leaf's own name.
+// Returns undefined if no shape in the chain has a name set.
+export function shapeLabel(s: AnyShape | undefined): string | undefined {
+  if (!s) return undefined
+  let cur: AnyShape = s
+  while ((cur.points as { total?: AnyShape }).total !== undefined) {
+    cur = (cur.points as { total: AnyShape }).total
+  }
+  return cur.name
 }
 
 // Locate where a shape (by id) lives in the diagram and the path to it from

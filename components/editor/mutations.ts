@@ -9,11 +9,12 @@
 import type { AnyLine, AnyShape, Diagram, ShapeKind, Slot, Subslot } from './types'
 import {
   addPointAt, emptyShapePoints, findShape, getPointAt,
-  modifyAtPath, replaceEdge, replaceNode, walkShape,
+  modifyAtPath, replaceEdge, replaceNode, shapeLabel, walkShape,
 } from './points'
 import { newLineId, newNodeId, newPointId } from './ids'
 import { defaultSpaceTime, withTranslation } from './transform'
 import { DEFAULT_COLOR } from './color'
+import { geometryFor } from './geometry'
 import { restoreDiagram } from './migrations'
 
 // === Constructors ===
@@ -27,11 +28,19 @@ function makeShape<K extends ShapeKind>(
   id: string,
   translation: [number, number] = [0, 0],
   order = 0,
-  name: string = id,
+  name?: string,
 ): AnyShape {
+  // `name` is set only when the caller explicitly provides one (i.e., the shape
+  // is a labeled leaf). Outer / intermediate shapes — created by addNode /
+  // addEmpty without a name — leave `.name` undefined. Their identity comes
+  // from walking their `points.total` chain to the labeled leaf.
+  // Field order MUST match the Shape interface in types.ts so JSON output
+  // mirrors the canonical layout (id, name, points, kind, order, color,
+  // transform, equations, weight). Spread inserts name conditionally between
+  // id and points without losing object-literal type checking.
   return {
     id,
-    name,
+    ...(name !== undefined && { name }),
     points: emptyShapePoints(kind),
     kind,
     order,
@@ -43,6 +52,9 @@ function makeShape<K extends ShapeKind>(
 }
 
 function makeLine(id: string, source: string, target: string, name: string = id): AnyLine {
+  // Lines are labeled entities (their .name renders as the edge label), so
+  // they always have a name — defaulting to the id when no explicit name is
+  // provided, same convention as addPoint for labeled leaves.
   return {
     id,
     name,
@@ -113,12 +125,16 @@ export function renameNode(d: Diagram, id: string, newName: string): Diagram {
 // === Generic shape rename — works on any shape (top-level or nested). ===
 // Edits the user-visible `name`; `id` is immutable so line refs stay valid.
 // Names may collide across shapes — that's the point (e.g. two endpoints both
-// called "x" share a referent). Empty names are rejected (label would vanish).
+// called "x" share a referent). Only shapes that ALREADY have a `.name` get
+// renamed; nameless carrier shapes (outers, intermediates) are left alone so
+// the rename-propagation BFS doesn't accidentally label them. Empty names
+// are rejected (label would vanish).
 function renameShape(d: Diagram, id: string, newName: string): Diagram {
   if (!newName.trim()) return d
   const loc = findShape(d, id)
   if (!loc) return d
-  const replacer = (s: AnyShape): AnyShape => ({ ...s, name: newName } as AnyShape)
+  const replacer = (s: AnyShape): AnyShape =>
+    s.name === undefined ? s : ({ ...s, name: newName } as AnyShape)
   const newTop = modifyAtPath(loc.topShape, loc.path, replacer)
   if (newTop === undefined) return d
   return loc.topContainer === 'nodes'
@@ -215,8 +231,11 @@ function referentComponent(d: Diagram, startId: string): Set<string> {
         if (!seen.has(r)) { seen.add(r); queue.push(r) }
       }
     }
+    // Carrier kinds (per geom.isCarrier) have no identity of their own — their
+    // inner points share identity with the carrier, so the BFS bridges through
+    // them. Non-carrier kinds stop the bridge here.
     const loc = findShape(d, cur)
-    if (!loc || loc.topContainer !== 'nodes' || loc.topShape.kind !== 'empty') continue
+    if (!loc || loc.topContainer !== 'nodes' || !geometryFor(loc.topShape.kind).isCarrier) continue
     for (const inner of walkShape(loc.topShape)) {
       if (inner.id !== loc.topShape.id && !seen.has(inner.id)) {
         seen.add(inner.id)
@@ -264,9 +283,10 @@ export function renameLine(d: Diagram, id: string, newName: string): Diagram {
   return renameShape(d, id, newName)
 }
 
-// Create a free-floating empty carrier with one point and a line connecting it
-// to `anchorPtId`. `freeRole` says which end of the line the free point becomes.
-// The free endpoint inherits the anchor's `name` so both ends of the line
+// Create a free-floating empty carrier with one center child and a line
+// connecting it to `anchorPtId`. The empty's `center` is the line endpoint
+// (an empty's outer id is no longer a renderable handle since selfBlock died);
+// the new center child inherits the anchor's `name` so both ends of the line
 // display the same label (semiotic intent: same name = same referent).
 export function addLineWithFreeEnd(
   d: Diagram,
@@ -276,8 +296,6 @@ export function addLineWithFreeEnd(
 ): [Diagram, { emptyId: string; lineId: string }] {
   const anchorName = findShapeName(d, anchorPtId)
   const [d1, emptyId] = addEmpty(d, emptyPosition)
-  // Free endpoint sits at the empty's center — the empty IS a point, so its
-  // identity is the natural attach site for an incoming line.
   const [d2, freePtId] = addPoint(d1, emptyId, 'center', undefined, anchorName)
   if (!freePtId) return [d, { emptyId: '', lineId: '' }]
   const [source, target] = freeRole === 'source' ? [freePtId, anchorPtId] : [anchorPtId, freePtId]
@@ -285,15 +303,18 @@ export function addLineWithFreeEnd(
   return [d3, { emptyId, lineId }]
 }
 
-// Resolve a point id → its current `name` (used when a new endpoint should
-// inherit the source's label). Returns undefined if the id isn't found.
+// Resolve a point id → its current visible label (used when a new endpoint
+// should inherit the source's label). Walks the total chain via shapeLabel —
+// for a labeled leaf returns its own .name; for an intermediate shape walks
+// down to the terminator. Returns undefined if the id isn't found or the
+// shape has no labeled total leaf.
 function findShapeName(d: Diagram, id: string): string | undefined {
   const loc = findShape(d, id)
   if (!loc) return undefined
   const s = loc.path.length === 0
     ? loc.topShape
     : walkToPath(loc.topShape, loc.path)
-  return s?.name
+  return shapeLabel(s)
 }
 
 export type LineEnd = { kind: 'source' } | { kind: 'target'; index: number }
@@ -341,11 +362,13 @@ export function attachLine(
   // Drop the now-stale old point (also prunes any other lines that touched it).
   let d3 = removePoint(d2, oldPtId)
 
-  // Orphaned-empty cleanup: if the old point lived in an empty node and that
-  // node now has no remaining inner points, drop the carrier.
+  // Orphaned-carrier cleanup: if the old point lived in a top-level node whose
+  // kind is flagged as a transient carrier (geom.isCarrier) and
+  // that node now has no remaining inner points, drop the carrier. Per-kind
+  // DATA in geometry.ts decides — no kind-name switching here.
   if (oldTopId) {
     const top = d3.nodes.find((n) => n.id === oldTopId)
-    if (top && top.kind === 'empty') {
+    if (top && geometryFor(top.kind).isCarrier) {
       let hasInner = false
       for (const inner of walkShape(top)) {
         if (inner.id !== top.id) {

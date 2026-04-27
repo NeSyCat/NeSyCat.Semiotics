@@ -9,6 +9,9 @@ import {
 } from '@xyflow/react'
 import theme, { selectionGlow } from './style/theme'
 import { useStore } from './store'
+import { geometryFor } from './geometry'
+import { SLOT_AXIAL } from './points'
+import { parseHandle } from './handles'
 
 interface EditableEdgeData {
   label: string
@@ -26,6 +29,16 @@ interface EditableEdgeData {
 function dirPosition(dx: number, dy: number): Position {
   if (Math.abs(dx) >= Math.abs(dy)) return dx >= 0 ? Position.Right : Position.Left
   return dy >= 0 ? Position.Bottom : Position.Top
+}
+
+// Whether a handle's Position should be recomputed dynamically per-edge.
+// True when the source kind has no framed handles (carriers like empty), OR
+// when the slot is non-axial (center / total — no physical side). Reads the
+// slot via the canonical handles.parseHandle grammar; consults SLOT_AXIAL.
+function handleIsDynamic(handleId: string | null | undefined, kindUnframed: boolean): boolean {
+  if (kindUnframed) return true
+  if (!handleId) return false
+  return SLOT_AXIAL[parseHandle(handleId).slot] === false
 }
 
 function EditableEdge({
@@ -46,13 +59,15 @@ function EditableEdge({
 }: EdgeProps) {
   const d = data as unknown as EditableEdgeData
   const mode = useStore((s) => s.edgePath)
-  // Top-level empties carry handles that aren't oriented toward any side;
-  // boolean selectors stay primitive-equal across unrelated store changes.
-  const srcOnEmpty = useStore((s) =>
-    s.diagram.nodes.some((n) => n.kind === 'empty' && n.id === source),
+  // A top-level node whose kind has `framedHandles: false` (per its geometry)
+  // hosts handles that aren't oriented toward any side — edges to/from those
+  // endpoints orient dynamically toward the other end. Selectors stay
+  // primitive-equal across unrelated store changes.
+  const srcUnframed = useStore((s) =>
+    s.diagram.nodes.some((n) => n.id === source && !geometryFor(n.kind).framedHandles),
   )
-  const tgtOnEmpty = useStore((s) =>
-    s.diagram.nodes.some((n) => n.kind === 'empty' && n.id === target),
+  const tgtUnframed = useStore((s) =>
+    s.diagram.nodes.some((n) => n.id === target && !geometryFor(n.kind).framedHandles),
   )
 
   const effectiveSelected = selected
@@ -60,11 +75,13 @@ function EditableEdge({
   const [editText, setEditText] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
 
-  // Center-slot handles (no physical side) and all handles on empty carriers
-  // (which are just anchor dots, not oriented) get their Position recomputed
-  // per-edge so smoothstep routing exits on the side closest to the other end.
-  const srcIsDynamic = !!sourceHandleId?.startsWith('center-') || srcOnEmpty
-  const tgtIsDynamic = !!targetHandleId?.startsWith('center-') || tgtOnEmpty
+  // Center-slot handles (no physical side) and all handles on unframed carriers
+  // get their Position recomputed per-edge so smoothstep routing exits on the
+  // side closest to the other end. Handle id grammar is owned by Canvas's
+  // `parseHandle` / `handleIdFor` — read the slot from there, not via string
+  // surgery on the raw id.
+  const srcIsDynamic = handleIsDynamic(sourceHandleId, srcUnframed)
+  const tgtIsDynamic = handleIsDynamic(targetHandleId, tgtUnframed)
   const srcPos = srcIsDynamic ? dirPosition(targetX - sourceX, targetY - sourceY) : sourcePosition
   const tgtPos = tgtIsDynamic ? dirPosition(sourceX - targetX, sourceY - targetY) : targetPosition
 
