@@ -204,13 +204,11 @@ function walkToPath(top: AnyShape, path: { slot: Slot; subslot?: Subslot; index:
 
 // Same name = same referent. Renaming one point propagates to every other
 // shape in its connected referent component:
-//   • Line connectivity: source ↔ all targets of any line they share.
-//   • Empty-container bridge: all inner points of an empty share its identity
-//     (the empty IS a point of identity; its inner-point slots are different
-//     visual occurrences of the same referent).
-// Without this, renaming "P1" → "x" on one occurrence leaves the other
-// connected occurrences stuck on the old "P1" — they visibly desynchronize
-// from a referent they're supposed to share.
+//   • Line connectivity ONLY: source ↔ all targets of any line they share.
+// Sibling points inside the same parent (e.g. left/center/right of an empty)
+// are SEPARATE referents — they live at distinct slots and have their own
+// identities; renaming one must not propagate to the others. Same rule for
+// every kind, no carrier exception.
 export function renamePoint(d: Diagram, id: string, newName: string): Diagram {
   if (!newName.trim()) return d
   const component = referentComponent(d, id)
@@ -229,17 +227,6 @@ function referentComponent(d: Diagram, startId: string): Set<string> {
       if (!refs.includes(cur)) continue
       for (const r of refs) {
         if (!seen.has(r)) { seen.add(r); queue.push(r) }
-      }
-    }
-    // Carrier kinds (per geom.isCarrier) have no identity of their own — their
-    // inner points share identity with the carrier, so the BFS bridges through
-    // them. Non-carrier kinds stop the bridge here.
-    const loc = findShape(d, cur)
-    if (!loc || loc.topContainer !== 'nodes' || !geometryFor(loc.topShape.kind).isCarrier) continue
-    for (const inner of walkShape(loc.topShape)) {
-      if (inner.id !== loc.topShape.id && !seen.has(inner.id)) {
-        seen.add(inner.id)
-        queue.push(inner.id)
       }
     }
   }

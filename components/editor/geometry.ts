@@ -143,11 +143,12 @@ export interface ShapeGeometry<K extends ShapeKind> {
   // returns the subslot the new point should land in (undefined ⇒ no subslot).
   // Replaces hard-coded `kind === 'rhombus' || kind === 'rectangle'` switches in Canvas.
   dropSubslot: (slot: Slot, ry: number) => Subslot | undefined
-  // True if this kind is a carrier — a wrapper that exists only to hold inner
-  // points, with no meaningful identity of its own. Carriers self-delete when
-  // their inner points are removed (mutations cleanup) AND their inner points
-  // bridge identity with the outer (rename propagation through referent BFS).
-  // False for kinds whose body itself is meaningful (triangle, circle, etc.).
+  // True if this kind is a carrier — a wrapper kind whose body has no meaning
+  // beyond holding inner points. Carriers self-delete when their last inner
+  // point is removed (orphan-cleanup in mutations.ts). NOTE: carriers do NOT
+  // share identity with their inner points — sibling points inside a carrier
+  // are still SEPARATE referents at distinct slots, and renaming one does not
+  // propagate to the others. False for kinds whose body itself is meaningful.
   isCarrier: boolean
   // Plural label shown in the Kinds visibility menu.
   displayName: string
