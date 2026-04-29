@@ -338,7 +338,7 @@ function ShapeView({ data, selected }: NodeProps) {
   const frame = useMemo(() => deriveFrame(geom.body), [geom.body])
 
   const accent = useMemo(() => toRgbTriple(shape.color), [shape.color])
-  const pointsVisible = useStore((s) => s.visibility.points)
+  const outlinesVisible = useStore((s) => s.visibility.outlines)
 
   // This node's slice of selectedPoints, joined as a stable string so Object.is
   // keeps the component stable when other nodes' selections change.
@@ -518,7 +518,7 @@ function ShapeView({ data, selected }: NodeProps) {
     <div
       style={{ position: 'relative', width: nodeWidth, height: nodeHeight, cursor: 'pointer' }}
     >
-      {pointsVisible && <FrameOutline frame={frame} n={n} accent={accent} />}
+      {outlinesVisible && <FrameOutline frame={frame} n={n} accent={accent} />}
       <NodeBg
         body={geom.body}
         frame={frame}

@@ -652,6 +652,7 @@ function Canvas() {
                 {/* Orthogonal toggles — apply across every kind. */}
                 <KindRow label="Points" on={visibility.points} onToggle={() => toggleVisibility('points')} shortcut={['click +']} />
                 <KindRow label="Lines" on={visibility.lines} onToggle={() => toggleVisibility('lines')} shortcut={['drag ○→○']} />
+                <KindRow label="Outlines" on={visibility.outlines} onToggle={() => toggleVisibility('outlines')} />
               </div>
             </div>
           )}
