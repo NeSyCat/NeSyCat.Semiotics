@@ -13,7 +13,7 @@ import {
   type CanonicalFrame,
   type SlotAnchor,
 } from './geometry'
-import { enumerateAddable, enumeratePoints, shapeLabel, walkShape } from './points'
+import { enumerateAddable, enumeratePoints, shapeLabel, slotSchema, walkShape } from './points'
 import { handleIdFor } from './handles'
 import { toRgbTriple } from './color'
 import { useStore } from './store'
@@ -463,15 +463,22 @@ function ShapeView({ data, selected }: NodeProps) {
   //
   // Visibility-dependent override for the `total` slot: when outlines are
   // hidden, the geometry's NW-of-frame anchor sits in negative space (no
-  // visible frame to anchor to). Reposition the total to below the body
-  // center so the label hugs the visible shape. Same rule for every kind —
-  // schema-driven (slot === 'total'), no kind-name branching.
+  // visible frame to anchor to). REUSE the kind's `center` anchor — the
+  // geometry already computes it (e.g. (n/2, n/2) for rectangle/circle/
+  // rhombus; (n/2, triCenterY) for triangle; (n/2, n/2) for empty). Only the
+  // label position is flipped to Bottom so the label renders below the dot
+  // instead of above it. Schema-driven via slotSchema, uniform across kinds.
   const present = enumeratePoints(kind, shape.points)
   const pointVisuals = present.map((e) => {
     let anchor = geom.pointAnchor(shape.points as never, e.slot, e.subslot, e.index, n)
     if (!anchor) return null
     if (e.slot === 'total' && !outlinesVisible) {
-      anchor = { x: n / 2, y: n + 10, position: Position.Bottom }
+      const centerSch = slotSchema(kind, 'center')
+      const centerSub = centerSch.type === 'triad' ? 'center' : undefined
+      const centerAnchor = geom.pointAnchor(shape.points as never, 'center', centerSub, 0, n)
+      if (centerAnchor) {
+        anchor = { x: centerAnchor.x, y: centerAnchor.y, position: Position.Bottom }
+      }
     }
     const handleId = handleIdFor(e.slot, e.subslot, e.index)
     const pid = e.point.id
