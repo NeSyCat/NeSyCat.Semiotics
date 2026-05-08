@@ -45,3 +45,6 @@ next-env.d.ts
 
 # Claude Code playwright-mcp browser automation logs/screenshots (debug output)
 /.playwright-mcp
+
+# Supabase CLI runtime cache under the symlinked supabase/ folder
+/supabase/.temp
