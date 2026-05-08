@@ -32,16 +32,38 @@ _concept/02-diagram/schema.nesycat.json   (you edit this)
         ▼  npm run db:diagram
 _concept/03-orm-schema/schema.ts          (generated — DO NOT EDIT)
         │
-        ▼  drizzle-kit generate
+        ▼  npm run db:generate            (drizzle-kit generate)
 _concept/03-orm-schema/migrations/*.sql
         │
-        ▼  drizzle-kit migrate
+        ▼  git push                       (Supabase auto-applies via branching)
 Supabase Postgres
 ```
+
+The pipeline is linear: there is **no** manual `drizzle-kit migrate` step.
+Drizzle's job ends at producing SQL files. Supabase's GitHub integration
+applies those files automatically — to a per-PR preview branch on PR open,
+to the `staging` persistent branch on merge, and to production on promotion
+to `main`. See "Why there's a `supabase/` folder at root" below.
 
 `lib/db/index.ts` (drizzle client + `withRLS()`) and `lib/supabase/*` (auth
 SDK clients + middleware) are the **runtime** glue — they consume what
 `_concept/` defines. Don't move them; don't conflate them with concept.
+
+## Why there's a `supabase/` folder at root
+
+Supabase's GitHub integration auto-applies migrations from
+`<workdir>/supabase/migrations/` and reads config from
+`<workdir>/supabase/config.toml`. Its working dir is `.` (repo root), so it
+looks at the root. Our canonical locations are deeper, per the `_concept/`
+taxonomy:
+
+- migrations: `_concept/03-orm-schema/migrations/` (Drizzle's `out:` target)
+- config:     `_concept/04-data-schema/config.toml`
+
+`supabase/` at root is a real directory containing two symlinks bridging
+both. Drizzle remains the single source of truth for migrations; Supabase
+reads through the bridge. Don't put real files in `supabase/` — only
+symlinks back into `_concept/`.
 
 ## Branch + PR strategy
 
@@ -62,7 +84,9 @@ SDK clients + middleware) are the **runtime** glue — they consume what
 - **Drizzle**: `drizzle.config.ts` lives at `_concept/03-orm-schema/drizzle.config.ts`
   (with the rest of the Drizzle stack). The `db:*` scripts in `package.json`
   pass `--config _concept/03-orm-schema/drizzle.config.ts`. Always invoke them
-  via `npm run db:…` so cwd stays at repo root and `.env.local` resolves.
+  via `npm run db:…` so cwd stays at repo root and `.env.local` resolves. The
+  scripts intentionally don't include a `db:migrate` — Supabase applies
+  migrations on push, not Drizzle.
 
 ## Deployment
 

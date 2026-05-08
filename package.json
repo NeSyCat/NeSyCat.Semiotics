@@ -9,12 +9,13 @@
     "lint": "eslint",
     "db:diagram": "tsx _concept/03-orm-schema/codegen/diagram-to-drizzle.ts _concept/02-diagram/schema.nesycat.json _concept/03-orm-schema/schema.ts",
     "db:generate": "drizzle-kit generate --config _concept/03-orm-schema/drizzle.config.ts",
-    "db:migrate": "drizzle-kit migrate --config _concept/03-orm-schema/drizzle.config.ts",
     "db:studio": "drizzle-kit studio --config _concept/03-orm-schema/drizzle.config.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.10.2",
     "@supabase/supabase-js": "^2.104.0",
+    "@vercel/analytics": "^2.0.1",
+    "@vercel/speed-insights": "^2.0.0",
     "@xyflow/react": "^12.10.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
