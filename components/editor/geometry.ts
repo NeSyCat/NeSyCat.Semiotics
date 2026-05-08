@@ -365,8 +365,13 @@ const rhombusBody: CanonicalBody = {
 }
 
 // Tilt-spacing helper: position along left/right slanted edge for points in subslot up/down.
+// `up` runs from mid-left (t=0) to apex (t=1). Default mapping puts newest near
+// the apex, which is the desired "newer on top" order — keep it.
+// `down` runs from mid-left (t=0) down to the bottom vertex (t=1). To keep
+// "newer on top" within this segment, we flip so the newest point sits near
+// mid-left and the oldest sits near the bottom vertex.
 const rhombusTU = (k: number, idx: number) => (idx + 1) / (k + 1)
-const rhombusTD = (k: number, idx: number) => (idx + 1) / (k + 1)
+const rhombusTD = (k: number, idx: number) => (k - idx) / (k + 1)
 
 const rhombusGeometry: ShapeGeometry<'rhombus'> = {
   body: rhombusBody,
@@ -427,7 +432,10 @@ const rhombusGeometry: ShapeGeometry<'rhombus'> = {
         return { x: slot === 'left' ? 0 : n, y: half, position: slot === 'left' ? Position.Left : Position.Right }
       }
       if (sub === 'down') {
-        const t = listLen(side.down) === 1 ? 0.75 : 0.5
+        // "+" sits where the next-added point will land under the flipped
+        // rhombusTD mapping (newest closest to mid-left).
+        const k = listLen(side.down)
+        const t = 1 / (k + 2)
         const x = slot === 'left' ? t * half : n - t * half
         return { x, y: half + t * half, position: slot === 'left' ? Position.Left : Position.Right }
       }
@@ -470,7 +478,10 @@ const circleGeometry: ShapeGeometry<'circle'> = {
     if (slot === 'left' || slot === 'right' || slot === 'up' || slot === 'down') {
       const list = (p as Record<string, unknown>)[slot] as AnyShape[] | undefined
       const c = listLen(list)
-      const t = (idx + 1) / (c + 1)
+      // Vertical arcs (left/right): flip t so newest sits at the top of the arc.
+      // Horizontal arcs (up/down): keep newest on the right end of the arc.
+      const isVertical = slot === 'left' || slot === 'right'
+      const t = isVertical ? (c - idx) / (c + 1) : (idx + 1) / (c + 1)
       const [x, y] = arcPt(slot, t, n)
       return { x, y, position: arcPosition[slot] }
     }
@@ -486,8 +497,11 @@ const circleGeometry: ShapeGeometry<'circle'> = {
     if (slot === 'left' || slot === 'right' || slot === 'up' || slot === 'down') {
       const list = (p as Record<string, unknown>)[slot] as AnyShape[] | undefined
       const k = listLen(list)
-      // Per visual contract: plusT = k !== 1 ? 1/2 : (arc in {up,right} ? 3/4 : 1/4)
-      const t = k !== 1 ? 0.5 : (slot === 'up' || slot === 'right' ? 0.75 : 0.25)
+      // "+" lands where the next-added point will render under the rules above:
+      // vertical arcs put new points at small t (top of arc); horizontal arcs
+      // put them at large t (right end of arc).
+      const isVertical = slot === 'left' || slot === 'right'
+      const t = isVertical ? 1 / (k + 2) : (k + 1) / (k + 2)
       const [x, y] = arcPt(slot, t, n)
       return { x, y, position: arcPosition[slot] }
     }
@@ -538,7 +552,9 @@ const rectangleGeometry: ShapeGeometry<'rectangle'> = {
       if (sub === 'down')   return { x, y: n, position: pos }
       if (sub === 'center') {
         const c = listLen(side.center)
-        const y = ((idx + 1) * n) / (c + 1)
+        // Newest on top: invert idx so the highest-index point sits at the
+        // smallest y. Older points slide down rather than up to make room.
+        const y = ((c - idx) * n) / (c + 1)
         return { x, y, position: pos }
       }
     }
@@ -564,7 +580,10 @@ const rectangleGeometry: ShapeGeometry<'rectangle'> = {
       if (sub === 'up')     { if (side.up   !== undefined) return undefined; return { x, y: 0, position: pos } }
       if (sub === 'down')   { if (side.down !== undefined) return undefined; return { x, y: n, position: pos } }
       if (sub === 'center') {
-        const lcT = listLen(side.center) === 1 ? n / 4 : n / 2
+        // Place the "+" exactly where the next-added point will land under
+        // the flipped pointAnchor: y = n / (c + 2) with c = current count.
+        const c = listLen(side.center)
+        const lcT = n / (c + 2)
         return { x, y: lcT, position: pos }
       }
     }
