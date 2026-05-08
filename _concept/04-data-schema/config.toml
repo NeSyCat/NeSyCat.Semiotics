@@ -404,3 +404,9 @@ s3_secret_key = "env(S3_SECRET_KEY)"
 # declarative_schema_path = "./database"
 # JSON string passed through to pg-delta SQL formatting.
 # format_options = "{\"keywordCase\":\"upper\",\"indent\":2,\"maxWidth\":80,\"commaStyle\":\"trailing\"}"
+
+# Persistent branches must be declared here so any branch-scoped settings in
+# this file (auth, secrets, etc.) get applied to them on deploy. Without this,
+# the GitHub integration emits a Configurations warning on every PR.
+[remotes.staging]
+project_id = "ldhbnxcpsmdbbttwyzlx"
