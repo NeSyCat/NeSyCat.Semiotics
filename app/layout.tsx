@@ -15,9 +15,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "NeSyCat — Draw string diagrams. Compile to Haskell.",
+  title: "NeSyCat — Semiotics editor",
   description:
-    "A web editor for category-theoretic string diagrams. Compose shapes, wire their points, and round-trip the whole diagram as JSON.",
+    "The Semiotics editor: compose string diagrams, wire their points, round-trip JSON. Part of the NeSyCat project (nesycat.com).",
 };
 
 export default function RootLayout({
