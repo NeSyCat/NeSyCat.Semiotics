@@ -17,6 +17,20 @@ import { DEFAULT_COLOR } from './color'
 import { geometryFor } from './geometry'
 import { restoreDiagram } from './migrations'
 
+// Mirrors Canvas.tsx's helper. Lives here so line-creating mutations can
+// resolve a point's visible label without dragging UI code in.
+function lookupShapeName(d: Diagram, id: string): string | undefined {
+  const loc = findShape(d, id)
+  if (!loc) return undefined
+  let cur: AnyShape = loc.topShape
+  for (const step of loc.path) {
+    const next = getPointAt(cur.kind, cur.points, step)
+    if (!next) return undefined
+    cur = next
+  }
+  return shapeLabel(cur)
+}
+
 // === Constructors ===
 // Field order matches Shape's declared order in types.ts so the in-memory
 // object's JSON.stringify lays out keys the same way the canonical-on-load
@@ -233,21 +247,40 @@ function referentComponent(d: Diagram, startId: string): Set<string> {
   return seen
 }
 
+// Anchor's name wins; every other member of its referent component is renamed
+// to match. Called from each line-creating mutation so that connecting two
+// differently-named points (or merging two named groups) can never leave the
+// invariant broken. Skips members whose name already matches.
+function unifyComponentName(d: Diagram, anchorPtId: string): Diagram {
+  const canonical = lookupShapeName(d, anchorPtId)
+  if (!canonical || !canonical.trim()) return d
+  const component = referentComponent(d, anchorPtId)
+  let nd = d
+  for (const sid of component) {
+    if (sid === anchorPtId) continue
+    if (lookupShapeName(nd, sid) !== canonical) nd = renameShape(nd, sid, canonical)
+  }
+  return nd
+}
+
 // === Line mutations ===
 
 export function addLine(d: Diagram, sourcePtId: string, targetPtId: string): [Diagram, string] {
   const id = newLineId(d)
   const line = makeLine(id, sourcePtId, targetPtId)
-  return [{ ...d, edges: [...d.edges, line] }, id]
+  const d1 = { ...d, edges: [...d.edges, line] }
+  return [unifyComponentName(d1, sourcePtId), id]
 }
 
 export function addLineTarget(d: Diagram, lineId: string, targetPtId: string): Diagram {
-  return {
+  const d1: Diagram = {
     ...d,
     edges: d.edges.map((l) =>
       l.id !== lineId ? l : ({ ...l, targets: [...l.targets, targetPtId] } as AnyLine),
     ),
   }
+  const line = d1.edges.find((l) => l.id === lineId)
+  return line ? unifyComponentName(d1, line.source) : d1
 }
 
 export function deleteLine(d: Diagram, lineId: string): Diagram {
@@ -330,7 +363,12 @@ export function attachLine(
       ? oldLoc.topShape.id
       : undefined
 
-  const [d1, newPtId] = addPoint(d, parentId, slot, subslot)
+  // Inherit the name from the line's STABLE end (the one not being moved) so
+  // the new attachment point reads as the same referent the line already has.
+  // pruneLines guarantees ≥1 target, so targets[0] is safe when moving source.
+  const stablePtId = end.kind === 'source' ? line.targets[0] : line.source
+  const inheritedName = stablePtId ? lookupShapeName(d, stablePtId) : undefined
+  const [d1, newPtId] = addPoint(d, parentId, slot, subslot, inheritedName)
   if (!newPtId) return [d, '']
 
   // Repoint the line at the new point.
@@ -367,7 +405,7 @@ export function attachLine(
     }
   }
 
-  return [d3, newPtId]
+  return [unifyComponentName(d3, newPtId), newPtId]
 }
 
 // === Translation (one-axis transform mutation) ===
