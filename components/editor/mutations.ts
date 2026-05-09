@@ -263,13 +263,40 @@ function unifyComponentName(d: Diagram, anchorPtId: string): Diagram {
   return nd
 }
 
+// Lines incident to the same point-component share a `name`. Sibling rule to
+// `unifyComponentName` for line entities. `override` is used by `renameLine`
+// so a user-typed rename wins; otherwise the smallest-id line in the
+// component is canonical (oldest → stable, doesn't depend on which side the
+// user dragged from).
+function unifyComponentLineName(d: Diagram, anchorLineId: string, override?: string): Diagram {
+  const anchor = d.edges.find((l) => l.id === anchorLineId)
+  if (!anchor) return d
+  const points = referentComponent(d, anchor.source)
+  const lines = d.edges.filter(
+    (l) => points.has(l.source) || l.targets.some((t) => points.has(t)),
+  )
+  if (lines.length <= 1) return d
+  let canonical: string = override?.trim() || ''
+  if (!canonical) {
+    canonical = [...lines].sort((a, b) => a.id.localeCompare(b.id))[0].name ?? ''
+  }
+  if (!canonical) return d
+  let nd = d
+  for (const l of lines) {
+    if (l.name !== canonical) nd = renameShape(nd, l.id, canonical)
+  }
+  return nd
+}
+
 // === Line mutations ===
 
 export function addLine(d: Diagram, sourcePtId: string, targetPtId: string): [Diagram, string] {
   const id = newLineId(d)
   const line = makeLine(id, sourcePtId, targetPtId)
   const d1 = { ...d, edges: [...d.edges, line] }
-  return [unifyComponentName(d1, sourcePtId), id]
+  const d2 = unifyComponentName(d1, sourcePtId)
+  const d3 = unifyComponentLineName(d2, id)
+  return [d3, id]
 }
 
 export function addLineTarget(d: Diagram, lineId: string, targetPtId: string): Diagram {
@@ -280,7 +307,9 @@ export function addLineTarget(d: Diagram, lineId: string, targetPtId: string): D
     ),
   }
   const line = d1.edges.find((l) => l.id === lineId)
-  return line ? unifyComponentName(d1, line.source) : d1
+  if (!line) return d1
+  const d2 = unifyComponentName(d1, line.source)
+  return unifyComponentLineName(d2, lineId)
 }
 
 export function deleteLine(d: Diagram, lineId: string): Diagram {
@@ -300,7 +329,9 @@ export function deleteLineTarget(d: Diagram, lineId: string, idx: number): Diagr
 }
 
 export function renameLine(d: Diagram, id: string, newName: string): Diagram {
-  return renameShape(d, id, newName)
+  if (!newName.trim()) return d
+  const d1 = renameShape(d, id, newName)
+  return unifyComponentLineName(d1, id, newName)
 }
 
 // Create a free-floating empty carrier with one center child and a line
@@ -405,7 +436,9 @@ export function attachLine(
     }
   }
 
-  return [unifyComponentName(d3, newPtId), newPtId]
+  const d4 = unifyComponentName(d3, newPtId)
+  const d5 = unifyComponentLineName(d4, lineId)
+  return [d5, newPtId]
 }
 
 // === Translation (one-axis transform mutation) ===
