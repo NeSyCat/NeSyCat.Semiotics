@@ -223,12 +223,30 @@ function walkToPath(top: AnyShape, path: { slot: Slot; subslot?: Subslot; index:
 // are SEPARATE referents — they live at distinct slots and have their own
 // identities; renaming one must not propagate to the others. Same rule for
 // every kind, no carrier exception.
+//
+// Cross-component invariant: two points in DIFFERENT referent components
+// can't share a name (otherwise "same name = same referent" is broken in the
+// global namespace). If `newName` is already used by some point outside this
+// point's component, the rename is rejected (no-op) rather than silently
+// merging two distinct referents under one label.
 export function renamePoint(d: Diagram, id: string, newName: string): Diagram {
   if (!newName.trim()) return d
   const component = referentComponent(d, id)
+  if (pointNameTakenOutside(d, newName, component)) return d
   let nd = d
   for (const sid of component) nd = renameShape(nd, sid, newName)
   return nd
+}
+
+// True iff some point shape OUTSIDE `component` already carries `name`.
+function pointNameTakenOutside(d: Diagram, name: string, component: Set<string>): boolean {
+  for (const top of d.nodes) {
+    for (const s of walkShape(top)) {
+      if (component.has(s.id)) continue
+      if (s.name === name) return true
+    }
+  }
+  return false
 }
 
 function referentComponent(d: Diagram, startId: string): Set<string> {
@@ -328,10 +346,28 @@ export function deleteLineTarget(d: Diagram, lineId: string, idx: number): Diagr
   }
 }
 
+// Same cross-component invariant as `renamePoint`: a line's name must be
+// unique across the diagram's referent components. Reject if `newName` is
+// already used by some line in another component; otherwise propagate to
+// all sibling lines in the renamed line's component.
 export function renameLine(d: Diagram, id: string, newName: string): Diagram {
   if (!newName.trim()) return d
+  const me = d.edges.find((l) => l.id === id)
+  if (!me) return d
+  const myPoints = referentComponent(d, me.source)
+  if (lineNameTakenOutside(d, newName, myPoints)) return d
   const d1 = renameShape(d, id, newName)
   return unifyComponentLineName(d1, id, newName)
+}
+
+// True iff some line OUTSIDE the given point-component already carries `name`.
+function lineNameTakenOutside(d: Diagram, name: string, component: Set<string>): boolean {
+  for (const l of d.edges) {
+    if (l.name !== name) continue
+    const incident = component.has(l.source) || l.targets.some((t) => component.has(t))
+    if (!incident) return true
+  }
+  return false
 }
 
 // Create a free-floating empty carrier with one center child and a line
