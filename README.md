@@ -1,12 +1,14 @@
 # NeSyCat Semiotics
 
 A web editor for category-theoretic **string diagrams**. Compose shapes,
-wire their points, and round-trip the whole diagram as JSON — the visible
-surface of the [NeSyCat](https://github.com/NeSyCat) toolkit for
-neuro-symbolic research. Haskell codegen is on the roadmap.
+wire their points, and round-trip the whole diagram as JSON.
 
-Live at **[nesycat.com](https://nesycat.com)** — sign in with GitHub and
-start drawing.
+This repo is just the editor. The umbrella site for the NeSyCat project
+(theory paper, HaskTorch implementation, project context) lives at
+**[nesycat.com](https://nesycat.com)**.
+
+Editor live at **[semiotics.nesycat.com](https://semiotics.nesycat.com)** —
+sign in with GitHub and start drawing.
 
 ## What you can draw
 
