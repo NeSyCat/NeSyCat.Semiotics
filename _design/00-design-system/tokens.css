@@ -1,0 +1,100 @@
+/*
+ * NeSyCat design tokens — copied from the app for design-time reference.
+ *
+ * Source of truth lives at:
+ *   app/globals.css                          (`:root { ... }` + `@layer components { .t-* }`)
+ *   components/editor/style/theme.ts         (typed facade + TS-only values)
+ *   components/editor/color.ts               (`DEFAULT_COLOR` shape palette)
+ *   app/layout.tsx                           (Geist fonts via `next/font/google`)
+ *
+ * When the design phase produces a final redesign, port the changes back into
+ * the app's source-of-truth files and keep this file in sync.
+ */
+
+:root {
+  /* Canvas + glass-morphism */
+  --color-canvas-bg:       #0f0f14;
+  --color-glass-panel-bg:  rgba(15, 15, 20, 0.4);
+  --color-glass-button-bg: rgba(255, 255, 255, 0.06);
+  --color-glass-border:    rgba(255, 255, 255, 0.08);
+
+  /* Text hierarchy */
+  --color-text-primary:    #ffffff;
+  --color-text-secondary:  rgba(255, 255, 255, 0.8);
+  --color-text-muted:      rgba(255, 255, 255, 0.55);
+  --color-text-dimmed:     rgba(255, 255, 255, 0.35);
+
+  /* Accent */
+  --color-accent-blue:     rgb(59, 130, 246);
+  --color-accent-rgb:      59, 130, 246;
+
+  /* Size + effect */
+  --size-radius-md:        8px;
+  --effect-blur:           3px;
+
+  /* Shape palette (matches color.ts DEFAULT_COLOR). The opacity tiers below
+     are TS-only constants in components/editor/style/theme.ts; exposing them
+     here as CSS vars so design-time HTML can reference them. */
+  --shape-default-rgb:        59, 130, 246;
+  --shape-fill-opacity:       0.18;
+  --shape-border-opacity:     0.35;
+  --shape-selected-fill:      0.35;
+  --shape-selected-border:    0.7;
+
+  /* Canvas-only values pulled from theme.ts (SVG grid + text shadows) */
+  --canvas-grid-color:        rgba(255, 255, 255, 0.03);
+  --text-shadow:              0 1px 3px rgba(0, 0, 0, 0.5);
+  --text-shadow-light:        0 1px 2px rgba(0, 0, 0, 0.3);
+
+  /* Font families */
+  --font-geist-sans: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-geist-mono: "Geist Mono", "SF Mono", Menlo, ui-monospace, monospace;
+}
+
+/* Typography utilities — verbatim copy of @layer components from globals.css. */
+
+.t-display {
+  font-size: 48px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+  color: var(--color-text-primary);
+}
+.t-h1 {
+  font-size: 28px;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  color: var(--color-text-primary);
+}
+.t-h2 {
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--color-text-primary);
+}
+.t-body {
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.5;
+  color: var(--color-text-secondary);
+}
+.t-small {
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.5;
+  color: var(--color-text-secondary);
+}
+.t-caption {
+  font-family: var(--font-geist-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+.t-mono {
+  font-family: var(--font-geist-mono);
+  font-size: 14px;
+  font-weight: 500;
+}

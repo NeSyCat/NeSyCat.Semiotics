@@ -2,10 +2,330 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>02 — Wireframe</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>02 — Wireframe · Editor chrome</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@500;600&display=swap" />
+  <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
-  <h1>02 — Wireframe</h1>
-  <p>Placeholder. Replace with structural HTML+CSS.</p>
+
+<header class="page-header">
+  <div class="t-caption">NeSyCat · Wireframe · v0</div>
+  <h1 class="t-h1">Editor chrome — current layout.</h1>
+  <p>
+    Low-fidelity wireframe of the editor's UI shell as it ships today. The
+    React Flow canvas in the middle (shapes, points, wires, the JSON spine) is
+    rendered as a labelled placeholder — it's intentionally out of scope.
+    Everything around it is fair game to move, reshape, or replace. Edit the
+    boxes in <code>index.html</code> and <code>styles.css</code> directly to
+    iterate.
+  </p>
+</header>
+
+<!-- ═══════ Scene 1: default editor state ═══════ -->
+
+<section class="wireframe-section">
+  <h2 class="t-h1">Scene 1 — default editor state</h2>
+  <p class="lead">
+    Signed-in user has just opened a diagram. Left sidebar expanded, top-left
+    toolbar visible, JSON panel closed in the top-right corner, zoom controls
+    bottom-left.
+  </p>
+
+  <div class="with-annotations">
+    <div class="editor-frame">
+
+      <!-- Left sidebar -->
+      <aside class="sidebar">
+        <div class="sidebar-brand">
+          <span class="logo-mark"></span>
+          <span class="name">NeSyCat</span>
+        </div>
+        <div class="sidebar-search">
+          <input type="text" placeholder="Search…" />
+          <div class="plus">+</div>
+        </div>
+        <div class="sidebar-list">
+          <div class="diagram-row active">
+            <span class="title">Untitled diagram</span>
+            <span class="meta">just now · L1, L2, L3</span>
+          </div>
+          <div class="diagram-row">
+            <span class="title">Categorical layer α</span>
+            <span class="meta">3h ago · 12 pts</span>
+          </div>
+          <div class="diagram-row">
+            <span class="title">Logical 2Mon-BLat</span>
+            <span class="meta">yesterday · 8 pts</span>
+          </div>
+          <div class="diagram-row">
+            <span class="title">Grammar substitution</span>
+            <span class="meta">2 days ago · 4 pts</span>
+          </div>
+          <div class="diagram-row">
+            <span class="title">Binary classification</span>
+            <span class="meta">May 6 · 21 pts</span>
+          </div>
+          <div class="diagram-row">
+            <span class="title">MeasU / GeomU universes</span>
+            <span class="meta">May 5 · 6 pts</span>
+          </div>
+        </div>
+        <div class="sidebar-collapse">‹</div>
+      </aside>
+
+      <!-- Canvas + floating chrome -->
+      <div class="canvas-area">
+
+        <!-- Top-left toolbar -->
+        <div class="glass-bar toolbar-topleft">
+          <button class="glass-btn">Kinds ▾</button>
+          <div class="divider"></div>
+          <div class="toolbar-toggle">
+            <button class="glass-btn is-active">Straight</button>
+            <button class="glass-btn">Smooth</button>
+          </div>
+        </div>
+
+        <!-- Top-right JSON panel (closed) -->
+        <div class="glass-bar json-panel-closed">
+          <button class="glass-btn">JSON</button>
+        </div>
+
+        <!-- Canvas placeholder -->
+        <div class="canvas-placeholder">
+          <div>
+            <strong>React Flow canvas — out of scope.</strong><br />
+            Shapes (rectangle, triangle, circle, rhombus, empty), points,
+            wires, the JSON spine. Rendered unchanged from today; the redesign
+            doesn't touch what's drawn here.
+          </div>
+        </div>
+
+        <!-- Bottom-left zoom controls -->
+        <div class="controls-cluster">
+          <button>+</button>
+          <button>−</button>
+          <button>⊡</button>
+          <button>⤢</button>
+        </div>
+
+      </div>
+    </div>
+
+    <aside class="annotations">
+      <h3>Sidebar</h3>
+      <div class="note"><span class="pin">A</span>Logo + project name. Click → editor home.</div>
+      <div class="note"><span class="pin">B</span>Search filters the diagram list in place.</div>
+      <div class="note"><span class="pin">C</span><strong>+</strong> creates a new untitled diagram and navigates to it.</div>
+      <div class="note"><span class="pin">D</span>Diagram rows: title + relative-time meta. Hover reveals edit/delete.</div>
+      <div class="note"><span class="pin">E</span><code>‹</code> arrow collapses the sidebar to 0 width; toggle re-expands.</div>
+
+      <h3>Canvas chrome</h3>
+      <div class="note"><span class="pin">F</span>Top-left toolbar slides right with the sidebar (CSS var <code>--sidebar-offset</code>).</div>
+      <div class="note"><span class="pin">G</span>"Kinds ▾" on hover/click opens the menu in Scene 2.</div>
+      <div class="note"><span class="pin">H</span>Straight / Smooth toggle controls edge path style.</div>
+      <div class="note"><span class="pin">I</span>JSON button toggles the open-state panel in Scene 3.</div>
+      <div class="note"><span class="pin">J</span>Zoom controls: + / − / fit-view / lock. From React Flow's built-in <code>&lt;Controls /&gt;</code>.</div>
+
+      <h3>Redesign hooks</h3>
+      <div class="note">Floating Kinds menu obscures the top-left of the canvas — could move into the sidebar.</div>
+      <div class="note">JSON panel and Kinds menu share the same surface but live on opposite corners — consider unifying as tabs.</div>
+      <div class="note">No persistent diagram title / breadcrumb on the canvas — currently only visible in the sidebar row.</div>
+      <div class="note">No surface for user identity / sign-out — sits implicitly behind the canvas.</div>
+    </aside>
+  </div>
+</section>
+
+<!-- ═══════ Scene 2: Kinds menu open ═══════ -->
+
+<section class="wireframe-section">
+  <h2 class="t-h1">Scene 2 — Kinds menu open</h2>
+  <p class="lead">
+    User hovers the "Kinds ▾" button. Menu drops below the toolbar with one
+    row per shape kind plus orthogonal Points / Lines / Outlines toggles.
+    Hotkey hints in monospace at the right edge of each row.
+  </p>
+
+  <div class="editor-frame">
+    <aside class="sidebar">
+      <div class="sidebar-brand"><span class="logo-mark"></span><span class="name">NeSyCat</span></div>
+      <div class="sidebar-search"><input placeholder="Search…" /><div class="plus">+</div></div>
+      <div class="sidebar-list">
+        <div class="diagram-row active"><span class="title">Untitled diagram</span><span class="meta">just now</span></div>
+        <div class="diagram-row"><span class="title">Categorical layer α</span><span class="meta">3h ago</span></div>
+        <div class="diagram-row"><span class="title">Logical 2Mon-BLat</span><span class="meta">yesterday</span></div>
+        <div class="diagram-row"><span class="title">Grammar substitution</span><span class="meta">2d ago</span></div>
+      </div>
+      <div class="sidebar-collapse">‹</div>
+    </aside>
+    <div class="canvas-area">
+      <div class="glass-bar toolbar-topleft">
+        <button class="glass-btn is-primary">Kinds ▴</button>
+        <div class="divider"></div>
+        <div class="toolbar-toggle">
+          <button class="glass-btn is-active">Straight</button>
+          <button class="glass-btn">Smooth</button>
+        </div>
+      </div>
+
+      <!-- Open Kinds menu -->
+      <div class="kinds-menu">
+        <div class="row is-toggled">
+          <span class="name"><span class="check on"></span>Rectangles</span>
+          <span class="hint">⌘ 2×</span>
+        </div>
+        <div class="row is-toggled">
+          <span class="name"><span class="check on"></span>Triangles</span>
+          <span class="hint">⌥ 2×</span>
+        </div>
+        <div class="row is-toggled">
+          <span class="name"><span class="check on"></span>Rhombuses</span>
+          <span class="hint">⇧ 2×</span>
+        </div>
+        <div class="row is-toggled">
+          <span class="name"><span class="check on"></span>Circles</span>
+          <span class="hint">2×</span>
+        </div>
+        <div class="row is-toggled">
+          <span class="name"><span class="check on"></span>Empties</span>
+          <span class="hint">⌃ 2×</span>
+        </div>
+        <div class="divider"></div>
+        <div class="row is-toggled">
+          <span class="name"><span class="check on"></span>Points</span>
+          <span class="hint">P</span>
+        </div>
+        <div class="row is-toggled">
+          <span class="name"><span class="check on"></span>Lines</span>
+          <span class="hint">L</span>
+        </div>
+        <div class="row">
+          <span class="name"><span class="check"></span>Outlines</span>
+          <span class="hint">O</span>
+        </div>
+      </div>
+
+      <div class="glass-bar json-panel-closed"><button class="glass-btn">JSON</button></div>
+      <div class="canvas-placeholder">
+        <div><strong>React Flow canvas — out of scope.</strong></div>
+      </div>
+      <div class="controls-cluster">
+        <button>+</button><button>−</button><button>⊡</button><button>⤢</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════ Scene 3: JSON panel open ═══════ -->
+
+<section class="wireframe-section">
+  <h2 class="t-h1">Scene 3 — JSON panel open</h2>
+  <p class="lead">
+    User clicked the JSON button. Top-right panel expands to ~320 × 280, with
+    an Export / Import header strip and a read-only code preview of the
+    diagram JSON beneath. Close on click-outside or button toggle.
+  </p>
+
+  <div class="editor-frame">
+    <aside class="sidebar">
+      <div class="sidebar-brand"><span class="logo-mark"></span><span class="name">NeSyCat</span></div>
+      <div class="sidebar-search"><input placeholder="Search…" /><div class="plus">+</div></div>
+      <div class="sidebar-list">
+        <div class="diagram-row active"><span class="title">Untitled diagram</span><span class="meta">just now</span></div>
+        <div class="diagram-row"><span class="title">Categorical layer α</span><span class="meta">3h ago</span></div>
+        <div class="diagram-row"><span class="title">Logical 2Mon-BLat</span><span class="meta">yesterday</span></div>
+      </div>
+      <div class="sidebar-collapse">‹</div>
+    </aside>
+    <div class="canvas-area">
+      <div class="glass-bar toolbar-topleft">
+        <button class="glass-btn">Kinds ▾</button>
+        <div class="divider"></div>
+        <div class="toolbar-toggle">
+          <button class="glass-btn is-active">Straight</button>
+          <button class="glass-btn">Smooth</button>
+        </div>
+      </div>
+
+      <!-- Open JSON panel -->
+      <div class="glass-bar json-panel-open">
+        <div class="header">
+          <div class="left">
+            <button class="glass-btn">JSON ▴</button>
+          </div>
+          <div>
+            <button class="glass-btn">Export ↓</button>
+            <button class="glass-btn">Import ↑</button>
+          </div>
+        </div>
+        <div class="body">{
+  "nodes": [
+    { "id": "S3", "kind": "empty", "points": {
+        "center": { "id": "P4", "name": "Y" }
+    } },
+    { "id": "S4", "kind": "rectangle", "points": {
+        "left":  { "center": [ { "id": "P6", "name": "Y" } ] },
+        "right": { "center": [ { "id": "P7", "name": "H1" } ] }
+    } }
+  ],
+  "edges": [
+    { "id": "L1", "name": "L1", "source": "P4", "targets": ["P6"] },
+    { "id": "L2", "name": "L2", "source": "P7", "targets": ["P8"] }
+  ]
+}</div>
+      </div>
+
+      <div class="canvas-placeholder">
+        <div><strong>React Flow canvas — out of scope.</strong></div>
+      </div>
+      <div class="controls-cluster">
+        <button>+</button><button>−</button><button>⊡</button><button>⤢</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════ Scene 4: Star-prompt modal ═══════ -->
+
+<section class="wireframe-section">
+  <h2 class="t-h1">Scene 4 — Star-prompt modal</h2>
+  <p class="lead">
+    After ~45s idle, a full-screen modal asks the user to star the GitHub
+    repo. Dismissible with "Not now" (snoozes 3 days) or "Star on GitHub"
+    (opens repo). Shown here as a stand-alone state since it overlays any of
+    the scenes above.
+  </p>
+
+  <div class="modal-frame">
+    <div class="modal-scrim">
+      <div class="modal-body">
+        <div class="star">★</div>
+        <h2 class="t-h2" style="margin: 0">Enjoying NeSyCat?</h2>
+        <p class="t-small" style="margin: 0; color: var(--color-text-muted)">
+          A star on GitHub helps other category-theoretic AI folks find the project.
+        </p>
+        <div class="btn-row">
+          <button class="btn">Not now</button>
+          <button class="btn is-primary">Star on GitHub ↗</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer class="wireframe-section" style="border-bottom: none">
+  <p class="t-small" style="color: var(--color-text-dimmed)">
+    Out of scope for this wireframe: the React Flow canvas itself (node /
+    point / line rendering), the inline rename input that appears on
+    double-clicking a point name, the slot <code>+</code> buttons that appear
+    when a shape is selected. Those live inside the canvas and belong to a
+    separate redesign pass.
+  </p>
+</footer>
+
 </body>
 </html>
