@@ -14,8 +14,9 @@ The shell around the canvas:
 - Star-prompt modal (idle-triggered overlay).
 
 Each is rendered as a separate "scene" so we can iterate on regions
-independently and capture multiple states (Scene 1 default, Scene 2 Kinds
-menu open, Scene 3 JSON panel open, Scene 4 star modal).
+independently and capture multiple states (Scene 1 default, Scene 2 sidebar
+collapsed, Scene 3 Kinds menu open, Scene 4 JSON panel open, Scene 5 star
+modal).
 
 The right margin of Scene 1 carries an annotation column with redesign-hook
 notes — concrete observations about the current layout that the next

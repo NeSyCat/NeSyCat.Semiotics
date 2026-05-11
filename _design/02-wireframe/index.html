@@ -75,56 +75,31 @@
 
     <!-- Left sidebar -->
     <aside class="sidebar">
-      <a class="sidebar-brand" href="#" title="Back to landing">
-        <svg class="logo-mark"><use href="#logo-mark"/></svg>
-        <span class="brand-name">NeSyCat Semiotics</span>
-      </a>
-      <div class="sidebar-search-row">
-        <div class="sidebar-search">
-          <input type="search" placeholder="Search…" aria-label="Search diagrams" />
+      <div class="sidebar-inner">
+        <a class="sidebar-brand" href="#" title="Back to landing">
+          <svg class="logo-mark"><use href="#logo-mark"/></svg>
+          <span class="brand-name">NeSyCat Semiotics</span>
+        </a>
+        <div class="sidebar-search-row">
+          <div class="sidebar-search">
+            <input type="search" placeholder="Search…" aria-label="Search diagrams" />
+          </div>
+          <button class="sidebar-new" type="button" aria-label="New diagram" title="New diagram">+</button>
         </div>
-        <button class="sidebar-new" type="button" aria-label="New diagram" title="New diagram">+</button>
-      </div>
-      <div class="sidebar-list">
-        <div class="diagram-row active">
-          <span class="title">Mortimer&apos;s Thesis</span>
-          <span class="meta">2d ago</span>
-        </div>
-        <div class="diagram-row">
-          <span class="title">CT for Programmers</span>
-          <span class="meta">2d ago</span>
-        </div>
-        <div class="diagram-row">
-          <span class="title">Archetypon Logicon</span>
-          <span class="meta">3d ago</span>
-        </div>
-        <div class="diagram-row">
-          <span class="title">PAZ CSG</span>
-          <span class="meta">3d ago</span>
-        </div>
-        <div class="diagram-row">
-          <span class="title">PAZ Renderer types.py</span>
-          <span class="meta">3d ago</span>
-        </div>
-        <div class="diagram-row">
-          <span class="title">Alice kills a cat</span>
-          <span class="meta">4d ago</span>
-        </div>
-        <div class="diagram-row">
-          <span class="title">Human Sysmer</span>
-          <span class="meta">6d ago</span>
-        </div>
-        <div class="diagram-row">
-          <span class="title">Semiotic Types</span>
-          <span class="meta">11d ago</span>
-        </div>
-        <div class="diagram-row">
-          <span class="title">Datenbank Vorl. + FK</span>
-          <span class="meta">15d ago</span>
+        <div class="sidebar-list">
+          <div class="diagram-row active"><span class="title">Mortimer&apos;s Thesis</span><span class="meta">2d ago</span></div>
+          <div class="diagram-row"><span class="title">CT for Programmers</span><span class="meta">2d ago</span></div>
+          <div class="diagram-row"><span class="title">Archetypon Logicon</span><span class="meta">3d ago</span></div>
+          <div class="diagram-row"><span class="title">PAZ CSG</span><span class="meta">3d ago</span></div>
+          <div class="diagram-row"><span class="title">PAZ Renderer types.py</span><span class="meta">3d ago</span></div>
+          <div class="diagram-row"><span class="title">Alice kills a cat</span><span class="meta">4d ago</span></div>
+          <div class="diagram-row"><span class="title">Human Sysmer</span><span class="meta">6d ago</span></div>
+          <div class="diagram-row"><span class="title">Semiotic Types</span><span class="meta">11d ago</span></div>
+          <div class="diagram-row"><span class="title">Datenbank Vorl. + FK</span><span class="meta">15d ago</span></div>
         </div>
       </div>
-      <div class="sidebar-collapse">‹</div>
     </aside>
+    <button class="sidebar-handle" type="button" aria-label="Collapse sidebar" title="Collapse sidebar">‹</button>
 
     <div class="canvas-area">
       <!-- Top-left toolbar -->
@@ -163,7 +138,7 @@
     <div class="note"><span class="pin">F</span>Top-left toolbar at 12 px from top, <code>12px + --sidebar-offset</code> from left, slides on collapse with 200 ms transition.</div>
     <div class="note"><span class="pin">G</span>Each button: <code>panelStyle()</code> + 8 px radius + 6×14 padding, 12 px / 600 wt secondary text.</div>
     <div class="note"><span class="pin">H</span>"Straight" label toggles to "Smooth" when clicked; tooltip carries the current state.</div>
-    <div class="note"><span class="pin">I</span>JSON button — open state in Scene 3 (panel expands below it, button stays visible above).</div>
+    <div class="note"><span class="pin">I</span>JSON button — open state in Scene 4 (panel expands below it, button stays visible above).</div>
     <div class="note"><span class="pin">J</span>Zoom cluster from React Flow's <code>&lt;Controls/&gt;</code>: 28 px buttons stacked, also tracks sidebar offset.</div>
 
     <h3>Redesign hooks</h3>
@@ -174,10 +149,75 @@
   </div>
 </section>
 
-<!-- ═══════ Scene 2: Kinds menu open ═══════ -->
+<!-- ═══════ Scene 2: Sidebar collapsed ═══════ -->
 
 <section class="wireframe-section">
-  <h2 class="t-h1">Scene 2 — Kinds menu open</h2>
+  <h2 class="t-h1">Scene 2 — sidebar collapsed</h2>
+  <p class="lead">
+    Click the handle and the sidebar slides to 0 width (200 ms transition,
+    matches <code>EditorSidebar.tsx</code> setting <code>--sidebar-offset</code>
+    to <code>0px</code>). The handle stays anchored — its <code>left</code>
+    now resolves to 0 — so the user always has an obvious affordance to
+    re-open. The top-left toolbar and the bottom-left zoom cluster slide
+    along with it; the JSON button in the top-right is unaffected.
+  </p>
+
+  <div class="editor-frame is-sidebar-closed">
+    <div class="canvas-bg"></div>
+
+    <aside class="sidebar">
+      <div class="sidebar-inner">
+        <a class="sidebar-brand" href="#">
+          <svg class="logo-mark"><use href="#logo-mark"/></svg>
+          <span class="brand-name">NeSyCat Semiotics</span>
+        </a>
+        <div class="sidebar-search-row">
+          <div class="sidebar-search"><input type="search" placeholder="Search…" /></div>
+          <button class="sidebar-new" type="button">+</button>
+        </div>
+        <div class="sidebar-list">
+          <div class="diagram-row active"><span class="title">Mortimer&apos;s Thesis</span><span class="meta">2d ago</span></div>
+          <div class="diagram-row"><span class="title">CT for Programmers</span><span class="meta">2d ago</span></div>
+          <div class="diagram-row"><span class="title">Archetypon Logicon</span><span class="meta">3d ago</span></div>
+        </div>
+      </div>
+    </aside>
+    <button class="sidebar-handle" type="button" aria-label="Open sidebar">›</button>
+
+    <div class="canvas-area">
+      <div class="toolbar-topleft">
+        <div class="kinds-anchor">
+          <button class="panel-btn" type="button">Kinds</button>
+        </div>
+        <button class="panel-btn" type="button">Straight</button>
+      </div>
+
+      <div class="topright">
+        <button class="panel-btn" type="button">JSON</button>
+      </div>
+
+      <div class="controls-cluster" aria-label="Zoom controls">
+        <button type="button"><svg><use href="#ic-plus"/></svg></button>
+        <button type="button"><svg><use href="#ic-minus"/></svg></button>
+        <button type="button"><svg><use href="#ic-fit"/></svg></button>
+        <button type="button"><svg><use href="#ic-lock"/></svg></button>
+      </div>
+    </div>
+  </div>
+
+  <div class="annotations">
+    <h3>Handle</h3>
+    <div class="note"><span class="pin">T</span>Single button, 28×64, glass panel with no left border so it visually attaches to the sidebar or canvas edge.</div>
+    <div class="note"><span class="pin">U</span>Arrow flips from <code>‹</code> (open → close) to <code>›</code> (closed → open) to match the action it triggers.</div>
+    <div class="note"><span class="pin">V</span><code>left: var(--sidebar-offset)</code> with a 200 ms transition — the handle slides in lockstep with the sidebar.</div>
+    <div class="note"><span class="pin">W</span>The whole sidebar (brand row, search, list) is still mounted under the hood — width 0 + <code>overflow: hidden</code> hides it without unmounting state.</div>
+  </div>
+</section>
+
+<!-- ═══════ Scene 3: Kinds menu open ═══════ -->
+
+<section class="wireframe-section">
+  <h2 class="t-h1">Scene 3 — Kinds menu open</h2>
   <p class="lead">
     Hovering the "Kinds" button reveals a glass dropdown 6 px below it.
     Eight rows: five per-kind toggles (in registry order — Empties,
@@ -191,23 +231,25 @@
     <div class="canvas-bg"></div>
 
     <aside class="sidebar">
-      <a class="sidebar-brand" href="#">
-        <svg class="logo-mark"><use href="#logo-mark"/></svg>
-        <span class="brand-name">NeSyCat Semiotics</span>
-      </a>
-      <div class="sidebar-search-row">
-        <div class="sidebar-search"><input type="search" placeholder="Search…" /></div>
-        <button class="sidebar-new" type="button">+</button>
+      <div class="sidebar-inner">
+        <a class="sidebar-brand" href="#">
+          <svg class="logo-mark"><use href="#logo-mark"/></svg>
+          <span class="brand-name">NeSyCat Semiotics</span>
+        </a>
+        <div class="sidebar-search-row">
+          <div class="sidebar-search"><input type="search" placeholder="Search…" /></div>
+          <button class="sidebar-new" type="button">+</button>
+        </div>
+        <div class="sidebar-list">
+          <div class="diagram-row active"><span class="title">Mortimer&apos;s Thesis</span><span class="meta">2d ago</span></div>
+          <div class="diagram-row"><span class="title">CT for Programmers</span><span class="meta">2d ago</span></div>
+          <div class="diagram-row"><span class="title">Archetypon Logicon</span><span class="meta">3d ago</span></div>
+          <div class="diagram-row"><span class="title">PAZ CSG</span><span class="meta">3d ago</span></div>
+          <div class="diagram-row"><span class="title">PAZ Renderer types.py</span><span class="meta">3d ago</span></div>
+        </div>
       </div>
-      <div class="sidebar-list">
-        <div class="diagram-row active"><span class="title">Mortimer&apos;s Thesis</span><span class="meta">2d ago</span></div>
-        <div class="diagram-row"><span class="title">CT for Programmers</span><span class="meta">2d ago</span></div>
-        <div class="diagram-row"><span class="title">Archetypon Logicon</span><span class="meta">3d ago</span></div>
-        <div class="diagram-row"><span class="title">PAZ CSG</span><span class="meta">3d ago</span></div>
-        <div class="diagram-row"><span class="title">PAZ Renderer types.py</span><span class="meta">3d ago</span></div>
-      </div>
-      <div class="sidebar-collapse">‹</div>
     </aside>
+    <button class="sidebar-handle" type="button" aria-label="Collapse sidebar">‹</button>
 
     <div class="canvas-area">
       <div class="toolbar-topleft">
@@ -285,10 +327,10 @@
   </div>
 </section>
 
-<!-- ═══════ Scene 3: JSON panel open ═══════ -->
+<!-- ═══════ Scene 4: JSON panel open ═══════ -->
 
 <section class="wireframe-section">
-  <h2 class="t-h1">Scene 3 — JSON panel open</h2>
+  <h2 class="t-h1">Scene 4 — JSON panel open</h2>
   <p class="lead">
     JSON button toggles a 400-wide, 500-max-height glass panel. Header strip
     carries a "DIAGRAM DATA" caption (11 px Mono / 600 wt / uppercase /
@@ -300,23 +342,25 @@
     <div class="canvas-bg"></div>
 
     <aside class="sidebar">
-      <a class="sidebar-brand" href="#">
-        <svg class="logo-mark"><use href="#logo-mark"/></svg>
-        <span class="brand-name">NeSyCat Semiotics</span>
-      </a>
-      <div class="sidebar-search-row">
-        <div class="sidebar-search"><input type="search" placeholder="Search…" /></div>
-        <button class="sidebar-new" type="button">+</button>
+      <div class="sidebar-inner">
+        <a class="sidebar-brand" href="#">
+          <svg class="logo-mark"><use href="#logo-mark"/></svg>
+          <span class="brand-name">NeSyCat Semiotics</span>
+        </a>
+        <div class="sidebar-search-row">
+          <div class="sidebar-search"><input type="search" placeholder="Search…" /></div>
+          <button class="sidebar-new" type="button">+</button>
+        </div>
+        <div class="sidebar-list">
+          <div class="diagram-row active"><span class="title">Mortimer&apos;s Thesis</span><span class="meta">2d ago</span></div>
+          <div class="diagram-row"><span class="title">CT for Programmers</span><span class="meta">2d ago</span></div>
+          <div class="diagram-row"><span class="title">Archetypon Logicon</span><span class="meta">3d ago</span></div>
+          <div class="diagram-row"><span class="title">PAZ CSG</span><span class="meta">3d ago</span></div>
+          <div class="diagram-row"><span class="title">PAZ Renderer types.py</span><span class="meta">3d ago</span></div>
+        </div>
       </div>
-      <div class="sidebar-list">
-        <div class="diagram-row active"><span class="title">Mortimer&apos;s Thesis</span><span class="meta">2d ago</span></div>
-        <div class="diagram-row"><span class="title">CT for Programmers</span><span class="meta">2d ago</span></div>
-        <div class="diagram-row"><span class="title">Archetypon Logicon</span><span class="meta">3d ago</span></div>
-        <div class="diagram-row"><span class="title">PAZ CSG</span><span class="meta">3d ago</span></div>
-        <div class="diagram-row"><span class="title">PAZ Renderer types.py</span><span class="meta">3d ago</span></div>
-      </div>
-      <div class="sidebar-collapse">‹</div>
     </aside>
+    <button class="sidebar-handle" type="button" aria-label="Collapse sidebar">‹</button>
 
     <div class="canvas-area">
       <div class="toolbar-topleft">
@@ -396,10 +440,10 @@
   </div>
 </section>
 
-<!-- ═══════ Scene 4: Star-prompt modal ═══════ -->
+<!-- ═══════ Scene 5: Star-prompt modal ═══════ -->
 
 <section class="wireframe-section">
-  <h2 class="t-h1">Scene 4 — Star-prompt modal</h2>
+  <h2 class="t-h1">Scene 5 — Star-prompt modal</h2>
   <p class="lead">
     After ~45 s idle, a full-screen modal asks the user to star the GitHub
     repo. 50% dark scrim over the editor, body centred at ~420 px wide.

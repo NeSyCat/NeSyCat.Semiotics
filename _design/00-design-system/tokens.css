@@ -98,3 +98,24 @@
   font-size: 14px;
   font-weight: 500;
 }
+
+/* Thin glass scrollbar (verbatim from app/globals.css). Applies everywhere
+   so any overflowing pane — sidebar list, JSON panel, design-system style
+   guide — uses the same look as the editor. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
+}
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.22);
+}
+::-webkit-scrollbar-corner { background: transparent; }
