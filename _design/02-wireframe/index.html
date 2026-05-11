@@ -42,11 +42,57 @@
       <path d="M8 11V7a4 4 0 1 1 8 0v4"
             stroke="currentColor" stroke-width="2" fill="none" />
     </symbol>
+
+    <!--
+      Shape-spine tool-rail icons. Each maps 1:1 to a slot of `Shape<K>` in
+      components/editor/types.ts (lines 116-126). viewBox is 24×24 so the
+      rail's 18×18 rendering keeps a 3 px optical inset on each side.
+    -->
+    <!-- (-1) name — pencil -->
+    <symbol id="ic-name" viewBox="0 0 24 24">
+      <path d="M4 20l3-1 11-11-2-2L5 17l-1 3z" />
+      <path d="M14 6l4 4" />
+    </symbol>
+    <!-- (0) points — two filled dots (recursive sub-shapes) -->
+    <symbol id="ic-points" viewBox="0 0 24 24">
+      <circle cx="9"  cy="12" r="2.6" />
+      <circle cx="15" cy="12" r="2.6" />
+    </symbol>
+    <!-- (1) kind — apex-up triangle, representative of `ShapeKind` (empty / triangle / rhombus / circle / rectangle) -->
+    <symbol id="ic-kind" viewBox="0 0 24 24">
+      <path d="M12 4l8 16H4z" />
+    </symbol>
+    <!-- (2) order — three ascending bars, scalar Order -->
+    <symbol id="ic-order" viewBox="0 0 24 24">
+      <path d="M5 19v-4M12 19v-8M19 19v-12" />
+    </symbol>
+    <!-- (3) color — filled disk in the shape's current color -->
+    <symbol id="ic-color" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="7" />
+    </symbol>
+    <!-- (4) transform — 4-way move arrows (translation/rotation/scale of SpaceTime) -->
+    <symbol id="ic-transform" viewBox="0 0 24 24">
+      <path d="M12 3v18M3 12h18" />
+      <path d="M12 3l-2 2.5M12 3l2 2.5" />
+      <path d="M12 21l-2-2.5M12 21l2-2.5" />
+      <path d="M3 12l2.5-2M3 12l2.5 2" />
+      <path d="M21 12l-2.5-2M21 12l-2.5 2" />
+    </symbol>
+    <!-- (5) equations — equals sign, Expression[] -->
+    <symbol id="ic-equations" viewBox="0 0 24 24">
+      <rect x="4" y="9"  width="16" height="2.2" rx="1" />
+      <rect x="4" y="14" width="16" height="2.2" rx="1" />
+    </symbol>
+    <!-- (6) weight — kettlebell, scalar Mass -->
+    <symbol id="ic-weight" viewBox="0 0 24 24">
+      <path d="M9 7a3 3 0 1 1 6 0" />
+      <path d="M7 9h10l1.6 11H5.4z" />
+    </symbol>
   </defs>
 </svg>
 
 <header class="page-header">
-  <div class="t-caption">NeSyCat · Wireframe · v0.2 · 1728×1080 (16″ MBP scaled)</div>
+  <div class="t-caption">NeSyCat · Wireframe · v0.4 · 1728×1080 (16″ MBP scaled)</div>
   <h1 class="t-h1">Editor chrome — pixel-faithful to today.</h1>
   <p>
     Each scene is a 1728×1080 frame sized for a 16″ MacBook Pro at default
@@ -64,38 +110,34 @@
 <section class="wireframe-section">
   <h2 class="t-h1">Scene 1 — default state</h2>
   <p class="lead">
-    Signed-in user has just opened a diagram. Left sidebar 240 px open. Top
-    toolbar floats over the canvas with two glass buttons. JSON panel
-    collapsed. Zoom cluster bottom-left, sliding with the sidebar.
+    Signed-in user has just opened a diagram. Left sidebar is a 56-wide icon
+    rail — one button per user-facing slot of <code>Shape&lt;K&gt;</code>
+    from <code>components/editor/types.ts</code> (slots −1…6). File
+    management (search, diagram list, +new) is no longer in the sidebar;
+    it lives in a separate picker. Top toolbar floats over the canvas with
+    two glass buttons. JSON panel collapsed. Zoom cluster bottom-left,
+    sliding with the sidebar.
   </p>
 
   <div class="editor-frame">
     <!-- Dot-grid canvas background -->
     <div class="canvas-bg"></div>
 
-    <!-- Left sidebar -->
+    <!-- Left sidebar — Shape-spine tool rail -->
     <aside class="sidebar">
       <div class="sidebar-inner">
-        <a class="sidebar-brand" href="#" title="Back to landing">
+        <a class="sidebar-brand" href="#" title="Back to landing" aria-label="NeSyCat Semiotics">
           <svg class="logo-mark"><use href="#logo-mark"/></svg>
-          <span class="brand-name">NeSyCat Semiotics</span>
         </a>
-        <div class="sidebar-search-row">
-          <div class="sidebar-search">
-            <input type="search" placeholder="Search…" aria-label="Search diagrams" />
-          </div>
-          <button class="sidebar-new" type="button" aria-label="New diagram" title="New diagram">+</button>
-        </div>
-        <div class="sidebar-list">
-          <div class="diagram-row active"><span class="title">Mortimer&apos;s Thesis</span><span class="meta">2d ago</span></div>
-          <div class="diagram-row"><span class="title">CT for Programmers</span><span class="meta">2d ago</span></div>
-          <div class="diagram-row"><span class="title">Archetypon Logicon</span><span class="meta">3d ago</span></div>
-          <div class="diagram-row"><span class="title">PAZ CSG</span><span class="meta">3d ago</span></div>
-          <div class="diagram-row"><span class="title">PAZ Renderer types.py</span><span class="meta">3d ago</span></div>
-          <div class="diagram-row"><span class="title">Alice kills a cat</span><span class="meta">4d ago</span></div>
-          <div class="diagram-row"><span class="title">Human Sysmer</span><span class="meta">6d ago</span></div>
-          <div class="diagram-row"><span class="title">Semiotic Types</span><span class="meta">11d ago</span></div>
-          <div class="diagram-row"><span class="title">Datenbank Vorl. + FK</span><span class="meta">15d ago</span></div>
+        <div class="sidebar-tools" role="toolbar" aria-label="Shape editor">
+          <button class="sidebar-tool tool-name"       type="button" aria-label="Name"      title="name (slot -1)"><svg><use href="#ic-name"/></svg></button>
+          <button class="sidebar-tool tool-points"     type="button" aria-label="Points"    title="points (slot 0)"><svg><use href="#ic-points"/></svg></button>
+          <button class="sidebar-tool tool-kind"       type="button" aria-label="Kind"      title="kind (slot 1)"><svg><use href="#ic-kind"/></svg></button>
+          <button class="sidebar-tool tool-order"      type="button" aria-label="Order"     title="order (slot 2)"><svg><use href="#ic-order"/></svg></button>
+          <button class="sidebar-tool tool-color is-active" type="button" aria-label="Color" title="color (slot 3)"><svg><use href="#ic-color"/></svg></button>
+          <button class="sidebar-tool tool-transform"  type="button" aria-label="Transform" title="transform (slot 4)"><svg><use href="#ic-transform"/></svg></button>
+          <button class="sidebar-tool tool-equations"  type="button" aria-label="Equations" title="equations (slot 5)"><svg><use href="#ic-equations"/></svg></button>
+          <button class="sidebar-tool tool-weight"     type="button" aria-label="Weight"    title="weight (slot 6)"><svg><use href="#ic-weight"/></svg></button>
         </div>
       </div>
     </aside>
@@ -127,25 +169,32 @@
   </div>
 
   <div class="annotations">
-    <h3>Sidebar (<code>EditorSidebar.tsx</code>)</h3>
-    <div class="note"><span class="pin">A</span>Brand row 14×16 padding, 15 px / 600 wt, border-bottom glass-border.</div>
-    <div class="note"><span class="pin">B</span>Search input 36 px high, 13 px text, glass-border, with clear-button when filled.</div>
-    <div class="note"><span class="pin">C</span><strong>+</strong> button 36×36, glass-border, swaps to spinner while creating.</div>
-    <div class="note"><span class="pin">D</span>Rows 10×16 padding. Active row tinted with <code>rgba(accent, 0.10)</code>. Hover reveals pen + ✕.</div>
-    <div class="note"><span class="pin">E</span><code>‹</code> collapse arrow attached to right edge, slides sidebar to 0 width via <code>--sidebar-offset</code>.</div>
+    <h3>Sidebar — Shape spine (<code>components/editor/types.ts</code>)</h3>
+    <div class="note"><span class="pin">A</span>56 px rail. Logo on top, 22×22, link back to landing.</div>
+    <div class="note"><span class="pin">B</span><code>name</code> slot (−1): user-visible label.</div>
+    <div class="note"><span class="pin">C</span><code>points</code> slot (0): recursive sub-shapes (<code>ShapePoints[K]</code>).</div>
+    <div class="note"><span class="pin">D</span><code>kind</code> slot (1): <code>ShapeKind</code> discriminator — empty / triangle / rhombus / circle / rectangle.</div>
+    <div class="note"><span class="pin">E</span><code>order</code> slot (2): scalar <code>number</code>.</div>
+    <div class="note"><span class="pin">F</span><code>color</code> slot (3): <code>[r, g, b] ∈ [0, 1]³</code>. Glyph fills with the current shape color so the rail doubles as a swatch.</div>
+    <div class="note"><span class="pin">G</span><code>transform</code> slot (4): <code>SpaceTime</code> — translation + rotation + scale (+ created/updated timestamps).</div>
+    <div class="note"><span class="pin">H</span><code>equations</code> slot (5): list of <code>Expression</code>s (rational over shape refs).</div>
+    <div class="note"><span class="pin">I</span><code>weight</code> slot (6): scalar <code>Mass</code>.</div>
+    <div class="note"><span class="pin">J</span>Slot −2 <code>id</code> intentionally absent — <code>types.ts:29</code>: "Auto-generated, unique, internal — never user-facing."</div>
+    <div class="note"><span class="pin">K</span>Buttons 40×40, 6 px radius. Active state tinted with <code>rgba(accent, 0.18)</code> + accent border. Hover swaps to glass-button bg + glass border.</div>
+    <div class="note"><span class="pin">L</span><code>‹</code> collapse handle attached to right edge, slides rail to 0 width via <code>--sidebar-offset</code>.</div>
 
     <h3>Canvas chrome (<code>Canvas.tsx</code>)</h3>
-    <div class="note"><span class="pin">F</span>Top-left toolbar at 12 px from top, <code>12px + --sidebar-offset</code> from left, slides on collapse with 200 ms transition.</div>
-    <div class="note"><span class="pin">G</span>Each button: <code>panelStyle()</code> + 8 px radius + 6×14 padding, 12 px / 600 wt secondary text.</div>
-    <div class="note"><span class="pin">H</span>"Straight" label toggles to "Smooth" when clicked; tooltip carries the current state.</div>
-    <div class="note"><span class="pin">I</span>JSON button — open state in Scene 4 (panel expands below it, button stays visible above).</div>
-    <div class="note"><span class="pin">J</span>Zoom cluster from React Flow's <code>&lt;Controls/&gt;</code>: 28 px buttons stacked, also tracks sidebar offset.</div>
+    <div class="note"><span class="pin">M</span>Top-left toolbar at 12 px from top, <code>12px + --sidebar-offset</code> from left, slides on collapse with 200 ms transition.</div>
+    <div class="note"><span class="pin">N</span>Each button: <code>panelStyle()</code> + 8 px radius + 6×14 padding, 12 px / 600 wt secondary text.</div>
+    <div class="note"><span class="pin">O</span>"Straight" label toggles to "Smooth" when clicked; tooltip carries the current state.</div>
+    <div class="note"><span class="pin">P</span>JSON button — open state in Scene 4 (panel expands below it, button stays visible above).</div>
+    <div class="note"><span class="pin">Q</span>Zoom cluster from React Flow's <code>&lt;Controls/&gt;</code>: 28 px buttons stacked, also tracks sidebar offset.</div>
 
     <h3>Redesign hooks</h3>
-    <div class="note">Kinds menu and JSON panel both float over the canvas in opposite corners — could unify under a single right-side dock with tabs.</div>
-    <div class="note">No persistent diagram title / breadcrumb on the canvas — currently only visible in the sidebar row's active state.</div>
-    <div class="note">No user-identity / sign-out surface visible; lives implicitly behind the canvas.</div>
-    <div class="note">Sidebar holds search + list only — could grow to host the Kinds menu, layer toggles, or selection inspector.</div>
+    <div class="note">File management (search, diagram list, +new) needs a new home — likely a separate picker / file-tree surface, opened via the logo or a dedicated chrome button.</div>
+    <div class="note">"Kinds ▾" in the top-left toolbar becomes redundant with the rail's <code>kind</code> button — consider merging into the slot-1 dropdown.</div>
+    <div class="note">Color slot's button doubles as the current-color swatch. Click to open a picker; the swatch updates in place.</div>
+    <div class="note">Rail order intentionally follows the slot indices (−1 → 6) in <code>types.ts</code> so it reads as the Shape's own field order.</div>
   </div>
 </section>
 
@@ -167,18 +216,18 @@
 
     <aside class="sidebar">
       <div class="sidebar-inner">
-        <a class="sidebar-brand" href="#">
+        <a class="sidebar-brand" href="#" aria-label="NeSyCat Semiotics">
           <svg class="logo-mark"><use href="#logo-mark"/></svg>
-          <span class="brand-name">NeSyCat Semiotics</span>
         </a>
-        <div class="sidebar-search-row">
-          <div class="sidebar-search"><input type="search" placeholder="Search…" /></div>
-          <button class="sidebar-new" type="button">+</button>
-        </div>
-        <div class="sidebar-list">
-          <div class="diagram-row active"><span class="title">Mortimer&apos;s Thesis</span><span class="meta">2d ago</span></div>
-          <div class="diagram-row"><span class="title">CT for Programmers</span><span class="meta">2d ago</span></div>
-          <div class="diagram-row"><span class="title">Archetypon Logicon</span><span class="meta">3d ago</span></div>
+        <div class="sidebar-tools" role="toolbar" aria-label="Shape editor">
+          <button class="sidebar-tool tool-name"      type="button" aria-label="Name"      title="name (slot -1)"><svg><use href="#ic-name"/></svg></button>
+          <button class="sidebar-tool tool-points"    type="button" aria-label="Points"    title="points (slot 0)"><svg><use href="#ic-points"/></svg></button>
+          <button class="sidebar-tool tool-kind"      type="button" aria-label="Kind"      title="kind (slot 1)"><svg><use href="#ic-kind"/></svg></button>
+          <button class="sidebar-tool tool-order"     type="button" aria-label="Order"     title="order (slot 2)"><svg><use href="#ic-order"/></svg></button>
+          <button class="sidebar-tool tool-color"     type="button" aria-label="Color"     title="color (slot 3)"><svg><use href="#ic-color"/></svg></button>
+          <button class="sidebar-tool tool-transform" type="button" aria-label="Transform" title="transform (slot 4)"><svg><use href="#ic-transform"/></svg></button>
+          <button class="sidebar-tool tool-equations" type="button" aria-label="Equations" title="equations (slot 5)"><svg><use href="#ic-equations"/></svg></button>
+          <button class="sidebar-tool tool-weight"    type="button" aria-label="Weight"    title="weight (slot 6)"><svg><use href="#ic-weight"/></svg></button>
         </div>
       </div>
     </aside>
@@ -232,20 +281,18 @@
 
     <aside class="sidebar">
       <div class="sidebar-inner">
-        <a class="sidebar-brand" href="#">
+        <a class="sidebar-brand" href="#" aria-label="NeSyCat Semiotics">
           <svg class="logo-mark"><use href="#logo-mark"/></svg>
-          <span class="brand-name">NeSyCat Semiotics</span>
         </a>
-        <div class="sidebar-search-row">
-          <div class="sidebar-search"><input type="search" placeholder="Search…" /></div>
-          <button class="sidebar-new" type="button">+</button>
-        </div>
-        <div class="sidebar-list">
-          <div class="diagram-row active"><span class="title">Mortimer&apos;s Thesis</span><span class="meta">2d ago</span></div>
-          <div class="diagram-row"><span class="title">CT for Programmers</span><span class="meta">2d ago</span></div>
-          <div class="diagram-row"><span class="title">Archetypon Logicon</span><span class="meta">3d ago</span></div>
-          <div class="diagram-row"><span class="title">PAZ CSG</span><span class="meta">3d ago</span></div>
-          <div class="diagram-row"><span class="title">PAZ Renderer types.py</span><span class="meta">3d ago</span></div>
+        <div class="sidebar-tools" role="toolbar" aria-label="Shape editor">
+          <button class="sidebar-tool tool-name"      type="button" aria-label="Name"      title="name (slot -1)"><svg><use href="#ic-name"/></svg></button>
+          <button class="sidebar-tool tool-points"    type="button" aria-label="Points"    title="points (slot 0)"><svg><use href="#ic-points"/></svg></button>
+          <button class="sidebar-tool tool-kind"      type="button" aria-label="Kind"      title="kind (slot 1)"><svg><use href="#ic-kind"/></svg></button>
+          <button class="sidebar-tool tool-order"     type="button" aria-label="Order"     title="order (slot 2)"><svg><use href="#ic-order"/></svg></button>
+          <button class="sidebar-tool tool-color"     type="button" aria-label="Color"     title="color (slot 3)"><svg><use href="#ic-color"/></svg></button>
+          <button class="sidebar-tool tool-transform" type="button" aria-label="Transform" title="transform (slot 4)"><svg><use href="#ic-transform"/></svg></button>
+          <button class="sidebar-tool tool-equations" type="button" aria-label="Equations" title="equations (slot 5)"><svg><use href="#ic-equations"/></svg></button>
+          <button class="sidebar-tool tool-weight"    type="button" aria-label="Weight"    title="weight (slot 6)"><svg><use href="#ic-weight"/></svg></button>
         </div>
       </div>
     </aside>
@@ -343,20 +390,18 @@
 
     <aside class="sidebar">
       <div class="sidebar-inner">
-        <a class="sidebar-brand" href="#">
+        <a class="sidebar-brand" href="#" aria-label="NeSyCat Semiotics">
           <svg class="logo-mark"><use href="#logo-mark"/></svg>
-          <span class="brand-name">NeSyCat Semiotics</span>
         </a>
-        <div class="sidebar-search-row">
-          <div class="sidebar-search"><input type="search" placeholder="Search…" /></div>
-          <button class="sidebar-new" type="button">+</button>
-        </div>
-        <div class="sidebar-list">
-          <div class="diagram-row active"><span class="title">Mortimer&apos;s Thesis</span><span class="meta">2d ago</span></div>
-          <div class="diagram-row"><span class="title">CT for Programmers</span><span class="meta">2d ago</span></div>
-          <div class="diagram-row"><span class="title">Archetypon Logicon</span><span class="meta">3d ago</span></div>
-          <div class="diagram-row"><span class="title">PAZ CSG</span><span class="meta">3d ago</span></div>
-          <div class="diagram-row"><span class="title">PAZ Renderer types.py</span><span class="meta">3d ago</span></div>
+        <div class="sidebar-tools" role="toolbar" aria-label="Shape editor">
+          <button class="sidebar-tool tool-name"      type="button" aria-label="Name"      title="name (slot -1)"><svg><use href="#ic-name"/></svg></button>
+          <button class="sidebar-tool tool-points"    type="button" aria-label="Points"    title="points (slot 0)"><svg><use href="#ic-points"/></svg></button>
+          <button class="sidebar-tool tool-kind"      type="button" aria-label="Kind"      title="kind (slot 1)"><svg><use href="#ic-kind"/></svg></button>
+          <button class="sidebar-tool tool-order"     type="button" aria-label="Order"     title="order (slot 2)"><svg><use href="#ic-order"/></svg></button>
+          <button class="sidebar-tool tool-color"     type="button" aria-label="Color"     title="color (slot 3)"><svg><use href="#ic-color"/></svg></button>
+          <button class="sidebar-tool tool-transform" type="button" aria-label="Transform" title="transform (slot 4)"><svg><use href="#ic-transform"/></svg></button>
+          <button class="sidebar-tool tool-equations" type="button" aria-label="Equations" title="equations (slot 5)"><svg><use href="#ic-equations"/></svg></button>
+          <button class="sidebar-tool tool-weight"    type="button" aria-label="Weight"    title="weight (slot 6)"><svg><use href="#ic-weight"/></svg></button>
         </div>
       </div>
     </aside>

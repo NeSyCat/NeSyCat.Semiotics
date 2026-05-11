@@ -7,7 +7,11 @@ Flow canvas). Open `index.html` in a browser to view.
 
 The shell around the canvas:
 
-- Left sidebar (logo, search, diagrams list, collapse toggle).
+- Left sidebar — Shape-spine tool rail. 56-wide vertical strip with the
+  logo on top and one icon button per user-facing slot of `Shape<K>` from
+  `components/editor/types.ts` (slots −1 through 6 — `name`, `points`,
+  `kind`, `order`, `color`, `transform`, `equations`, `weight`). File
+  management (search, diagram list, +new) is no longer in the sidebar.
 - Top-left floating toolbar ("Kinds ▾" dropdown + "Straight | Smooth" toggle).
 - Top-right JSON panel (closed and open states).
 - Bottom-left zoom controls (built-in React Flow `<Controls />`).
