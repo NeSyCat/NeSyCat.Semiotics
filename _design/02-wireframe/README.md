@@ -18,9 +18,29 @@ The shell around the canvas:
 - Star-prompt modal (idle-triggered overlay).
 
 Each is rendered as a separate "scene" so we can iterate on regions
-independently and capture multiple states (Scene 1 default, Scene 2 sidebar
-collapsed, Scene 3 Kinds menu open, Scene 4 JSON panel open, Scene 5 star
-modal).
+independently and capture multiple states. The rail is fixed — no
+collapsed-sidebar variant.
+
+| # | Scene | What it shows |
+|---|---|---|
+| 1 | default state | baseline editor with the icon rail |
+| 5 | `name` popover | rename input + visibility footer |
+| 6 | `points` popover | hint + visibility footer (no editor) |
+| 7 | `kind` popover | 5-shape picker + visibility footer |
+| 8 | `order` popover | Fresco-style vertical slider + visibility footer |
+| 9 | `color` popover | full HSV + sliders + swatches + visibility footer |
+| 10 | `transform` popover | tx/ty/θ/sx/sy grid + visibility footer |
+| 11 | `equations` popover | equations list + add + visibility footer |
+| 12 | `weight` popover | continuous slider + visibility footer |
+| 13 | Kinds menu | legacy top-left dropdown (binary on/off toggles) |
+| 14 | JSON panel | top-right glass panel + Export / Import |
+| 15 | star-prompt modal | idle-triggered overlay |
+
+Each tool popover follows the same shape: **header (slot name) → editor
+body → 3-state visibility footer** (`Off · Selected · All`). The
+visibility footer is parked at the bottom so the editor stays in the
+visual foreground; it generalises the binary on/off toggles in the
+legacy Kinds menu (Scene 13).
 
 The right margin of Scene 1 carries an annotation column with redesign-hook
 notes — concrete observations about the current layout that the next

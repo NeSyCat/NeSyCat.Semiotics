@@ -48,15 +48,17 @@
       components/editor/types.ts (lines 116-126). viewBox is 24×24 so the
       rail's 18×18 rendering keeps a 3 px optical inset on each side.
     -->
-    <!-- (-1) name — pencil -->
+    <!-- (-1) name — Geist “A”; fill/font on <text> so &lt;use&gt; shadow tree still paints (CSS won’t target cloned nodes). -->
     <symbol id="ic-name" viewBox="0 0 24 24">
-      <path d="M4 20l3-1 11-11-2-2L5 17l-1 3z" />
-      <path d="M14 6l4 4" />
+      <text x="12" y="12" text-anchor="middle" dominant-baseline="central"
+            fill="currentColor" stroke="none"
+            font-family="Geist, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, Roboto, sans-serif"
+            font-weight="500" font-size="20" letter-spacing="-0.11">A</text>
     </symbol>
-    <!-- (0) points — two filled dots (recursive sub-shapes) -->
+    <!-- (0) points — two filled dots, wider spacing (recursive sub-shapes) -->
     <symbol id="ic-points" viewBox="0 0 24 24">
-      <circle cx="9"  cy="12" r="2.6" />
-      <circle cx="15" cy="12" r="2.6" />
+      <circle cx="6.25" cy="12" r="2.5" />
+      <circle cx="17.75" cy="12" r="2.5" />
     </symbol>
     <!-- (1) kind — apex-up triangle, representative of `ShapeKind` (empty / triangle / rhombus / circle / rectangle) -->
     <symbol id="ic-kind" viewBox="0 0 24 24">
@@ -88,11 +90,29 @@
       <path d="M9 7a3 3 0 1 1 6 0" />
       <path d="M7 9h10l1.6 11H5.4z" />
     </symbol>
+
+    <!-- Kind-picker glyphs (Scene 7): one per ShapeKind in types.ts:38-65.
+         Used inside the kind-picker tiles. -->
+    <symbol id="kind-empty" viewBox="0 0 24 24">
+      <rect x="5" y="5" width="14" height="14" rx="1.5" />
+    </symbol>
+    <symbol id="kind-triangle" viewBox="0 0 24 24">
+      <path d="M12 4l8 16H4z" />
+    </symbol>
+    <symbol id="kind-rhombus" viewBox="0 0 24 24">
+      <path d="M12 3l9 9-9 9-9-9z" />
+    </symbol>
+    <symbol id="kind-circle" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="8" />
+    </symbol>
+    <symbol id="kind-rectangle" viewBox="0 0 24 24">
+      <rect x="3" y="7" width="18" height="10" rx="1" />
+    </symbol>
   </defs>
 </svg>
 
 <header class="page-header">
-  <div class="t-caption">NeSyCat · Wireframe · v0.4 · 1728×1080 (16″ MBP scaled)</div>
+  <div class="t-caption">NeSyCat · Wireframe · v0.5 · 1728×1080 (16″ MBP scaled)</div>
   <h1 class="t-h1">Editor chrome — pixel-faithful to today.</h1>
   <p>
     Each scene is a 1728×1080 frame sized for a 16″ MacBook Pro at default
@@ -116,7 +136,7 @@
     management (search, diagram list, +new) is no longer in the sidebar;
     it lives in a separate picker. Top toolbar floats over the canvas with
     two glass buttons. JSON panel collapsed. Zoom cluster bottom-left,
-    sliding with the sidebar.
+    inset from the fixed-width rail (<code>--sidebar-offset</code>).
   </p>
 
   <div class="editor-frame">
@@ -141,7 +161,6 @@
         </div>
       </div>
     </aside>
-    <button class="sidebar-handle" type="button" aria-label="Collapse sidebar" title="Collapse sidebar">‹</button>
 
     <div class="canvas-area">
       <!-- Top-left toolbar -->
@@ -181,13 +200,11 @@
     <div class="note"><span class="pin">I</span><code>weight</code> slot (6): scalar <code>Mass</code>.</div>
     <div class="note"><span class="pin">J</span>Slot −2 <code>id</code> intentionally absent — <code>types.ts:29</code>: "Auto-generated, unique, internal — never user-facing."</div>
     <div class="note"><span class="pin">K</span>Buttons 40×40, 6 px radius. Active state tinted with <code>rgba(accent, 0.18)</code> + accent border. Hover swaps to glass-button bg + glass border.</div>
-    <div class="note"><span class="pin">L</span><code>‹</code> collapse handle attached to right edge, slides rail to 0 width via <code>--sidebar-offset</code>.</div>
-
     <h3>Canvas chrome (<code>Canvas.tsx</code>)</h3>
-    <div class="note"><span class="pin">M</span>Top-left toolbar at 12 px from top, <code>12px + --sidebar-offset</code> from left, slides on collapse with 200 ms transition.</div>
+    <div class="note"><span class="pin">L</span>Top-left toolbar at 12 px from top, <code>12px + --sidebar-offset</code> from left (rail fixed at 56 px — not collapsible in this wireframe).</div>
     <div class="note"><span class="pin">N</span>Each button: <code>panelStyle()</code> + 8 px radius + 6×14 padding, 12 px / 600 wt secondary text.</div>
     <div class="note"><span class="pin">O</span>"Straight" label toggles to "Smooth" when clicked; tooltip carries the current state.</div>
-    <div class="note"><span class="pin">P</span>JSON button — open state in Scene 4 (panel expands below it, button stays visible above).</div>
+    <div class="note"><span class="pin">P</span>JSON button — open state in Scene 14 (panel expands below it, button stays visible above).</div>
     <div class="note"><span class="pin">Q</span>Zoom cluster from React Flow's <code>&lt;Controls/&gt;</code>: 28 px buttons stacked, also tracks sidebar offset.</div>
 
     <h3>Redesign hooks</h3>
@@ -198,20 +215,20 @@
   </div>
 </section>
 
-<!-- ═══════ Scene 2: Sidebar collapsed ═══════ -->
+<!-- ═══════ Scene 5: name popover (slot -1) ═══════ -->
 
 <section class="wireframe-section">
-  <h2 class="t-h1">Scene 2 — sidebar collapsed</h2>
+  <h2 class="t-h1">Scene 5 — name popover</h2>
   <p class="lead">
-    Click the handle and the sidebar slides to 0 width (200 ms transition,
-    matches <code>EditorSidebar.tsx</code> setting <code>--sidebar-offset</code>
-    to <code>0px</code>). The handle stays anchored — its <code>left</code>
-    now resolves to 0 — so the user always has an obvious affordance to
-    re-open. The top-left toolbar and the bottom-left zoom cluster slide
-    along with it; the JSON button in the top-right is unaffected.
+    Clicking the <code>name</code> button opens a popover anchored to the
+    right of the rail at the button's y. Header strip names the slot, body
+    holds the editor, and a thin "visibility" footer parks the 3-state
+    "Off · Selected · All" toggle. Rename today happens inline (double-click
+    on the canvas, <code>DiagramNode.tsx:360-448</code>); the input here is
+    a faster alternative when the shape is already selected.
   </p>
 
-  <div class="editor-frame is-sidebar-closed">
+  <div class="editor-frame">
     <div class="canvas-bg"></div>
 
     <aside class="sidebar">
@@ -220,53 +237,724 @@
           <svg class="logo-mark"><use href="#logo-mark"/></svg>
         </a>
         <div class="sidebar-tools" role="toolbar" aria-label="Shape editor">
-          <button class="sidebar-tool tool-name"      type="button" aria-label="Name"      title="name (slot -1)"><svg><use href="#ic-name"/></svg></button>
-          <button class="sidebar-tool tool-points"    type="button" aria-label="Points"    title="points (slot 0)"><svg><use href="#ic-points"/></svg></button>
-          <button class="sidebar-tool tool-kind"      type="button" aria-label="Kind"      title="kind (slot 1)"><svg><use href="#ic-kind"/></svg></button>
-          <button class="sidebar-tool tool-order"     type="button" aria-label="Order"     title="order (slot 2)"><svg><use href="#ic-order"/></svg></button>
-          <button class="sidebar-tool tool-color"     type="button" aria-label="Color"     title="color (slot 3)"><svg><use href="#ic-color"/></svg></button>
-          <button class="sidebar-tool tool-transform" type="button" aria-label="Transform" title="transform (slot 4)"><svg><use href="#ic-transform"/></svg></button>
-          <button class="sidebar-tool tool-equations" type="button" aria-label="Equations" title="equations (slot 5)"><svg><use href="#ic-equations"/></svg></button>
-          <button class="sidebar-tool tool-weight"    type="button" aria-label="Weight"    title="weight (slot 6)"><svg><use href="#ic-weight"/></svg></button>
+          <button class="sidebar-tool tool-name is-active" type="button" title="name (slot -1)"><svg><use href="#ic-name"/></svg></button>
+          <button class="sidebar-tool tool-points"         type="button" title="points (slot 0)"><svg><use href="#ic-points"/></svg></button>
+          <button class="sidebar-tool tool-kind"           type="button" title="kind (slot 1)"><svg><use href="#ic-kind"/></svg></button>
+          <button class="sidebar-tool tool-order"          type="button" title="order (slot 2)"><svg><use href="#ic-order"/></svg></button>
+          <button class="sidebar-tool tool-color"          type="button" title="color (slot 3)"><svg><use href="#ic-color"/></svg></button>
+          <button class="sidebar-tool tool-transform"      type="button" title="transform (slot 4)"><svg><use href="#ic-transform"/></svg></button>
+          <button class="sidebar-tool tool-equations"      type="button" title="equations (slot 5)"><svg><use href="#ic-equations"/></svg></button>
+          <button class="sidebar-tool tool-weight"         type="button" title="weight (slot 6)"><svg><use href="#ic-weight"/></svg></button>
         </div>
       </div>
     </aside>
-    <button class="sidebar-handle" type="button" aria-label="Open sidebar">›</button>
 
     <div class="canvas-area">
       <div class="toolbar-topleft">
-        <div class="kinds-anchor">
-          <button class="panel-btn" type="button">Kinds</button>
-        </div>
+        <div class="kinds-anchor"><button class="panel-btn" type="button">Kinds</button></div>
         <button class="panel-btn" type="button">Straight</button>
       </div>
-
-      <div class="topright">
-        <button class="panel-btn" type="button">JSON</button>
-      </div>
-
-      <div class="controls-cluster" aria-label="Zoom controls">
+      <div class="topright"><button class="panel-btn" type="button">JSON</button></div>
+      <div class="controls-cluster">
         <button type="button"><svg><use href="#ic-plus"/></svg></button>
         <button type="button"><svg><use href="#ic-minus"/></svg></button>
         <button type="button"><svg><use href="#ic-fit"/></svg></button>
         <button type="button"><svg><use href="#ic-lock"/></svg></button>
       </div>
+
+      <!-- Popover anchored to the name button (i=0, top 60). -->
+      <div class="tool-popover" style="top: 60px; width: 280px">
+        <div class="head">name · slot −1</div>
+        <div class="body">
+          <span class="body-label">Rename selected</span>
+          <input class="text-input" type="text" value="Y" />
+          <span class="hint">Or double-click a name on the canvas to edit inline.</span>
+        </div>
+        <div class="vis-footer">
+          <span class="footer-label">Visibility</span>
+          <div class="vis-seg" role="radiogroup">
+            <button class="seg" type="button">Off</button>
+            <button class="seg" type="button">Selected</button>
+            <button class="seg is-on" type="button">All</button>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
   <div class="annotations">
-    <h3>Handle</h3>
-    <div class="note"><span class="pin">T</span>Single button, 28×64, glass panel with no left border so it visually attaches to the sidebar or canvas edge.</div>
-    <div class="note"><span class="pin">U</span>Arrow flips from <code>‹</code> (open → close) to <code>›</code> (closed → open) to match the action it triggers.</div>
-    <div class="note"><span class="pin">V</span><code>left: var(--sidebar-offset)</code> with a 200 ms transition — the handle slides in lockstep with the sidebar.</div>
-    <div class="note"><span class="pin">W</span>The whole sidebar (brand row, search, list) is still mounted under the hood — width 0 + <code>overflow: hidden</code> hides it without unmounting state.</div>
+    <h3>Source of truth</h3>
+    <div class="note"><span class="pin">A</span><code>Shape.name?: string</code> at <code>types.ts:118</code> — only set on labeled leaves.</div>
+    <div class="note"><span class="pin">B</span>Today's UI: inline rename via <code>DiagramNode.tsx:360-448</code>. No popover yet.</div>
+    <div class="note"><span class="pin">C</span><code>Off</code> globally hides name labels; <code>Selected</code> shows the label only on the active selection; <code>All</code> = today's behaviour.</div>
   </div>
 </section>
 
-<!-- ═══════ Scene 3: Kinds menu open ═══════ -->
+<!-- ═══════ Scene 6: points popover (slot 0) ═══════ -->
 
 <section class="wireframe-section">
-  <h2 class="t-h1">Scene 3 — Kinds menu open</h2>
+  <h2 class="t-h1">Scene 6 — points popover</h2>
+  <p class="lead">
+    The <code>points</code> popover is visibility-first — there's no
+    editor for the nested-shape tree itself; points are added via the
+    <code>+</code> buttons that surface on a selected shape
+    (<code>DiagramNode.tsx:514-537</code>). Today's
+    <code>visibility.points</code> flag maps to "All" / "Off"; the
+    new "Selected" middle step shows handles only on the active shape.
+  </p>
+
+  <div class="editor-frame">
+    <div class="canvas-bg"></div>
+
+    <aside class="sidebar">
+      <div class="sidebar-inner">
+        <a class="sidebar-brand" href="#" aria-label="NeSyCat Semiotics">
+          <svg class="logo-mark"><use href="#logo-mark"/></svg>
+        </a>
+        <div class="sidebar-tools" role="toolbar" aria-label="Shape editor">
+          <button class="sidebar-tool tool-name"             type="button" title="name (slot -1)"><svg><use href="#ic-name"/></svg></button>
+          <button class="sidebar-tool tool-points is-active" type="button" title="points (slot 0)"><svg><use href="#ic-points"/></svg></button>
+          <button class="sidebar-tool tool-kind"             type="button" title="kind (slot 1)"><svg><use href="#ic-kind"/></svg></button>
+          <button class="sidebar-tool tool-order"            type="button" title="order (slot 2)"><svg><use href="#ic-order"/></svg></button>
+          <button class="sidebar-tool tool-color"            type="button" title="color (slot 3)"><svg><use href="#ic-color"/></svg></button>
+          <button class="sidebar-tool tool-transform"        type="button" title="transform (slot 4)"><svg><use href="#ic-transform"/></svg></button>
+          <button class="sidebar-tool tool-equations"        type="button" title="equations (slot 5)"><svg><use href="#ic-equations"/></svg></button>
+          <button class="sidebar-tool tool-weight"           type="button" title="weight (slot 6)"><svg><use href="#ic-weight"/></svg></button>
+        </div>
+      </div>
+    </aside>
+
+    <div class="canvas-area">
+      <div class="toolbar-topleft">
+        <div class="kinds-anchor"><button class="panel-btn" type="button">Kinds</button></div>
+        <button class="panel-btn" type="button">Straight</button>
+      </div>
+      <div class="topright"><button class="panel-btn" type="button">JSON</button></div>
+      <div class="controls-cluster">
+        <button type="button"><svg><use href="#ic-plus"/></svg></button>
+        <button type="button"><svg><use href="#ic-minus"/></svg></button>
+        <button type="button"><svg><use href="#ic-fit"/></svg></button>
+        <button type="button"><svg><use href="#ic-lock"/></svg></button>
+      </div>
+
+      <!-- Popover anchored to the points button (i=1, top 106). -->
+      <div class="tool-popover" style="top: 106px; width: 280px">
+        <div class="head">points · slot 0</div>
+        <div class="body">
+          <span class="hint">
+            Add points via the <strong>+</strong> buttons that surface on
+            a selected shape. The set of slots offered is schema-driven
+            (<code>enumerateAddable()</code> reads <code>ShapePoints[K]</code>
+            from <code>types.ts:38-65</code>).
+          </span>
+        </div>
+        <div class="vis-footer">
+          <span class="footer-label">Visibility</span>
+          <div class="vis-seg" role="radiogroup">
+            <button class="seg" type="button">Off</button>
+            <button class="seg is-on" type="button">Selected</button>
+            <button class="seg" type="button">All</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="annotations">
+    <h3>Source of truth</h3>
+    <div class="note"><span class="pin">A</span><code>Shape.points: ShapePoints[K]</code> at <code>types.ts:119</code> — recursive sub-shape tree, slot cardinalities per <code>ShapeKind</code>.</div>
+    <div class="note"><span class="pin">B</span>Today: <code>visibility.points</code> in <code>store.ts:8</code>; CSS gate <code>.points-hidden .point-label</code> in <code>app/globals.css</code>.</div>
+    <div class="note"><span class="pin">C</span>"Selected" is the new middle step — shows handles only on the active shape.</div>
+  </div>
+</section>
+
+<!-- ═══════ Scene 7: kind popover (slot 1) ═══════ -->
+
+<section class="wireframe-section">
+  <h2 class="t-h1">Scene 7 — kind popover</h2>
+  <p class="lead">
+    The <code>kind</code> popover picks one of the five <code>ShapeKind</code>s
+    from <code>types.ts:38-65</code>: <code>empty</code>, <code>triangle</code>,
+    <code>rhombus</code>, <code>circle</code>, <code>rectangle</code>. Today
+    the kind is fixed at creation — this introduces a new mutation
+    ("change kind of selected") that <code>mutations.ts</code> doesn't have
+    yet. Tile glyphs match the <code>geometryRegistry</code> registry order.
+  </p>
+
+  <div class="editor-frame">
+    <div class="canvas-bg"></div>
+
+    <aside class="sidebar">
+      <div class="sidebar-inner">
+        <a class="sidebar-brand" href="#" aria-label="NeSyCat Semiotics">
+          <svg class="logo-mark"><use href="#logo-mark"/></svg>
+        </a>
+        <div class="sidebar-tools" role="toolbar" aria-label="Shape editor">
+          <button class="sidebar-tool tool-name"           type="button" title="name (slot -1)"><svg><use href="#ic-name"/></svg></button>
+          <button class="sidebar-tool tool-points"         type="button" title="points (slot 0)"><svg><use href="#ic-points"/></svg></button>
+          <button class="sidebar-tool tool-kind is-active" type="button" title="kind (slot 1)"><svg><use href="#ic-kind"/></svg></button>
+          <button class="sidebar-tool tool-order"          type="button" title="order (slot 2)"><svg><use href="#ic-order"/></svg></button>
+          <button class="sidebar-tool tool-color"          type="button" title="color (slot 3)"><svg><use href="#ic-color"/></svg></button>
+          <button class="sidebar-tool tool-transform"      type="button" title="transform (slot 4)"><svg><use href="#ic-transform"/></svg></button>
+          <button class="sidebar-tool tool-equations"      type="button" title="equations (slot 5)"><svg><use href="#ic-equations"/></svg></button>
+          <button class="sidebar-tool tool-weight"         type="button" title="weight (slot 6)"><svg><use href="#ic-weight"/></svg></button>
+        </div>
+      </div>
+    </aside>
+
+    <div class="canvas-area">
+      <div class="toolbar-topleft">
+        <div class="kinds-anchor"><button class="panel-btn" type="button">Kinds</button></div>
+        <button class="panel-btn" type="button">Straight</button>
+      </div>
+      <div class="topright"><button class="panel-btn" type="button">JSON</button></div>
+      <div class="controls-cluster">
+        <button type="button"><svg><use href="#ic-plus"/></svg></button>
+        <button type="button"><svg><use href="#ic-minus"/></svg></button>
+        <button type="button"><svg><use href="#ic-fit"/></svg></button>
+        <button type="button"><svg><use href="#ic-lock"/></svg></button>
+      </div>
+
+      <!-- Popover anchored to the kind button (i=2, top 152). -->
+      <div class="tool-popover" style="top: 152px; width: 296px">
+        <div class="head">kind · slot 1</div>
+        <div class="body">
+          <span class="body-label">Change kind of selected</span>
+          <div class="kind-picker">
+            <button class="tile" type="button" title="empty">
+              <svg><use href="#kind-empty"/></svg>
+              <span class="tile-label">empty</span>
+            </button>
+            <button class="tile is-on" type="button" title="triangle">
+              <svg><use href="#kind-triangle"/></svg>
+              <span class="tile-label">triangle</span>
+            </button>
+            <button class="tile" type="button" title="rhombus">
+              <svg><use href="#kind-rhombus"/></svg>
+              <span class="tile-label">rhombus</span>
+            </button>
+            <button class="tile" type="button" title="circle">
+              <svg><use href="#kind-circle"/></svg>
+              <span class="tile-label">circle</span>
+            </button>
+            <button class="tile" type="button" title="rectangle">
+              <svg><use href="#kind-rectangle"/></svg>
+              <span class="tile-label">rect</span>
+            </button>
+          </div>
+        </div>
+        <div class="vis-footer">
+          <span class="footer-label">Visibility</span>
+          <div class="vis-seg" role="radiogroup">
+            <button class="seg" type="button">Off</button>
+            <button class="seg" type="button">Selected</button>
+            <button class="seg is-on" type="button">All</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="annotations">
+    <h3>Source of truth</h3>
+    <div class="note"><span class="pin">A</span><code>Shape.kind: K</code> at <code>types.ts:120</code>; <code>ShapeKind = keyof ShapePoints</code> at <code>types.ts:70</code>.</div>
+    <div class="note"><span class="pin">B</span>Today: no kind-change mutation in <code>mutations.ts</code>; only set at <code>addNode()</code> creation time.</div>
+    <div class="note"><span class="pin">C</span>Tile glyphs match the registry order rendered in the legacy "Kinds" dropdown (Scene 13).</div>
+  </div>
+</section>
+
+<!-- ═══════ Scene 8: order popover (slot 2) ═══════ -->
+
+<section class="wireframe-section">
+  <h2 class="t-h1">Scene 8 — order popover</h2>
+  <p class="lead">
+    The <code>order</code> popover is a discrete numeric editor — vertical
+    slider with integer notches, plus a numeric box for typing the value
+    directly (mirroring Adobe Fresco's "Tamaño" slider). Today
+    <code>Order</code> is set programmatically at <code>addNode()</code>;
+    there's no UI to change it post-hoc.
+  </p>
+
+  <div class="editor-frame">
+    <div class="canvas-bg"></div>
+
+    <aside class="sidebar">
+      <div class="sidebar-inner">
+        <a class="sidebar-brand" href="#" aria-label="NeSyCat Semiotics">
+          <svg class="logo-mark"><use href="#logo-mark"/></svg>
+        </a>
+        <div class="sidebar-tools" role="toolbar" aria-label="Shape editor">
+          <button class="sidebar-tool tool-name"            type="button" title="name (slot -1)"><svg><use href="#ic-name"/></svg></button>
+          <button class="sidebar-tool tool-points"          type="button" title="points (slot 0)"><svg><use href="#ic-points"/></svg></button>
+          <button class="sidebar-tool tool-kind"            type="button" title="kind (slot 1)"><svg><use href="#ic-kind"/></svg></button>
+          <button class="sidebar-tool tool-order is-active" type="button" title="order (slot 2)"><svg><use href="#ic-order"/></svg></button>
+          <button class="sidebar-tool tool-color"           type="button" title="color (slot 3)"><svg><use href="#ic-color"/></svg></button>
+          <button class="sidebar-tool tool-transform"       type="button" title="transform (slot 4)"><svg><use href="#ic-transform"/></svg></button>
+          <button class="sidebar-tool tool-equations"       type="button" title="equations (slot 5)"><svg><use href="#ic-equations"/></svg></button>
+          <button class="sidebar-tool tool-weight"          type="button" title="weight (slot 6)"><svg><use href="#ic-weight"/></svg></button>
+        </div>
+      </div>
+    </aside>
+
+    <div class="canvas-area">
+      <div class="toolbar-topleft">
+        <div class="kinds-anchor"><button class="panel-btn" type="button">Kinds</button></div>
+        <button class="panel-btn" type="button">Straight</button>
+      </div>
+      <div class="topright"><button class="panel-btn" type="button">JSON</button></div>
+      <div class="controls-cluster">
+        <button type="button"><svg><use href="#ic-plus"/></svg></button>
+        <button type="button"><svg><use href="#ic-minus"/></svg></button>
+        <button type="button"><svg><use href="#ic-fit"/></svg></button>
+        <button type="button"><svg><use href="#ic-lock"/></svg></button>
+      </div>
+
+      <!-- Popover anchored to the order button (i=3, top 198). -->
+      <div class="tool-popover" style="top: 198px; width: 280px">
+        <div class="head">order · slot 2</div>
+        <div class="body">
+          <div style="display:flex; align-items:center; gap:12px; justify-content:space-between;">
+            <span class="body-label">Order</span>
+            <input class="num-input" type="text" value="2" aria-label="Order value" />
+          </div>
+          <div class="slider-col">
+            <div class="slider-stack">
+              <div class="slider-track">
+                <div class="slider-thumb" style="top: 70%"></div>
+              </div>
+            </div>
+            <div class="slider-notches" aria-hidden="true">
+              <span>5</span><span>4</span><span>3</span><span>2</span><span>1</span><span>0</span>
+            </div>
+            <div class="preview-col">
+              <div class="preview-disk" style="width: 64px; height: 64px"></div>
+              <span class="hint" style="text-align:center;">order = 2<br/>(discrete steps)</span>
+            </div>
+          </div>
+          <span class="hint">Drag the slider or type a number; the preview scales with the order.</span>
+        </div>
+        <div class="vis-footer">
+          <span class="footer-label">Visibility</span>
+          <div class="vis-seg" role="radiogroup">
+            <button class="seg" type="button">Off</button>
+            <button class="seg is-on" type="button">Selected</button>
+            <button class="seg" type="button">All</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="annotations">
+    <h3>Source of truth</h3>
+    <div class="note"><span class="pin">A</span><code>Shape.order: Order</code> at <code>types.ts:121</code>; <code>Order = number</code> at <code>types.ts:74</code>.</div>
+    <div class="note"><span class="pin">B</span>Today: assigned at creation via <code>mutations.ts:118</code> (<code>order = d.nodes.length + 1</code>). No UI to change it.</div>
+    <div class="note"><span class="pin">C</span>Slider snaps to integers; for the wireframe, range is shown as 0–5 with the thumb sitting at value 2.</div>
+  </div>
+</section>
+
+<!-- ═══════ Scene 9: color popover (slot 3) ═══════ -->
+
+<section class="wireframe-section">
+  <h2 class="t-h1">Scene 9 — color popover</h2>
+  <p class="lead">
+    The <code>color</code> popover is a full HSV picker — annular hue ring
+    + inner S/V square, HSB sliders, alpha track, swatches grid. Mirrors
+    the layout of Adobe Fresco's "Color" panel. Today there's no picker;
+    shapes initialise to <code>DEFAULT_COLOR = [59/255, 130/255, 246/255]</code>
+    from <code>color.ts:5</code> and never change.
+  </p>
+
+  <div class="editor-frame">
+    <div class="canvas-bg"></div>
+
+    <aside class="sidebar">
+      <div class="sidebar-inner">
+        <a class="sidebar-brand" href="#" aria-label="NeSyCat Semiotics">
+          <svg class="logo-mark"><use href="#logo-mark"/></svg>
+        </a>
+        <div class="sidebar-tools" role="toolbar" aria-label="Shape editor">
+          <button class="sidebar-tool tool-name"            type="button" title="name (slot -1)"><svg><use href="#ic-name"/></svg></button>
+          <button class="sidebar-tool tool-points"          type="button" title="points (slot 0)"><svg><use href="#ic-points"/></svg></button>
+          <button class="sidebar-tool tool-kind"            type="button" title="kind (slot 1)"><svg><use href="#ic-kind"/></svg></button>
+          <button class="sidebar-tool tool-order"           type="button" title="order (slot 2)"><svg><use href="#ic-order"/></svg></button>
+          <button class="sidebar-tool tool-color is-active" type="button" title="color (slot 3)"><svg><use href="#ic-color"/></svg></button>
+          <button class="sidebar-tool tool-transform"       type="button" title="transform (slot 4)"><svg><use href="#ic-transform"/></svg></button>
+          <button class="sidebar-tool tool-equations"       type="button" title="equations (slot 5)"><svg><use href="#ic-equations"/></svg></button>
+          <button class="sidebar-tool tool-weight"          type="button" title="weight (slot 6)"><svg><use href="#ic-weight"/></svg></button>
+        </div>
+      </div>
+    </aside>
+
+    <div class="canvas-area">
+      <div class="toolbar-topleft">
+        <div class="kinds-anchor"><button class="panel-btn" type="button">Kinds</button></div>
+        <button class="panel-btn" type="button">Straight</button>
+      </div>
+      <div class="topright"><button class="panel-btn" type="button">JSON</button></div>
+      <div class="controls-cluster">
+        <button type="button"><svg><use href="#ic-plus"/></svg></button>
+        <button type="button"><svg><use href="#ic-minus"/></svg></button>
+        <button type="button"><svg><use href="#ic-fit"/></svg></button>
+        <button type="button"><svg><use href="#ic-lock"/></svg></button>
+      </div>
+
+      <!-- Popover anchored to the color button (i=4, top 244). -->
+      <div class="tool-popover" style="top: 244px; width: 280px">
+        <div class="head">color · slot 3</div>
+        <div class="body">
+          <div class="color-wheel" aria-label="HSV wheel">
+            <div class="color-current" title="Current color"></div>
+            <svg viewBox="0 0 220 220" width="220" height="220">
+              <defs>
+                <linearGradient id="cw-sv-h" x1="0" y1="0" x2="1" y2="0">
+                  <stop offset="0" stop-color="#fff"/>
+                  <stop offset="1" stop-color="rgb(59,130,246)"/>
+                </linearGradient>
+                <linearGradient id="cw-sv-v" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0" stop-color="rgba(0,0,0,0)"/>
+                  <stop offset="1" stop-color="#000"/>
+                </linearGradient>
+              </defs>
+              <!-- hue ring (rough; 8-stop conic via dashed segments) -->
+              <g fill="none" stroke-width="22">
+                <circle cx="110" cy="110" r="92" stroke="#f00" stroke-dasharray="72 506"  stroke-dashoffset="0"/>
+                <circle cx="110" cy="110" r="92" stroke="#ff0" stroke-dasharray="72 506"  stroke-dashoffset="-72"/>
+                <circle cx="110" cy="110" r="92" stroke="#0f0" stroke-dasharray="72 506"  stroke-dashoffset="-144"/>
+                <circle cx="110" cy="110" r="92" stroke="#0ff" stroke-dasharray="72 506"  stroke-dashoffset="-216"/>
+                <circle cx="110" cy="110" r="92" stroke="#00f" stroke-dasharray="72 506"  stroke-dashoffset="-288"/>
+                <circle cx="110" cy="110" r="92" stroke="#f0f" stroke-dasharray="72 506"  stroke-dashoffset="-360"/>
+                <circle cx="110" cy="110" r="92" stroke="#f00" stroke-dasharray="72 506"  stroke-dashoffset="-432"/>
+              </g>
+              <!-- S/V square inside the ring -->
+              <rect x="60" y="60" width="100" height="100" fill="url(#cw-sv-h)"/>
+              <rect x="60" y="60" width="100" height="100" fill="url(#cw-sv-v)"/>
+              <!-- markers -->
+              <circle cx="195" cy="110" r="6" fill="none" stroke="#fff" stroke-width="2"/>
+              <circle cx="120" cy="100" r="5" fill="none" stroke="#fff" stroke-width="2"/>
+            </svg>
+          </div>
+          <div class="color-sliders">
+            <div class="slider-row">
+              <span class="row-label">H</span>
+              <div class="h-track hue"><div class="h-thumb" style="left: 60%"></div></div>
+              <input class="num-input" value="216" />
+            </div>
+            <div class="slider-row">
+              <span class="row-label">S</span>
+              <div class="h-track sat"><div class="h-thumb" style="left: 76%"></div></div>
+              <input class="num-input" value="76" />
+            </div>
+            <div class="slider-row">
+              <span class="row-label">B</span>
+              <div class="h-track val"><div class="h-thumb" style="left: 96%"></div></div>
+              <input class="num-input" value="96" />
+            </div>
+            <div class="slider-row">
+              <span class="row-label">α</span>
+              <div class="h-track alpha"><div class="h-thumb" style="left: 100%"></div></div>
+              <input class="num-input" value="100" />
+            </div>
+          </div>
+          <span class="body-label">Swatches</span>
+          <div class="swatches">
+            <div class="sw" style="background:rgb(59,130,246)"></div>
+            <div class="sw" style="background:rgb(99, 157, 255)"></div>
+            <div class="sw" style="background:rgb(155, 89, 235)"></div>
+            <div class="sw" style="background:rgb(236, 72, 153)"></div>
+            <div class="sw" style="background:rgb(244, 114, 91)"></div>
+            <div class="sw" style="background:rgb(245, 158, 11)"></div>
+            <div class="sw" style="background:rgb(234, 211, 16)"></div>
+            <div class="sw" style="background:rgb(132, 204, 22)"></div>
+            <div class="sw" style="background:rgb(34, 197, 94)"></div>
+            <div class="sw" style="background:rgb(20, 184, 166)"></div>
+            <div class="sw" style="background:rgb(14, 165, 233)"></div>
+            <div class="sw" style="background:rgb(99, 102, 241)"></div>
+            <div class="sw" style="background:rgba(255, 255, 255, 0.9)"></div>
+            <div class="sw" style="background:rgba(255, 255, 255, 0.5)"></div>
+            <div class="sw" style="background:rgba(255, 255, 255, 0.25)"></div>
+            <div class="sw" style="background:rgba(0, 0, 0, 0.5)"></div>
+            <div class="sw" style="background:rgba(0, 0, 0, 0.8)"></div>
+            <div class="sw" style="background:#000"></div>
+          </div>
+        </div>
+        <div class="vis-footer">
+          <span class="footer-label">Visibility</span>
+          <div class="vis-seg" role="radiogroup">
+            <button class="seg" type="button">Off</button>
+            <button class="seg" type="button">Selected</button>
+            <button class="seg is-on" type="button">All</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="annotations">
+    <h3>Source of truth</h3>
+    <div class="note"><span class="pin">A</span><code>Shape.color: Color</code> at <code>types.ts:122</code>; <code>Color = [r, g, b] ∈ [0, 1]³</code> at <code>types.ts:79</code>.</div>
+    <div class="note"><span class="pin">B</span>Today: no picker. Shapes init to <code>DEFAULT_COLOR</code> from <code>color.ts:5</code> (same as <code>--color-accent-rgb</code>).</div>
+    <div class="note"><span class="pin">C</span><code>Off</code> renders shapes monochrome (outlines only); <code>Selected</code> tints the selection alone; <code>All</code> matches today.</div>
+  </div>
+</section>
+
+<!-- ═══════ Scene 10: transform popover (slot 4) ═══════ -->
+
+<section class="wireframe-section">
+  <h2 class="t-h1">Scene 10 — transform popover</h2>
+  <p class="lead">
+    The <code>transform</code> popover exposes the full <code>SpaceTime</code>
+    affine — translation (<code>tx</code>, <code>ty</code>), rotation
+    (<code>θ</code>), and scale (<code>sx</code>, <code>sy</code>). Today
+    only translation is bound to a UI (React Flow drag, committed via
+    <code>updateNodeTranslations()</code> in <code>mutations.ts</code>);
+    rotation/scale fields exist on <code>Space</code> but aren't editable.
+  </p>
+
+  <div class="editor-frame">
+    <div class="canvas-bg"></div>
+
+    <aside class="sidebar">
+      <div class="sidebar-inner">
+        <a class="sidebar-brand" href="#" aria-label="NeSyCat Semiotics">
+          <svg class="logo-mark"><use href="#logo-mark"/></svg>
+        </a>
+        <div class="sidebar-tools" role="toolbar" aria-label="Shape editor">
+          <button class="sidebar-tool tool-name"                type="button" title="name (slot -1)"><svg><use href="#ic-name"/></svg></button>
+          <button class="sidebar-tool tool-points"              type="button" title="points (slot 0)"><svg><use href="#ic-points"/></svg></button>
+          <button class="sidebar-tool tool-kind"                type="button" title="kind (slot 1)"><svg><use href="#ic-kind"/></svg></button>
+          <button class="sidebar-tool tool-order"               type="button" title="order (slot 2)"><svg><use href="#ic-order"/></svg></button>
+          <button class="sidebar-tool tool-color"               type="button" title="color (slot 3)"><svg><use href="#ic-color"/></svg></button>
+          <button class="sidebar-tool tool-transform is-active" type="button" title="transform (slot 4)"><svg><use href="#ic-transform"/></svg></button>
+          <button class="sidebar-tool tool-equations"           type="button" title="equations (slot 5)"><svg><use href="#ic-equations"/></svg></button>
+          <button class="sidebar-tool tool-weight"              type="button" title="weight (slot 6)"><svg><use href="#ic-weight"/></svg></button>
+        </div>
+      </div>
+    </aside>
+
+    <div class="canvas-area">
+      <div class="toolbar-topleft">
+        <div class="kinds-anchor"><button class="panel-btn" type="button">Kinds</button></div>
+        <button class="panel-btn" type="button">Straight</button>
+      </div>
+      <div class="topright"><button class="panel-btn" type="button">JSON</button></div>
+      <div class="controls-cluster">
+        <button type="button"><svg><use href="#ic-plus"/></svg></button>
+        <button type="button"><svg><use href="#ic-minus"/></svg></button>
+        <button type="button"><svg><use href="#ic-fit"/></svg></button>
+        <button type="button"><svg><use href="#ic-lock"/></svg></button>
+      </div>
+
+      <!-- Popover anchored to the transform button (i=5, top 290). -->
+      <div class="tool-popover" style="top: 290px; width: 296px">
+        <div class="head">transform · slot 4</div>
+        <div class="body">
+          <span class="body-label">Translate</span>
+          <div class="txn-grid">
+            <div class="cell"><span class="row-label">tx</span><input class="num-input" value="120" /></div>
+            <div class="cell"><span class="row-label">ty</span><input class="num-input" value="-40" /></div>
+          </div>
+          <span class="body-label">Rotate / scale</span>
+          <div class="txn-grid">
+            <div class="cell"><span class="row-label">θ</span><input class="num-input" value="0°" /></div>
+            <div class="cell"><span class="row-label">sx</span><input class="num-input" value="1.00" /></div>
+            <div class="cell" style="grid-column: 1"><span class="row-label">sy</span><input class="num-input" value="1.00" /></div>
+            <button class="reset-btn" type="button">Reset</button>
+          </div>
+          <span class="hint">Drag on canvas to translate. Rotation / scale aren't bound to handles yet.</span>
+        </div>
+        <div class="vis-footer">
+          <span class="footer-label">Visibility</span>
+          <div class="vis-seg" role="radiogroup">
+            <button class="seg" type="button">Off</button>
+            <button class="seg is-on" type="button">Selected</button>
+            <button class="seg" type="button">All</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="annotations">
+    <h3>Source of truth</h3>
+    <div class="note"><span class="pin">A</span><code>Shape.transform: SpaceTime</code> at <code>types.ts:123</code>; <code>Space</code> + <code>Time</code> at <code>types.ts:86-92</code>.</div>
+    <div class="note"><span class="pin">B</span>Today: only translation editable. Rotation / scale fields exist but no UI.</div>
+    <div class="note"><span class="pin">C</span>Visibility "Selected" shows transform handles only on the active selection — useful when many shapes overlap.</div>
+  </div>
+</section>
+
+<!-- ═══════ Scene 11: equations popover (slot 5) ═══════ -->
+
+<section class="wireframe-section">
+  <h2 class="t-h1">Scene 11 — equations popover</h2>
+  <p class="lead">
+    The <code>equations</code> popover lists the shape's
+    <code>Expression[]</code> (rational over shape refs, see
+    <code>types.ts:99-100</code>). Each equation reads as
+    <code>thisShape = E</code>. Today the field exists but no UI edits it —
+    this popover is a stub for the future expressions grammar.
+  </p>
+
+  <div class="editor-frame">
+    <div class="canvas-bg"></div>
+
+    <aside class="sidebar">
+      <div class="sidebar-inner">
+        <a class="sidebar-brand" href="#" aria-label="NeSyCat Semiotics">
+          <svg class="logo-mark"><use href="#logo-mark"/></svg>
+        </a>
+        <div class="sidebar-tools" role="toolbar" aria-label="Shape editor">
+          <button class="sidebar-tool tool-name"                type="button" title="name (slot -1)"><svg><use href="#ic-name"/></svg></button>
+          <button class="sidebar-tool tool-points"              type="button" title="points (slot 0)"><svg><use href="#ic-points"/></svg></button>
+          <button class="sidebar-tool tool-kind"                type="button" title="kind (slot 1)"><svg><use href="#ic-kind"/></svg></button>
+          <button class="sidebar-tool tool-order"               type="button" title="order (slot 2)"><svg><use href="#ic-order"/></svg></button>
+          <button class="sidebar-tool tool-color"               type="button" title="color (slot 3)"><svg><use href="#ic-color"/></svg></button>
+          <button class="sidebar-tool tool-transform"           type="button" title="transform (slot 4)"><svg><use href="#ic-transform"/></svg></button>
+          <button class="sidebar-tool tool-equations is-active" type="button" title="equations (slot 5)"><svg><use href="#ic-equations"/></svg></button>
+          <button class="sidebar-tool tool-weight"              type="button" title="weight (slot 6)"><svg><use href="#ic-weight"/></svg></button>
+        </div>
+      </div>
+    </aside>
+
+    <div class="canvas-area">
+      <div class="toolbar-topleft">
+        <div class="kinds-anchor"><button class="panel-btn" type="button">Kinds</button></div>
+        <button class="panel-btn" type="button">Straight</button>
+      </div>
+      <div class="topright"><button class="panel-btn" type="button">JSON</button></div>
+      <div class="controls-cluster">
+        <button type="button"><svg><use href="#ic-plus"/></svg></button>
+        <button type="button"><svg><use href="#ic-minus"/></svg></button>
+        <button type="button"><svg><use href="#ic-fit"/></svg></button>
+        <button type="button"><svg><use href="#ic-lock"/></svg></button>
+      </div>
+
+      <!-- Popover anchored to the equations button (i=6, top 336). -->
+      <div class="tool-popover" style="top: 336px; width: 296px">
+        <div class="head">equations · slot 5</div>
+        <div class="body">
+          <span class="body-label">this = …</span>
+          <div class="eq-list">
+            <div class="eq-row"><span>x + y</span><span class="delete">×</span></div>
+            <div class="eq-row"><span>2 · z − w</span><span class="delete">×</span></div>
+          </div>
+          <button class="eq-add" type="button">+ Add equation</button>
+          <span class="hint">Encoding: strings are shape refs, numbers literals, objects ops (<code>+ − * /</code>). Grammar at <code>types.ts:99-100</code>.</span>
+        </div>
+        <div class="vis-footer">
+          <span class="footer-label">Visibility</span>
+          <div class="vis-seg" role="radiogroup">
+            <button class="seg" type="button">Off</button>
+            <button class="seg is-on" type="button">Selected</button>
+            <button class="seg" type="button">All</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="annotations">
+    <h3>Source of truth</h3>
+    <div class="note"><span class="pin">A</span><code>Shape.equations: Expression[]</code> at <code>types.ts:124</code>; <code>Expression</code> at <code>types.ts:100</code>.</div>
+    <div class="note"><span class="pin">B</span>Each row reads as an implicit <code>thisShape = E</code> equation.</div>
+    <div class="note"><span class="pin">C</span>Today: no UI; the field is always <code>[]</code> at creation. This popover is a stub.</div>
+  </div>
+</section>
+
+<!-- ═══════ Scene 12: weight popover (slot 6) ═══════ -->
+
+<section class="wireframe-section">
+  <h2 class="t-h1">Scene 12 — weight popover</h2>
+  <p class="lead">
+    The <code>weight</code> popover is the continuous twin of Scene 8 —
+    same Fresco-style slider, but with 1-decimal floats and no integer
+    snap. <code>Mass</code> is a scalar alias for <code>number</code>
+    (<code>types.ts:104</code>); today every shape initialises to
+    <code>1</code> at <code>mutations.ts:64</code> and never changes.
+  </p>
+
+  <div class="editor-frame">
+    <div class="canvas-bg"></div>
+
+    <aside class="sidebar">
+      <div class="sidebar-inner">
+        <a class="sidebar-brand" href="#" aria-label="NeSyCat Semiotics">
+          <svg class="logo-mark"><use href="#logo-mark"/></svg>
+        </a>
+        <div class="sidebar-tools" role="toolbar" aria-label="Shape editor">
+          <button class="sidebar-tool tool-name"             type="button" title="name (slot -1)"><svg><use href="#ic-name"/></svg></button>
+          <button class="sidebar-tool tool-points"           type="button" title="points (slot 0)"><svg><use href="#ic-points"/></svg></button>
+          <button class="sidebar-tool tool-kind"             type="button" title="kind (slot 1)"><svg><use href="#ic-kind"/></svg></button>
+          <button class="sidebar-tool tool-order"            type="button" title="order (slot 2)"><svg><use href="#ic-order"/></svg></button>
+          <button class="sidebar-tool tool-color"            type="button" title="color (slot 3)"><svg><use href="#ic-color"/></svg></button>
+          <button class="sidebar-tool tool-transform"        type="button" title="transform (slot 4)"><svg><use href="#ic-transform"/></svg></button>
+          <button class="sidebar-tool tool-equations"        type="button" title="equations (slot 5)"><svg><use href="#ic-equations"/></svg></button>
+          <button class="sidebar-tool tool-weight is-active" type="button" title="weight (slot 6)"><svg><use href="#ic-weight"/></svg></button>
+        </div>
+      </div>
+    </aside>
+
+    <div class="canvas-area">
+      <div class="toolbar-topleft">
+        <div class="kinds-anchor"><button class="panel-btn" type="button">Kinds</button></div>
+        <button class="panel-btn" type="button">Straight</button>
+      </div>
+      <div class="topright"><button class="panel-btn" type="button">JSON</button></div>
+      <div class="controls-cluster">
+        <button type="button"><svg><use href="#ic-plus"/></svg></button>
+        <button type="button"><svg><use href="#ic-minus"/></svg></button>
+        <button type="button"><svg><use href="#ic-fit"/></svg></button>
+        <button type="button"><svg><use href="#ic-lock"/></svg></button>
+      </div>
+
+      <!-- Popover anchored to the weight button (i=7, top 382). -->
+      <div class="tool-popover" style="top: 382px; width: 280px">
+        <div class="head">weight · slot 6</div>
+        <div class="body">
+          <div style="display:flex; align-items:center; gap:12px; justify-content:space-between;">
+            <span class="body-label">Mass</span>
+            <input class="num-input" type="text" value="1.0" aria-label="Weight value" />
+          </div>
+          <div class="slider-col">
+            <div class="slider-stack">
+              <div class="slider-track">
+                <div class="slider-thumb" style="top: 80%"></div>
+              </div>
+            </div>
+            <div class="slider-notches" aria-hidden="true">
+              <span>5</span><span>4</span><span>3</span><span>2</span><span>1</span><span>0</span>
+            </div>
+            <div class="preview-col">
+              <div class="preview-disk" style="width: 48px; height: 48px"></div>
+              <span class="hint" style="text-align:center;">weight = 1.0<br/>(continuous)</span>
+            </div>
+          </div>
+          <span class="hint">Drag the slider or type a 1-decimal value; preview scales with mass.</span>
+        </div>
+        <div class="vis-footer">
+          <span class="footer-label">Visibility</span>
+          <div class="vis-seg" role="radiogroup">
+            <button class="seg is-on" type="button">Off</button>
+            <button class="seg" type="button">Selected</button>
+            <button class="seg" type="button">All</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="annotations">
+    <h3>Source of truth</h3>
+    <div class="note"><span class="pin">A</span><code>Shape.weight: Mass</code> at <code>types.ts:125</code>; <code>Mass = number</code> at <code>types.ts:104</code>.</div>
+    <div class="note"><span class="pin">B</span>Today: no UI. Initialised to <code>1</code> at <code>mutations.ts:64</code>.</div>
+    <div class="note"><span class="pin">C</span>This popover defaults visibility to <code>Off</code> — weight isn't typically surfaced on the canvas.</div>
+  </div>
+</section>
+
+<!-- ═══════ Scene 13: Kinds menu open ═══════ -->
+
+<section class="wireframe-section">
+  <h2 class="t-h1">Scene 13 — Kinds menu open</h2>
   <p class="lead">
     Hovering the "Kinds" button reveals a glass dropdown 6 px below it.
     Eight rows: five per-kind toggles (in registry order — Empties,
@@ -296,7 +984,6 @@
         </div>
       </div>
     </aside>
-    <button class="sidebar-handle" type="button" aria-label="Collapse sidebar">‹</button>
 
     <div class="canvas-area">
       <div class="toolbar-topleft">
@@ -374,10 +1061,10 @@
   </div>
 </section>
 
-<!-- ═══════ Scene 4: JSON panel open ═══════ -->
+<!-- ═══════ Scene 14: JSON panel open ═══════ -->
 
 <section class="wireframe-section">
-  <h2 class="t-h1">Scene 4 — JSON panel open</h2>
+  <h2 class="t-h1">Scene 14 — JSON panel open</h2>
   <p class="lead">
     JSON button toggles a 400-wide, 500-max-height glass panel. Header strip
     carries a "DIAGRAM DATA" caption (11 px Mono / 600 wt / uppercase /
@@ -405,7 +1092,6 @@
         </div>
       </div>
     </aside>
-    <button class="sidebar-handle" type="button" aria-label="Collapse sidebar">‹</button>
 
     <div class="canvas-area">
       <div class="toolbar-topleft">
@@ -485,10 +1171,10 @@
   </div>
 </section>
 
-<!-- ═══════ Scene 5: Star-prompt modal ═══════ -->
+<!-- ═══════ Scene 15: Star-prompt modal ═══════ -->
 
 <section class="wireframe-section">
-  <h2 class="t-h1">Scene 5 — Star-prompt modal</h2>
+  <h2 class="t-h1">Scene 15 — Star-prompt modal</h2>
   <p class="lead">
     After ~45 s idle, a full-screen modal asks the user to star the GitHub
     repo. 50% dark scrim over the editor, body centred at ~420 px wide.

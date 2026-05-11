@@ -64,8 +64,8 @@ body {
  *     <EditorSidebar diagrams={diagrams} />
  *   </div>
  * Width fixed at 1728, height 1080, no scrollbars. CSS var
- * `--sidebar-offset` lets the top-left toolbar mirror the sidebar's
- * width — same behaviour as the live app.
+ * `--sidebar-offset` mirrors the rail width so canvas chrome aligns with the
+ * sidebar (rail is always visible in this wireframe — not collapsible).
  */
 
 .editor-frame {
@@ -78,12 +78,6 @@ body {
   border-radius: 10px;
   overflow: hidden;
   background: var(--color-canvas-bg);
-}
-.editor-frame.is-sidebar-closed {
-  --sidebar-offset: 0px;
-}
-.editor-frame.is-sidebar-closed .sidebar {
-  width: 0;
 }
 
 /* Canvas dot grid (mirrors React Flow <Background variant="dots" gap={20} size={1} />) */
@@ -100,8 +94,8 @@ body {
  * 56-wide vertical rail. The buttons mirror the user-facing slots of
  * `Shape<K>` in components/editor/types.ts (lines 116-126):
  *
- *   slot (-1) name       → tool-name        — pencil glyph
- *   slot  (0) points     → tool-points      — two dots
+ *   slot (-1) name       → tool-name        — Geist “A” (label)
+ *   slot  (0) points     → tool-points      — two dots, wider spacing
  *   slot  (1) kind       → tool-kind        — triangle (representative kind)
  *   slot  (2) order      → tool-order       — three ascending bars
  *   slot  (3) color      → tool-color       — filled disk in current shape color
@@ -128,10 +122,7 @@ body {
   flex-direction: column;
   z-index: 2;
   overflow: hidden;
-  transition: width 200ms;
 }
-/* Inner content keeps its 56 width even when the outer collapses so the
-   collapse looks like a slide rather than a reflow (matches the live app). */
 .sidebar > .sidebar-inner {
   width: 56px;
   height: 100%;
@@ -199,40 +190,19 @@ body {
   stroke: rgba(255, 255, 255, 0.45);
   stroke-width: 1;
 }
+/* `tool-name` — letterform inside <use>; avoid fill:none from .sidebar-tool svg leaking via inheritance. */
+.sidebar-tool.tool-name svg {
+  width: 20px;
+  height: 20px;
+  stroke: none;
+  fill: currentColor;
+}
+
 /* `tool-points` and `tool-equations` glyphs read better as filled shapes. */
 .sidebar-tool.tool-points svg,
 .sidebar-tool.tool-equations svg {
   fill: currentColor;
   stroke: none;
-}
-
-/* Collapse handle — sits at the right edge of the sidebar (or at the left
-   edge of the canvas when collapsed). Positioned on `.editor-frame` rather
-   than inside `.sidebar` so `.sidebar { overflow: hidden }` doesn't clip it.
-   `left: var(--sidebar-offset)` makes the handle slide with the sidebar. */
-.sidebar-handle {
-  position: absolute;
-  top: 50%;
-  left: var(--sidebar-offset, 56px);
-  transform: translateY(-50%);
-  width: 28px;
-  height: 64px;
-  display: grid;
-  place-items: center;
-  border-top-right-radius: 8px;
-  border-bottom-right-radius: 8px;
-  border: 1px solid var(--color-glass-border);
-  border-left: none;
-  background: var(--color-glass-panel-bg);
-  backdrop-filter: blur(var(--effect-blur));
-  -webkit-backdrop-filter: blur(var(--effect-blur));
-  color: var(--color-text-muted);
-  font-family: var(--font-geist-sans);
-  font-size: 16px;
-  line-height: 1;
-  cursor: pointer;
-  z-index: 11;
-  transition: left 200ms;
 }
 
 /* ───────── Canvas area ───────── */
@@ -246,7 +216,7 @@ body {
 /* ───────── Top-left toolbar (Kinds + Straight) ───────── */
 /*
  * position: absolute; top: 12; left: calc(12 + var(--sidebar-offset));
- * display: flex; gap: 8; align-items: flex-start; transition 200ms.
+ * display: flex; gap: 8; align-items: flex-start.
  * Each button uses panelStyle() + borderRadius 8 + padding 6px 14px,
  * 12px / 600wt / secondary text.
  */
@@ -423,7 +393,7 @@ body {
 
 /* ───────── Bottom-left zoom controls (React Flow <Controls />) ─────────
  * Styled in app/globals.css .react-flow__controls: glass panel, 28x28
- * buttons stacked vertically, glass-border between, sidebar-offset slide.
+ * buttons stacked vertically, glass-border between; left inset uses --sidebar-offset.
  */
 
 .controls-cluster {
@@ -561,4 +531,365 @@ code {
   padding: 1px 6px;
   border-radius: 4px;
   font-size: 0.92em;
+}
+
+/* ───────── Tool popovers (rail button → editor panel) ─────────
+ *
+ * One popover per rail button. Floats just to the right of the 56-wide rail
+ * at the y-position of the originating button. Anchored to `.editor-frame`.
+ * Structure: header (caption) → body (editor) → vis-footer (3-state
+ * "Off · Selected · All"). The visibility footer is parked at the bottom
+ * per the user's choice — editor stays in the visual foreground.
+ */
+
+.tool-popover {
+  position: absolute;
+  left: calc(var(--sidebar-offset) + 8px);
+  z-index: 12;
+  min-width: 240px;
+  background: var(--color-glass-panel-bg);
+  backdrop-filter: blur(var(--effect-blur));
+  -webkit-backdrop-filter: blur(var(--effect-blur));
+  border: 1px solid var(--color-glass-border);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.tool-popover .head {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--color-glass-border);
+  font-family: var(--font-geist-mono);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.tool-popover .body {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.tool-popover .body .body-label {
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+.tool-popover .body .hint {
+  font-size: 11px;
+  color: var(--color-text-dimmed);
+  line-height: 1.4;
+}
+.tool-popover .vis-footer {
+  padding: 10px 12px 12px;
+  border-top: 1px solid var(--color-glass-border);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.02);
+}
+.tool-popover .vis-footer .footer-label {
+  font-family: var(--font-geist-mono);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--color-text-dimmed);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* 3-state visibility segmented control */
+.vis-seg {
+  display: flex;
+  gap: 4px;
+  background: var(--color-glass-button-bg);
+  border: 1px solid var(--color-glass-border);
+  border-radius: 6px;
+  padding: 2px;
+}
+.vis-seg .seg {
+  flex: 1;
+  padding: 6px 10px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-family: var(--font-geist-sans);
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: center;
+}
+.vis-seg .seg:hover  { color: var(--color-text-secondary); }
+.vis-seg .seg.is-on {
+  background: rgba(var(--color-accent-rgb), 0.22);
+  border-color: rgba(var(--color-accent-rgb), 0.5);
+  color: var(--color-text-primary);
+}
+
+/* Shared form controls inside the popover body */
+.tool-popover .text-input {
+  width: 100%;
+  height: 30px;
+  padding: 0 10px;
+  border-radius: 6px;
+  border: 1px solid var(--color-glass-border);
+  background: var(--color-glass-button-bg);
+  color: var(--color-text-primary);
+  font-family: var(--font-geist-sans);
+  font-size: 13px;
+  outline: none;
+}
+.tool-popover .num-input {
+  width: 56px;
+  height: 26px;
+  padding: 0 6px;
+  border-radius: 6px;
+  border: 1px solid var(--color-glass-border);
+  background: var(--color-glass-button-bg);
+  color: var(--color-text-primary);
+  font-family: var(--font-geist-mono);
+  font-size: 12px;
+  text-align: center;
+  outline: none;
+}
+
+/* Scene 7 — kind picker (5 shape tiles) */
+.kind-picker {
+  display: flex;
+  gap: 8px;
+  padding-bottom: 18px;          /* room for the tile-label below */
+}
+.kind-picker .tile {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border-radius: 6px;
+  border: 1px solid var(--color-glass-border);
+  background: var(--color-glass-button-bg);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  position: relative;
+}
+.kind-picker .tile.is-on {
+  background: rgba(var(--color-accent-rgb), 0.22);
+  border-color: rgba(var(--color-accent-rgb), 0.5);
+  color: var(--color-text-primary);
+}
+.kind-picker .tile svg {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.4;
+  stroke-linejoin: round;
+}
+.kind-picker .tile .tile-label {
+  position: absolute;
+  bottom: -16px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: var(--font-geist-mono);
+  font-size: 9px;
+  color: var(--color-text-dimmed);
+  white-space: nowrap;
+}
+
+/* Scenes 8 + 12 — vertical slider (Fresco "Tamaño 6,0" style) */
+.slider-col {
+  display: flex;
+  align-items: flex-start;
+  gap: 18px;
+}
+.slider-col .slider-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+.slider-col .slider-track {
+  position: relative;
+  width: 4px;
+  height: 200px;
+  background: var(--color-glass-button-bg);
+  border-radius: 2px;
+}
+.slider-col .slider-thumb {
+  position: absolute;
+  left: 50%;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--color-accent-blue);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  transform: translate(-50%, -50%);
+}
+.slider-col .slider-notches {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 200px;
+  padding-top: 0;
+}
+.slider-col .slider-notches span {
+  font-family: var(--font-geist-mono);
+  font-size: 9px;
+  color: var(--color-text-dimmed);
+  line-height: 1;
+}
+.slider-col .preview-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+.slider-col .preview-disk {
+  border-radius: 50%;
+  background: rgba(var(--color-accent-rgb), 0.35);
+  border: 1px solid rgba(var(--color-accent-rgb), 0.7);
+}
+
+/* Scene 9 — color picker */
+.color-wheel {
+  width: 220px;
+  height: 220px;
+  position: relative;
+  margin: 0 auto;
+}
+.color-current {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--color-accent-blue);
+  border: 2px solid rgba(255, 255, 255, 0.6);
+}
+.color-sliders {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.color-sliders .slider-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.color-sliders .slider-row .row-label {
+  width: 16px;
+  font-family: var(--font-geist-mono);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--color-text-muted);
+}
+.color-sliders .slider-row .h-track {
+  flex: 1;
+  height: 6px;
+  border-radius: 3px;
+  position: relative;
+}
+.color-sliders .slider-row .h-track.hue {
+  background: linear-gradient(to right, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00);
+}
+.color-sliders .slider-row .h-track.sat {
+  background: linear-gradient(to right, rgba(255,255,255,0.1), rgb(59,130,246));
+}
+.color-sliders .slider-row .h-track.val {
+  background: linear-gradient(to right, #000, rgb(59,130,246));
+}
+.color-sliders .slider-row .h-track.alpha {
+  background:
+    linear-gradient(to right, rgba(59,130,246,0), rgb(59,130,246)),
+    repeating-conic-gradient(rgba(255,255,255,0.2) 0% 25%, transparent 0% 50%) 0 0 / 8px 8px;
+}
+.color-sliders .slider-row .h-thumb {
+  position: absolute;
+  top: 50%;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.6);
+  transform: translate(-50%, -50%);
+}
+.swatches {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 6px;
+}
+.swatches .sw {
+  aspect-ratio: 1;
+  border-radius: 4px;
+  border: 1px solid var(--color-glass-border);
+}
+
+/* Scene 10 — transform numeric grid */
+.txn-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px 10px;
+}
+.txn-grid .cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.txn-grid .cell .row-label {
+  width: 24px;
+  font-family: var(--font-geist-mono);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--color-text-muted);
+}
+.txn-grid .reset-btn {
+  grid-column: 2;
+  justify-self: end;
+  height: 26px;
+  padding: 0 12px;
+  border-radius: 4px;
+  border: 1px solid var(--color-glass-border);
+  background: var(--color-glass-button-bg);
+  color: var(--color-text-secondary);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+/* Scene 11 — equations list */
+.eq-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.eq-row {
+  display: flex;
+  align-items: center;
+  padding: 8px 10px;
+  background: var(--color-glass-button-bg);
+  border: 1px solid var(--color-glass-border);
+  border-radius: 4px;
+  font-family: var(--font-geist-mono);
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+.eq-row .delete {
+  margin-left: auto;
+  color: var(--color-text-dimmed);
+  font-size: 13px;
+  cursor: pointer;
+}
+.eq-add {
+  height: 30px;
+  padding: 0 12px;
+  border-radius: 6px;
+  border: 1px dashed rgba(var(--color-accent-rgb), 0.5);
+  background: transparent;
+  color: var(--color-accent-blue);
+  font-family: var(--font-geist-sans);
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  align-self: flex-start;
 }
