@@ -6,13 +6,14 @@
  * 1728 × 1117 effective points. Each scene frame is 1728 × 1080 to mirror
  * the real viewport once the macOS chrome is removed.
  *
- * Token + styling sources cited inline next to each rule:
- *   Top bar (shape tools + share)     — replaces left rail in this wireframe
- *   Canvas.tsx (Kinds toolbar)  — top-left
- *   Canvas.tsx (KindRow + Kbd)  — Kinds menu
- *   Canvas.tsx (diagram data panel) — reuse `.tool-popover`
- *   ReactFlow <Controls/>       — bottom-left zoom cluster
- *   ../00-design-system/tokens.css — colours + typography
+ * Region map:
+ *   .editor-topbar          — logo · shape-tool strip · share (top, 52 px)
+ *   .canvas-area            — full-width host below the bar
+ *   .tool-popover           — shared shell for shape inspector + diagram-data
+ *   .controls-cluster       — bottom-left zoom buttons (matches React Flow <Controls/>)
+ *   .modal-frame            — separate frame for the star-prompt scene
+ *
+ * Tokens come from ../00-design-system/tokens.css.
  */
 
 @import url("../00-design-system/tokens.css");
@@ -63,13 +64,11 @@ body {
  *     <main className="absolute inset-0">{Canvas}</main>
  *     <EditorSidebar diagrams={diagrams} />
  *   </div>
- * Width fixed at 1728, height 1080, no scrollbars. CSS var
- * `--sidebar-offset` is 0 (top bar only; rail removed from this wireframe).
+ * Width fixed at 1728, height 1080, no scrollbars.
  * `--editor-topbar-height` reserves space for the horizontal tool strip + share.
  */
 
 .editor-frame {
-  --sidebar-offset: 0px;
   --editor-topbar-height: 52px;
   position: relative;
   width: 1728px;
@@ -176,38 +175,38 @@ body {
   flex: 0 0 auto;
   z-index: 1;
 }
-/* Share uses .sidebar-tool (same 40×40, radius 6, hover/focus chrome as shape tools). */
-.sidebar-tool.topbar-share.is-panel-open {
+/* Share uses .shape-tool (same 40×40, radius 6, hover/focus chrome as shape tools). */
+.shape-tool.topbar-share.is-panel-open {
   background: rgba(var(--color-accent-rgb), 0.18);
   border-color: rgba(var(--color-accent-rgb), 0.5);
   color: var(--color-text-primary);
 }
-.editor-topbar .sidebar-tool {
+.editor-topbar .shape-tool {
   flex-shrink: 0;
 }
-/* Match .topbar-brand:hover — subtle fill, no glass border ring (sidebar rail keeps glass hover). */
-.editor-topbar .sidebar-tool:hover {
+/* Match .topbar-brand:hover — subtle fill, no glass border ring. */
+.editor-topbar .shape-tool:hover {
   background: rgba(255, 255, 255, 0.05);
   border-color: transparent;
   color: var(--color-text-muted);
 }
-.editor-topbar .sidebar-tool.is-active:hover {
+.editor-topbar .shape-tool.is-active:hover {
   background: rgba(var(--color-accent-rgb), 0.22);
   border-color: rgba(var(--color-accent-rgb), 0.55);
   color: var(--color-text-primary);
 }
-.editor-topbar .sidebar-tool.topbar-share.is-panel-open:hover {
+.editor-topbar .shape-tool.topbar-share.is-panel-open:hover {
   background: rgba(var(--color-accent-rgb), 0.25);
   border-color: rgba(var(--color-accent-rgb), 0.55);
   color: var(--color-text-primary);
 }
 
-/* ───────── Left sidebar (reference / vertical mock only — not used in frames) ─────────
+/* ───────── Shape-spine tool buttons (live inside .editor-topbar) ─────────
  *
- * 56-wide vertical rail. Buttons mirror user-facing fields of `Shape<K>`
- * in components/editor/types.ts (lines 116-126), in declaration order:
+ * One button per user-facing field of `Shape<K>` in
+ * components/editor/types.ts (lines 116-126), in declaration order:
  *
- *   name        → tool-name        — Geist “A” (label)
+ *   name        → tool-name        — Geist "A" (label)
  *   points      → tool-points      — two dots, wider spacing
  *   kind        → tool-kind        — triangle (representative kind)
  *   order       → tool-order       — three ascending bars
@@ -217,54 +216,12 @@ body {
  *   weight      → tool-weight      — kettlebell glyph
  *
  * Internal-only `id` (types.ts:29) has no button.
- * File-management (search / +new / diagram list) moves out of the sidebar;
- * picker lives elsewhere in a later iteration.
  */
-
-.sidebar {
-  position: absolute;
-  top: 0;
-  left: 0;
-  bottom: 0;
-  width: 56px;
-  background: var(--color-glass-panel-bg);
-  backdrop-filter: blur(var(--effect-blur));
-  -webkit-backdrop-filter: blur(var(--effect-blur));
-  border-right: 1px solid var(--color-glass-border);
-  display: flex;
-  flex-direction: column;
-  z-index: 2;
-  overflow: hidden;
-}
-.sidebar > .sidebar-inner {
-  width: 56px;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-}
-
-/* Logo at top — icon only, no brand text. */
-.sidebar-brand {
-  display: grid;
-  place-items: center;
-  padding: 14px 0;
-  border-bottom: 1px solid var(--color-glass-border);
-  text-decoration: none;
-}
-.sidebar-brand:hover { background: rgba(255, 255, 255, 0.05); }
 
 /* Inline SVG logo mark (matches LogoMark in EditorSidebar.tsx). */
 .logo-mark { width: 22px; height: 22px; flex-shrink: 0; }
 
-/* Tool list — vertically stacked icon buttons, one per editable Shape field. */
-.sidebar-tools {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  padding: 10px 0;
-}
-.sidebar-tool {
+.shape-tool {
   width: 40px;
   height: 40px;
   display: grid;
@@ -277,17 +234,17 @@ body {
   padding: 0;
   position: relative;
 }
-.sidebar-tool:hover {
+.shape-tool:hover {
   background: var(--color-glass-button-bg);
   border-color: var(--color-glass-border);
   color: var(--color-text-secondary);
 }
-.sidebar-tool.is-active {
+.shape-tool.is-active {
   background: rgba(var(--color-accent-rgb), 0.18);
   border-color: rgba(var(--color-accent-rgb), 0.5);
   color: var(--color-text-primary);
 }
-.sidebar-tool svg {
+.shape-tool svg {
   width: 18px;
   height: 18px;
   fill: none;
@@ -296,24 +253,22 @@ body {
   stroke-linecap: round;
   stroke-linejoin: round;
 }
-/* `tool-color`'s glyph IS the color — render it as a filled disk in the
-   shape's current color (default accent), no stroke. */
-.sidebar-tool.tool-color svg {
+/* `tool-color`'s glyph IS the color — filled disk in current shape color. */
+.shape-tool.tool-color svg {
   fill: var(--color-accent-blue);
   stroke: rgba(255, 255, 255, 0.45);
   stroke-width: 1;
 }
-/* `tool-name` — letterform inside <use>; avoid fill:none from .sidebar-tool svg leaking via inheritance. */
-.sidebar-tool.tool-name svg {
+/* `tool-name` — letterform; cancel the fill:none / stroke base. */
+.shape-tool.tool-name svg {
   width: 20px;
   height: 20px;
   stroke: none;
   fill: currentColor;
 }
-
 /* `tool-points` and `tool-equations` glyphs read better as filled shapes. */
-.sidebar-tool.tool-points svg,
-.sidebar-tool.tool-equations svg {
+.shape-tool.tool-points svg,
+.shape-tool.tool-equations svg {
   fill: currentColor;
   stroke: none;
 }
@@ -329,131 +284,9 @@ body {
   z-index: 1;
 }
 
-/* ───────── Top-left toolbar (Kinds + Straight) ───────── */
-/*
- * position: absolute; top: 12; left: calc(12 + var(--sidebar-offset));
- * display: flex; gap: 8; align-items: flex-start.
- * Each button uses panelStyle() + borderRadius 8 + padding 6px 14px,
- * 12px / 600wt / secondary text.
- */
-
-.toolbar-topleft {
-  position: absolute;
-  top: calc(12px + var(--editor-topbar-height));
-  left: 12px;
-  z-index: 10;
-  display: flex;
-  gap: 8px;
-  align-items: flex-start;
-}
-
-.panel-btn {
-  background: var(--color-glass-panel-bg);
-  backdrop-filter: blur(var(--effect-blur));
-  -webkit-backdrop-filter: blur(var(--effect-blur));
-  border: 1px solid var(--color-glass-border);
-  border-radius: 8px;
-  padding: 6px 14px;
-  font-family: var(--font-geist-sans);
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--color-text-secondary);
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-/* Kinds button + its drop-down container */
-.kinds-anchor {
-  position: relative;
-}
-.kinds-menu {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  padding-top: 6px;          /* gap from button (matches Canvas.tsx: paddingTop: 6) */
-  z-index: 10;
-}
-.kinds-menu .panel {
-  background: var(--color-glass-panel-bg);
-  backdrop-filter: blur(var(--effect-blur));
-  -webkit-backdrop-filter: blur(var(--effect-blur));
-  border: 1px solid var(--color-glass-border);
-  border-radius: 8px;
-  padding: 6px 6px;
-  min-width: 220px;
-}
-/* KindRow — Canvas.tsx 730-755 (scoped: only the mock “Kinds” dropdown, not the Kind popover list) */
-.kinds-menu .kind-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 5px 10px;
-  border-radius: 4px;
-  font-size: 11px;
-  font-weight: 500;
-  color: var(--color-text-dimmed);
-  cursor: pointer;
-  user-select: none;
-}
-.kinds-menu .kind-row.is-on  { color: var(--color-text-secondary); }
-.kinds-menu .kind-row:hover  { background: rgba(255, 255, 255, 0.04); }
-.kinds-menu .kind-row .dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  border: 1px solid rgba(255, 255, 255, 0.22);
-  background: transparent;
-  margin-left: 2px;
-  flex-shrink: 0;
-}
-.kinds-menu .kind-row.is-on .dot {
-  background: rgba(var(--color-accent-rgb), 0.9);
-  border-color: transparent;
-  box-shadow: 0 0 0 3px rgba(var(--color-accent-rgb), 0.2);
-}
-.kinds-menu .kind-row .label { flex: 1; }
-.kinds-menu .kind-row .kbds {
-  margin-left: auto;
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-}
-/* Kbd — Canvas.tsx 715-727 */
-.kbd {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 18px;
-  height: 18px;
-  padding: 0 5px;
-  border: 1px solid var(--color-glass-border);
-  border-radius: 4px;
-  background: rgba(255, 255, 255, 0.05);
-  color: var(--color-text-secondary);
-  font-family: var(--font-geist-mono);
-  font-size: 10px;
-  font-weight: 500;
-  line-height: 1;
-  letter-spacing: 0;
-  white-space: nowrap;
-}
-
-/* ───────── `.topright` — anchor hook for future chrome (unused in current wireframe HTML). ───────── */
-
-.topright {
-  position: absolute;
-  top: calc(12px + var(--editor-topbar-height));
-  right: 12px;
-  z-index: 10;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  align-items: flex-end;
-}
-
 /* ───────── Bottom-left zoom controls (React Flow <Controls />) ─────────
  * Styled in app/globals.css .react-flow__controls: glass panel, 28x28
- * buttons stacked vertically, glass-border between; left inset uses --sidebar-offset.
+ * buttons stacked vertically, glass-border between.
  */
 
 .controls-cluster {
@@ -1301,17 +1134,17 @@ code {
   flex: 1;
   min-width: 0;
 }
-/* Compact “+”: same accent treatment as active .sidebar-tool, not 40×40. */
-.tool-popover--equations .head .eq-popover-add.sidebar-tool {
+/* Compact “+”: same accent treatment as active .shape-tool, not 40×40. */
+.tool-popover--equations .head .eq-popover-add.shape-tool {
   width: 28px;
   height: 28px;
   flex-shrink: 0;
 }
-.tool-popover--equations .head .eq-popover-add.sidebar-tool svg {
+.tool-popover--equations .head .eq-popover-add.shape-tool svg {
   width: 14px;
   height: 14px;
 }
-/* Match default + hover chrome of .editor-topbar .sidebar-tool (e.g. Weight when inactive). */
+/* Match default + hover chrome of .editor-topbar .shape-tool (e.g. Weight when inactive). */
 .tool-popover--equations .head .eq-popover-add:hover {
   background: rgba(255, 255, 255, 0.05);
   border-color: transparent;

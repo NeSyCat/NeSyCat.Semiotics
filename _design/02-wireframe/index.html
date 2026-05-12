@@ -51,9 +51,10 @@
     </symbol>
 
     <!--
-      Shape-spine tool-rail icons. Each maps 1:1 to a user-facing field of
-      `Shape<K>` in components/editor/types.ts (lines 116-126). viewBox is 24×24 so the
-      rail's 18×18 rendering keeps a 3 px optical inset on each side.
+      Shape-spine tool-button icons (live inside the .editor-topbar). Each
+      maps 1:1 to a user-facing field of `Shape<K>` in
+      components/editor/types.ts (lines 116-126). viewBox is 24×24 so the
+      18×18 rendering keeps a 3 px optical inset on each side.
     -->
     <!-- name — Geist “A”; fill/font on <text> so &lt;use&gt; shadow tree still paints (CSS won’t target cloned nodes). -->
     <symbol id="ic-name" viewBox="0 0 24 24">
@@ -156,18 +157,18 @@
       </div>
       <div class="topbar-center">
         <div class="topbar-tools" role="toolbar" aria-label="Shape editor">
-          <button class="sidebar-tool tool-name"       type="button" aria-label="Name"      title="Name"><svg><use href="#ic-name"/></svg></button>
-          <button class="sidebar-tool tool-points"     type="button" aria-label="Points"    title="Points"><svg><use href="#ic-points"/></svg></button>
-          <button class="sidebar-tool tool-kind"       type="button" aria-label="Kind"      title="Kind"><svg><use href="#ic-kind"/></svg></button>
-          <button class="sidebar-tool tool-order"      type="button" aria-label="Order"     title="Order"><svg><use href="#ic-order"/></svg></button>
-          <button class="sidebar-tool tool-color" type="button" aria-label="Color" title="Color"><svg><use href="#ic-color"/></svg></button>
-          <button class="sidebar-tool tool-transform"  type="button" aria-label="Transform" title="Transform"><svg><use href="#ic-transform"/></svg></button>
-          <button class="sidebar-tool tool-equations"  type="button" aria-label="Equations" title="Equations"><svg><use href="#ic-equations"/></svg></button>
-          <button class="sidebar-tool tool-weight"     type="button" aria-label="Weight"    title="Weight"><svg><use href="#ic-weight"/></svg></button>
+          <button class="shape-tool tool-name"       type="button" aria-label="Name"      title="Name"><svg><use href="#ic-name"/></svg></button>
+          <button class="shape-tool tool-points"     type="button" aria-label="Points"    title="Points"><svg><use href="#ic-points"/></svg></button>
+          <button class="shape-tool tool-kind"       type="button" aria-label="Kind"      title="Kind"><svg><use href="#ic-kind"/></svg></button>
+          <button class="shape-tool tool-order"      type="button" aria-label="Order"     title="Order"><svg><use href="#ic-order"/></svg></button>
+          <button class="shape-tool tool-color" type="button" aria-label="Color" title="Color"><svg><use href="#ic-color"/></svg></button>
+          <button class="shape-tool tool-transform"  type="button" aria-label="Transform" title="Transform"><svg><use href="#ic-transform"/></svg></button>
+          <button class="shape-tool tool-equations"  type="button" aria-label="Equations" title="Equations"><svg><use href="#ic-equations"/></svg></button>
+          <button class="shape-tool tool-weight"     type="button" aria-label="Weight"    title="Weight"><svg><use href="#ic-weight"/></svg></button>
         </div>
       </div>
       <div class="topbar-actions">
-        <button type="button" class="sidebar-tool topbar-share" title="Export or share diagram data" aria-label="Share or export diagram">
+        <button type="button" class="shape-tool topbar-share" title="Export or share diagram data" aria-label="Share or export diagram">
           <svg><use href="#ic-share"/></svg>
         </button>
       </div>
@@ -233,18 +234,18 @@
       </div>
       <div class="topbar-center">
         <div class="topbar-tools" role="toolbar" aria-label="Shape editor">
-          <button class="sidebar-tool tool-name is-active" type="button" title="Name"><svg><use href="#ic-name"/></svg></button>
-          <button class="sidebar-tool tool-points"         type="button" title="Points"><svg><use href="#ic-points"/></svg></button>
-          <button class="sidebar-tool tool-kind"           type="button" title="Kind"><svg><use href="#ic-kind"/></svg></button>
-          <button class="sidebar-tool tool-order"          type="button" title="Order"><svg><use href="#ic-order"/></svg></button>
-          <button class="sidebar-tool tool-color"          type="button" title="Color"><svg><use href="#ic-color"/></svg></button>
-          <button class="sidebar-tool tool-transform"      type="button" title="Transform"><svg><use href="#ic-transform"/></svg></button>
-          <button class="sidebar-tool tool-equations"      type="button" title="Equations"><svg><use href="#ic-equations"/></svg></button>
-          <button class="sidebar-tool tool-weight"         type="button" title="Weight"><svg><use href="#ic-weight"/></svg></button>
+          <button class="shape-tool tool-name is-active" type="button" title="Name"><svg><use href="#ic-name"/></svg></button>
+          <button class="shape-tool tool-points"         type="button" title="Points"><svg><use href="#ic-points"/></svg></button>
+          <button class="shape-tool tool-kind"           type="button" title="Kind"><svg><use href="#ic-kind"/></svg></button>
+          <button class="shape-tool tool-order"          type="button" title="Order"><svg><use href="#ic-order"/></svg></button>
+          <button class="shape-tool tool-color"          type="button" title="Color"><svg><use href="#ic-color"/></svg></button>
+          <button class="shape-tool tool-transform"      type="button" title="Transform"><svg><use href="#ic-transform"/></svg></button>
+          <button class="shape-tool tool-equations"      type="button" title="Equations"><svg><use href="#ic-equations"/></svg></button>
+          <button class="shape-tool tool-weight"         type="button" title="Weight"><svg><use href="#ic-weight"/></svg></button>
         </div>
       </div>
       <div class="topbar-actions">
-        <button type="button" class="sidebar-tool topbar-share" title="Export or share diagram data" aria-label="Share or export diagram">
+        <button type="button" class="shape-tool topbar-share" title="Export or share diagram data" aria-label="Share or export diagram">
           <svg><use href="#ic-share"/></svg>
         </button>
       </div>
@@ -305,18 +306,18 @@
       </div>
       <div class="topbar-center">
         <div class="topbar-tools" role="toolbar" aria-label="Shape editor">
-          <button class="sidebar-tool tool-name"             type="button" title="Name"><svg><use href="#ic-name"/></svg></button>
-          <button class="sidebar-tool tool-points is-active" type="button" title="Points"><svg><use href="#ic-points"/></svg></button>
-          <button class="sidebar-tool tool-kind"             type="button" title="Kind"><svg><use href="#ic-kind"/></svg></button>
-          <button class="sidebar-tool tool-order"            type="button" title="Order"><svg><use href="#ic-order"/></svg></button>
-          <button class="sidebar-tool tool-color"            type="button" title="Color"><svg><use href="#ic-color"/></svg></button>
-          <button class="sidebar-tool tool-transform"        type="button" title="Transform"><svg><use href="#ic-transform"/></svg></button>
-          <button class="sidebar-tool tool-equations"        type="button" title="Equations"><svg><use href="#ic-equations"/></svg></button>
-          <button class="sidebar-tool tool-weight"           type="button" title="Weight"><svg><use href="#ic-weight"/></svg></button>
+          <button class="shape-tool tool-name"             type="button" title="Name"><svg><use href="#ic-name"/></svg></button>
+          <button class="shape-tool tool-points is-active" type="button" title="Points"><svg><use href="#ic-points"/></svg></button>
+          <button class="shape-tool tool-kind"             type="button" title="Kind"><svg><use href="#ic-kind"/></svg></button>
+          <button class="shape-tool tool-order"            type="button" title="Order"><svg><use href="#ic-order"/></svg></button>
+          <button class="shape-tool tool-color"            type="button" title="Color"><svg><use href="#ic-color"/></svg></button>
+          <button class="shape-tool tool-transform"        type="button" title="Transform"><svg><use href="#ic-transform"/></svg></button>
+          <button class="shape-tool tool-equations"        type="button" title="Equations"><svg><use href="#ic-equations"/></svg></button>
+          <button class="shape-tool tool-weight"           type="button" title="Weight"><svg><use href="#ic-weight"/></svg></button>
         </div>
       </div>
       <div class="topbar-actions">
-        <button type="button" class="sidebar-tool topbar-share" title="Export or share diagram data" aria-label="Share or export diagram">
+        <button type="button" class="shape-tool topbar-share" title="Export or share diagram data" aria-label="Share or export diagram">
           <svg><use href="#ic-share"/></svg>
         </button>
       </div>
@@ -378,18 +379,18 @@
       </div>
       <div class="topbar-center">
         <div class="topbar-tools" role="toolbar" aria-label="Shape editor">
-          <button class="sidebar-tool tool-name"           type="button" title="Name"><svg><use href="#ic-name"/></svg></button>
-          <button class="sidebar-tool tool-points"         type="button" title="Points"><svg><use href="#ic-points"/></svg></button>
-          <button class="sidebar-tool tool-kind is-active" type="button" title="Kind"><svg><use href="#ic-kind"/></svg></button>
-          <button class="sidebar-tool tool-order"          type="button" title="Order"><svg><use href="#ic-order"/></svg></button>
-          <button class="sidebar-tool tool-color"          type="button" title="Color"><svg><use href="#ic-color"/></svg></button>
-          <button class="sidebar-tool tool-transform"      type="button" title="Transform"><svg><use href="#ic-transform"/></svg></button>
-          <button class="sidebar-tool tool-equations"      type="button" title="Equations"><svg><use href="#ic-equations"/></svg></button>
-          <button class="sidebar-tool tool-weight"         type="button" title="Weight"><svg><use href="#ic-weight"/></svg></button>
+          <button class="shape-tool tool-name"           type="button" title="Name"><svg><use href="#ic-name"/></svg></button>
+          <button class="shape-tool tool-points"         type="button" title="Points"><svg><use href="#ic-points"/></svg></button>
+          <button class="shape-tool tool-kind is-active" type="button" title="Kind"><svg><use href="#ic-kind"/></svg></button>
+          <button class="shape-tool tool-order"          type="button" title="Order"><svg><use href="#ic-order"/></svg></button>
+          <button class="shape-tool tool-color"          type="button" title="Color"><svg><use href="#ic-color"/></svg></button>
+          <button class="shape-tool tool-transform"      type="button" title="Transform"><svg><use href="#ic-transform"/></svg></button>
+          <button class="shape-tool tool-equations"      type="button" title="Equations"><svg><use href="#ic-equations"/></svg></button>
+          <button class="shape-tool tool-weight"         type="button" title="Weight"><svg><use href="#ic-weight"/></svg></button>
         </div>
       </div>
       <div class="topbar-actions">
-        <button type="button" class="sidebar-tool topbar-share" title="Export or share diagram data" aria-label="Share or export diagram">
+        <button type="button" class="shape-tool topbar-share" title="Export or share diagram data" aria-label="Share or export diagram">
           <svg><use href="#ic-share"/></svg>
         </button>
       </div>
@@ -513,18 +514,18 @@
       </div>
       <div class="topbar-center">
         <div class="topbar-tools" role="toolbar" aria-label="Shape editor">
-          <button class="sidebar-tool tool-name"            type="button" title="Name"><svg><use href="#ic-name"/></svg></button>
-          <button class="sidebar-tool tool-points"          type="button" title="Points"><svg><use href="#ic-points"/></svg></button>
-          <button class="sidebar-tool tool-kind"            type="button" title="Kind"><svg><use href="#ic-kind"/></svg></button>
-          <button class="sidebar-tool tool-order is-active" type="button" title="Order"><svg><use href="#ic-order"/></svg></button>
-          <button class="sidebar-tool tool-color"           type="button" title="Color"><svg><use href="#ic-color"/></svg></button>
-          <button class="sidebar-tool tool-transform"       type="button" title="Transform"><svg><use href="#ic-transform"/></svg></button>
-          <button class="sidebar-tool tool-equations"       type="button" title="Equations"><svg><use href="#ic-equations"/></svg></button>
-          <button class="sidebar-tool tool-weight"          type="button" title="Weight"><svg><use href="#ic-weight"/></svg></button>
+          <button class="shape-tool tool-name"            type="button" title="Name"><svg><use href="#ic-name"/></svg></button>
+          <button class="shape-tool tool-points"          type="button" title="Points"><svg><use href="#ic-points"/></svg></button>
+          <button class="shape-tool tool-kind"            type="button" title="Kind"><svg><use href="#ic-kind"/></svg></button>
+          <button class="shape-tool tool-order is-active" type="button" title="Order"><svg><use href="#ic-order"/></svg></button>
+          <button class="shape-tool tool-color"           type="button" title="Color"><svg><use href="#ic-color"/></svg></button>
+          <button class="shape-tool tool-transform"       type="button" title="Transform"><svg><use href="#ic-transform"/></svg></button>
+          <button class="shape-tool tool-equations"       type="button" title="Equations"><svg><use href="#ic-equations"/></svg></button>
+          <button class="shape-tool tool-weight"          type="button" title="Weight"><svg><use href="#ic-weight"/></svg></button>
         </div>
       </div>
       <div class="topbar-actions">
-        <button type="button" class="sidebar-tool topbar-share" title="Export or share diagram data" aria-label="Share or export diagram">
+        <button type="button" class="shape-tool topbar-share" title="Export or share diagram data" aria-label="Share or export diagram">
           <svg><use href="#ic-share"/></svg>
         </button>
       </div>
@@ -599,18 +600,18 @@
       </div>
       <div class="topbar-center">
         <div class="topbar-tools" role="toolbar" aria-label="Shape editor">
-          <button class="sidebar-tool tool-name"            type="button" title="Name"><svg><use href="#ic-name"/></svg></button>
-          <button class="sidebar-tool tool-points"          type="button" title="Points"><svg><use href="#ic-points"/></svg></button>
-          <button class="sidebar-tool tool-kind"            type="button" title="Kind"><svg><use href="#ic-kind"/></svg></button>
-          <button class="sidebar-tool tool-order"           type="button" title="Order"><svg><use href="#ic-order"/></svg></button>
-          <button class="sidebar-tool tool-color is-active" type="button" title="Color"><svg><use href="#ic-color"/></svg></button>
-          <button class="sidebar-tool tool-transform"       type="button" title="Transform"><svg><use href="#ic-transform"/></svg></button>
-          <button class="sidebar-tool tool-equations"       type="button" title="Equations"><svg><use href="#ic-equations"/></svg></button>
-          <button class="sidebar-tool tool-weight"          type="button" title="Weight"><svg><use href="#ic-weight"/></svg></button>
+          <button class="shape-tool tool-name"            type="button" title="Name"><svg><use href="#ic-name"/></svg></button>
+          <button class="shape-tool tool-points"          type="button" title="Points"><svg><use href="#ic-points"/></svg></button>
+          <button class="shape-tool tool-kind"            type="button" title="Kind"><svg><use href="#ic-kind"/></svg></button>
+          <button class="shape-tool tool-order"           type="button" title="Order"><svg><use href="#ic-order"/></svg></button>
+          <button class="shape-tool tool-color is-active" type="button" title="Color"><svg><use href="#ic-color"/></svg></button>
+          <button class="shape-tool tool-transform"       type="button" title="Transform"><svg><use href="#ic-transform"/></svg></button>
+          <button class="shape-tool tool-equations"       type="button" title="Equations"><svg><use href="#ic-equations"/></svg></button>
+          <button class="shape-tool tool-weight"          type="button" title="Weight"><svg><use href="#ic-weight"/></svg></button>
         </div>
       </div>
       <div class="topbar-actions">
-        <button type="button" class="sidebar-tool topbar-share" title="Export or share diagram data" aria-label="Share or export diagram">
+        <button type="button" class="shape-tool topbar-share" title="Export or share diagram data" aria-label="Share or export diagram">
           <svg><use href="#ic-share"/></svg>
         </button>
       </div>
@@ -734,18 +735,18 @@
       </div>
       <div class="topbar-center">
         <div class="topbar-tools" role="toolbar" aria-label="Shape editor">
-          <button class="sidebar-tool tool-name"                type="button" title="Name"><svg><use href="#ic-name"/></svg></button>
-          <button class="sidebar-tool tool-points"              type="button" title="Points"><svg><use href="#ic-points"/></svg></button>
-          <button class="sidebar-tool tool-kind"                type="button" title="Kind"><svg><use href="#ic-kind"/></svg></button>
-          <button class="sidebar-tool tool-order"               type="button" title="Order"><svg><use href="#ic-order"/></svg></button>
-          <button class="sidebar-tool tool-color"               type="button" title="Color"><svg><use href="#ic-color"/></svg></button>
-          <button class="sidebar-tool tool-transform is-active" type="button" title="Transform"><svg><use href="#ic-transform"/></svg></button>
-          <button class="sidebar-tool tool-equations"           type="button" title="Equations"><svg><use href="#ic-equations"/></svg></button>
-          <button class="sidebar-tool tool-weight"              type="button" title="Weight"><svg><use href="#ic-weight"/></svg></button>
+          <button class="shape-tool tool-name"                type="button" title="Name"><svg><use href="#ic-name"/></svg></button>
+          <button class="shape-tool tool-points"              type="button" title="Points"><svg><use href="#ic-points"/></svg></button>
+          <button class="shape-tool tool-kind"                type="button" title="Kind"><svg><use href="#ic-kind"/></svg></button>
+          <button class="shape-tool tool-order"               type="button" title="Order"><svg><use href="#ic-order"/></svg></button>
+          <button class="shape-tool tool-color"               type="button" title="Color"><svg><use href="#ic-color"/></svg></button>
+          <button class="shape-tool tool-transform is-active" type="button" title="Transform"><svg><use href="#ic-transform"/></svg></button>
+          <button class="shape-tool tool-equations"           type="button" title="Equations"><svg><use href="#ic-equations"/></svg></button>
+          <button class="shape-tool tool-weight"              type="button" title="Weight"><svg><use href="#ic-weight"/></svg></button>
         </div>
       </div>
       <div class="topbar-actions">
-        <button type="button" class="sidebar-tool topbar-share" title="Export or share diagram data" aria-label="Share or export diagram">
+        <button type="button" class="shape-tool topbar-share" title="Export or share diagram data" aria-label="Share or export diagram">
           <svg><use href="#ic-share"/></svg>
         </button>
       </div>
@@ -824,18 +825,18 @@
       </div>
       <div class="topbar-center">
         <div class="topbar-tools" role="toolbar" aria-label="Shape editor">
-          <button class="sidebar-tool tool-name"                type="button" title="Name"><svg><use href="#ic-name"/></svg></button>
-          <button class="sidebar-tool tool-points"              type="button" title="Points"><svg><use href="#ic-points"/></svg></button>
-          <button class="sidebar-tool tool-kind"                type="button" title="Kind"><svg><use href="#ic-kind"/></svg></button>
-          <button class="sidebar-tool tool-order"               type="button" title="Order"><svg><use href="#ic-order"/></svg></button>
-          <button class="sidebar-tool tool-color"               type="button" title="Color"><svg><use href="#ic-color"/></svg></button>
-          <button class="sidebar-tool tool-transform"           type="button" title="Transform"><svg><use href="#ic-transform"/></svg></button>
-          <button class="sidebar-tool tool-equations is-active" type="button" title="Equations"><svg><use href="#ic-equations"/></svg></button>
-          <button class="sidebar-tool tool-weight"              type="button" title="Weight"><svg><use href="#ic-weight"/></svg></button>
+          <button class="shape-tool tool-name"                type="button" title="Name"><svg><use href="#ic-name"/></svg></button>
+          <button class="shape-tool tool-points"              type="button" title="Points"><svg><use href="#ic-points"/></svg></button>
+          <button class="shape-tool tool-kind"                type="button" title="Kind"><svg><use href="#ic-kind"/></svg></button>
+          <button class="shape-tool tool-order"               type="button" title="Order"><svg><use href="#ic-order"/></svg></button>
+          <button class="shape-tool tool-color"               type="button" title="Color"><svg><use href="#ic-color"/></svg></button>
+          <button class="shape-tool tool-transform"           type="button" title="Transform"><svg><use href="#ic-transform"/></svg></button>
+          <button class="shape-tool tool-equations is-active" type="button" title="Equations"><svg><use href="#ic-equations"/></svg></button>
+          <button class="shape-tool tool-weight"              type="button" title="Weight"><svg><use href="#ic-weight"/></svg></button>
         </div>
       </div>
       <div class="topbar-actions">
-        <button type="button" class="sidebar-tool topbar-share" title="Export or share diagram data" aria-label="Share or export diagram">
+        <button type="button" class="shape-tool topbar-share" title="Export or share diagram data" aria-label="Share or export diagram">
           <svg><use href="#ic-share"/></svg>
         </button>
       </div>
@@ -856,7 +857,7 @@
             <span class="head-vis-dot" aria-hidden="true"></span>
           </button>
           <span class="head-title">Equations</span>
-          <button type="button" class="sidebar-tool eq-popover-add" title="Add equation" aria-label="Add equation">
+          <button type="button" class="shape-tool eq-popover-add" title="Add equation" aria-label="Add equation">
             <svg><use href="#ic-plus"/></svg>
           </button>
         </div>
@@ -901,18 +902,18 @@
       </div>
       <div class="topbar-center">
         <div class="topbar-tools" role="toolbar" aria-label="Shape editor">
-          <button class="sidebar-tool tool-name"             type="button" title="Name"><svg><use href="#ic-name"/></svg></button>
-          <button class="sidebar-tool tool-points"           type="button" title="Points"><svg><use href="#ic-points"/></svg></button>
-          <button class="sidebar-tool tool-kind"             type="button" title="Kind"><svg><use href="#ic-kind"/></svg></button>
-          <button class="sidebar-tool tool-order"            type="button" title="Order"><svg><use href="#ic-order"/></svg></button>
-          <button class="sidebar-tool tool-color"            type="button" title="Color"><svg><use href="#ic-color"/></svg></button>
-          <button class="sidebar-tool tool-transform"        type="button" title="Transform"><svg><use href="#ic-transform"/></svg></button>
-          <button class="sidebar-tool tool-equations"        type="button" title="Equations"><svg><use href="#ic-equations"/></svg></button>
-          <button class="sidebar-tool tool-weight is-active" type="button" title="Weight"><svg><use href="#ic-weight"/></svg></button>
+          <button class="shape-tool tool-name"             type="button" title="Name"><svg><use href="#ic-name"/></svg></button>
+          <button class="shape-tool tool-points"           type="button" title="Points"><svg><use href="#ic-points"/></svg></button>
+          <button class="shape-tool tool-kind"             type="button" title="Kind"><svg><use href="#ic-kind"/></svg></button>
+          <button class="shape-tool tool-order"            type="button" title="Order"><svg><use href="#ic-order"/></svg></button>
+          <button class="shape-tool tool-color"            type="button" title="Color"><svg><use href="#ic-color"/></svg></button>
+          <button class="shape-tool tool-transform"        type="button" title="Transform"><svg><use href="#ic-transform"/></svg></button>
+          <button class="shape-tool tool-equations"        type="button" title="Equations"><svg><use href="#ic-equations"/></svg></button>
+          <button class="shape-tool tool-weight is-active" type="button" title="Weight"><svg><use href="#ic-weight"/></svg></button>
         </div>
       </div>
       <div class="topbar-actions">
-        <button type="button" class="sidebar-tool topbar-share" title="Export or share diagram data" aria-label="Share or export diagram">
+        <button type="button" class="shape-tool topbar-share" title="Export or share diagram data" aria-label="Share or export diagram">
           <svg><use href="#ic-share"/></svg>
         </button>
       </div>
@@ -987,18 +988,18 @@
       </div>
       <div class="topbar-center">
         <div class="topbar-tools" role="toolbar" aria-label="Shape editor">
-          <button class="sidebar-tool tool-name"      type="button" aria-label="Name"      title="Name"><svg><use href="#ic-name"/></svg></button>
-          <button class="sidebar-tool tool-points"    type="button" aria-label="Points"    title="Points"><svg><use href="#ic-points"/></svg></button>
-          <button class="sidebar-tool tool-kind"      type="button" aria-label="Kind"      title="Kind"><svg><use href="#ic-kind"/></svg></button>
-          <button class="sidebar-tool tool-order"     type="button" aria-label="Order"     title="Order"><svg><use href="#ic-order"/></svg></button>
-          <button class="sidebar-tool tool-color"     type="button" aria-label="Color"     title="Color"><svg><use href="#ic-color"/></svg></button>
-          <button class="sidebar-tool tool-transform" type="button" aria-label="Transform" title="Transform"><svg><use href="#ic-transform"/></svg></button>
-          <button class="sidebar-tool tool-equations" type="button" aria-label="Equations" title="Equations"><svg><use href="#ic-equations"/></svg></button>
-          <button class="sidebar-tool tool-weight"    type="button" aria-label="Weight"    title="Weight"><svg><use href="#ic-weight"/></svg></button>
+          <button class="shape-tool tool-name"      type="button" aria-label="Name"      title="Name"><svg><use href="#ic-name"/></svg></button>
+          <button class="shape-tool tool-points"    type="button" aria-label="Points"    title="Points"><svg><use href="#ic-points"/></svg></button>
+          <button class="shape-tool tool-kind"      type="button" aria-label="Kind"      title="Kind"><svg><use href="#ic-kind"/></svg></button>
+          <button class="shape-tool tool-order"     type="button" aria-label="Order"     title="Order"><svg><use href="#ic-order"/></svg></button>
+          <button class="shape-tool tool-color"     type="button" aria-label="Color"     title="Color"><svg><use href="#ic-color"/></svg></button>
+          <button class="shape-tool tool-transform" type="button" aria-label="Transform" title="Transform"><svg><use href="#ic-transform"/></svg></button>
+          <button class="shape-tool tool-equations" type="button" aria-label="Equations" title="Equations"><svg><use href="#ic-equations"/></svg></button>
+          <button class="shape-tool tool-weight"    type="button" aria-label="Weight"    title="Weight"><svg><use href="#ic-weight"/></svg></button>
         </div>
       </div>
       <div class="topbar-actions">
-        <button type="button" class="sidebar-tool topbar-share is-panel-open" title="Export or share diagram data" aria-label="Share or export diagram" aria-expanded="true">
+        <button type="button" class="shape-tool topbar-share is-panel-open" title="Export or share diagram data" aria-label="Share or export diagram" aria-expanded="true">
           <svg><use href="#ic-share"/></svg>
         </button>
       </div>
