@@ -172,6 +172,22 @@ body {
 .editor-topbar .sidebar-tool {
   flex-shrink: 0;
 }
+/* Match .topbar-brand:hover — subtle fill, no glass border ring (sidebar rail keeps glass hover). */
+.editor-topbar .sidebar-tool:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: transparent;
+  color: var(--color-text-muted);
+}
+.editor-topbar .sidebar-tool.is-active:hover {
+  background: rgba(var(--color-accent-rgb), 0.22);
+  border-color: rgba(var(--color-accent-rgb), 0.55);
+  color: var(--color-text-primary);
+}
+.editor-topbar .sidebar-tool.topbar-share.is-panel-open:hover {
+  background: rgba(var(--color-accent-rgb), 0.25);
+  border-color: rgba(var(--color-accent-rgb), 0.55);
+  color: var(--color-text-primary);
+}
 
 /* ───────── Left sidebar (reference / vertical mock only — not used in frames) ─────────
  *
