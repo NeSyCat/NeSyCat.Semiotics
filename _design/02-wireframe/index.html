@@ -149,10 +149,12 @@
 
     <!-- Top bar — logo + shape tools + share -->
     <header class="editor-topbar">
-      <div class="topbar-toolbar">
+      <div class="topbar-leading">
         <a class="topbar-brand" href="#" title="Back to landing" aria-label="NeSyCat Semiotics">
           <svg class="logo-mark"><use href="#logo-mark"/></svg>
         </a>
+      </div>
+      <div class="topbar-center">
         <div class="topbar-tools" role="toolbar" aria-label="Shape editor">
           <button class="sidebar-tool tool-name"       type="button" aria-label="Name"      title="Name"><svg><use href="#ic-name"/></svg></button>
           <button class="sidebar-tool tool-points"     type="button" aria-label="Points"    title="Points"><svg><use href="#ic-points"/></svg></button>
@@ -184,7 +186,7 @@
 
   <div class="annotations">
     <h3>Top bar — Shape spine (<code>components/editor/types.ts</code>)</h3>
-    <div class="note"><span class="pin">A</span>52 px–tall bar: logo 40×40, then eight 40×40 tools with 6 px gaps, share control flush right.</div>
+    <div class="note"><span class="pin">A</span>52 px–tall bar: logo 40×40 left, eight 40×40 tools centered as a group (6 px gaps), share flush right.</div>
     <div class="note"><span class="pin">B</span><code>name</code> — user-visible label.</div>
     <div class="note"><span class="pin">C</span><code>points</code> — recursive sub-shapes (<code>ShapePoints[K]</code>).</div>
     <div class="note"><span class="pin">D</span><code>kind</code> — <code>ShapeKind</code> discriminator — empty / triangle / rhombus / circle / rectangle.</div>
@@ -224,10 +226,12 @@
     <div class="canvas-bg"></div>
 
     <header class="editor-topbar">
-      <div class="topbar-toolbar">
+      <div class="topbar-leading">
         <a class="topbar-brand" href="#" aria-label="NeSyCat Semiotics">
           <svg class="logo-mark"><use href="#logo-mark"/></svg>
         </a>
+      </div>
+      <div class="topbar-center">
         <div class="topbar-tools" role="toolbar" aria-label="Shape editor">
           <button class="sidebar-tool tool-name is-active" type="button" title="Name"><svg><use href="#ic-name"/></svg></button>
           <button class="sidebar-tool tool-points"         type="button" title="Points"><svg><use href="#ic-points"/></svg></button>
@@ -254,8 +258,8 @@
         <button type="button"><svg><use href="#ic-lock"/></svg></button>
       </div>
 
-      <!-- Popover anchored to the name button (i=0, top 60). -->
-      <div class="tool-popover" style="left: 60px; width: 280px">
+      <!-- Popover anchored to the name button (cluster left + i×46). -->
+      <div class="tool-popover" style="left: 683px; width: 280px">
         <div class="head">
           <button type="button" class="head-vis-toggle is-on" aria-label="Visibility" aria-pressed="true">
             <span class="head-vis-dot" aria-hidden="true"></span>
@@ -294,10 +298,12 @@
     <div class="canvas-bg"></div>
 
     <header class="editor-topbar">
-      <div class="topbar-toolbar">
+      <div class="topbar-leading">
         <a class="topbar-brand" href="#" aria-label="NeSyCat Semiotics">
           <svg class="logo-mark"><use href="#logo-mark"/></svg>
         </a>
+      </div>
+      <div class="topbar-center">
         <div class="topbar-tools" role="toolbar" aria-label="Shape editor">
           <button class="sidebar-tool tool-name"             type="button" title="Name"><svg><use href="#ic-name"/></svg></button>
           <button class="sidebar-tool tool-points is-active" type="button" title="Points"><svg><use href="#ic-points"/></svg></button>
@@ -324,8 +330,8 @@
         <button type="button"><svg><use href="#ic-lock"/></svg></button>
       </div>
 
-      <!-- Popover anchored to the points button (i=1, top 106). -->
-      <div class="tool-popover tool-popover--tight" style="left: 106px">
+      <!-- Popover anchored to the points button. -->
+      <div class="tool-popover tool-popover--tight" style="left: 729px">
         <div class="head">
           <button type="button" class="head-vis-toggle is-on" aria-label="Visibility" aria-pressed="true">
             <span class="head-vis-dot" aria-hidden="true"></span>
@@ -365,10 +371,12 @@
     <div class="canvas-bg"></div>
 
     <header class="editor-topbar">
-      <div class="topbar-toolbar">
+      <div class="topbar-leading">
         <a class="topbar-brand" href="#" aria-label="NeSyCat Semiotics">
           <svg class="logo-mark"><use href="#logo-mark"/></svg>
         </a>
+      </div>
+      <div class="topbar-center">
         <div class="topbar-tools" role="toolbar" aria-label="Shape editor">
           <button class="sidebar-tool tool-name"           type="button" title="Name"><svg><use href="#ic-name"/></svg></button>
           <button class="sidebar-tool tool-points"         type="button" title="Points"><svg><use href="#ic-points"/></svg></button>
@@ -395,26 +403,25 @@
         <button type="button"><svg><use href="#ic-lock"/></svg></button>
       </div>
 
-      <!-- Popover anchored to the kind button (i=2, top 152).
+      <!-- Popover anchored to the kind button (i=2).
            ShapeKind = keyof ShapePoints → exactly empty | triangle | rhombus | circle | rectangle (types.ts:38-70).
            Line<K> extends Shape<K> and uses the same kind field — not a sixth ShapeKind (types.ts:137-148).
-           Layout: one row per ShapeKind. Left = decorative visibility dot (wireframe); only the drag tile on the right is interactive.
-           Header strip: panel-level visibility dot; rows keep per-kind visibility. -->
-      <div class="tool-popover" style="left: 152px; width: max-content; min-width: 0">
+           Layout: one horizontal strip — one column per ShapeKind (visibility dot above drag tile).
+           Header strip: panel-level visibility toggle; each column has the same toggle chrome per kind. -->
+      <div class="tool-popover" style="left: 775px; width: max-content; min-width: 0">
         <div class="head">
           <button type="button" class="head-vis-toggle is-on" aria-label="Panel visibility" aria-pressed="true">
             <span class="head-vis-dot" aria-hidden="true"></span>
           </button>
           <span class="head-title">Kind</span>
         </div>
-        <div class="body">
-          <div class="kind-rows" role="group" aria-label="Shape kind">
+        <div class="body kind-rows" role="group" aria-label="Shape kind">
 
             <div class="kind-row">
               <div class="kind-row-left">
-                <span class="kind-vis-toggle is-on" aria-hidden="true">
-                  <span class="kind-vis-dot" aria-hidden="true"></span>
-                </span>
+                <button type="button" class="head-vis-toggle is-on" aria-label="Visibility · empty" aria-pressed="true">
+                  <span class="head-vis-dot" aria-hidden="true"></span>
+                </button>
               </div>
               <button class="drag-tile" type="button" draggable="true"
                       title="empty — drag to canvas · create: 2×">
@@ -424,9 +431,9 @@
 
             <div class="kind-row is-active">
               <div class="kind-row-left">
-                <span class="kind-vis-toggle is-on" aria-hidden="true">
-                  <span class="kind-vis-dot" aria-hidden="true"></span>
-                </span>
+                <button type="button" class="head-vis-toggle is-on" aria-label="Visibility · triangle" aria-pressed="true">
+                  <span class="head-vis-dot" aria-hidden="true"></span>
+                </button>
               </div>
               <button class="drag-tile" type="button" draggable="true"
                       title="triangle — drag to canvas · create: Alt/⌥ + 2×">
@@ -436,9 +443,9 @@
 
             <div class="kind-row">
               <div class="kind-row-left">
-                <span class="kind-vis-toggle is-on" aria-hidden="true">
-                  <span class="kind-vis-dot" aria-hidden="true"></span>
-                </span>
+                <button type="button" class="head-vis-toggle is-on" aria-label="Visibility · rhombus" aria-pressed="true">
+                  <span class="head-vis-dot" aria-hidden="true"></span>
+                </button>
               </div>
               <button class="drag-tile" type="button" draggable="true"
                       title="rhombus — drag to canvas · create: ⇧ + 2×">
@@ -448,9 +455,9 @@
 
             <div class="kind-row">
               <div class="kind-row-left">
-                <span class="kind-vis-toggle is-on" aria-hidden="true">
-                  <span class="kind-vis-dot" aria-hidden="true"></span>
-                </span>
+                <button type="button" class="head-vis-toggle is-on" aria-label="Visibility · circle" aria-pressed="true">
+                  <span class="head-vis-dot" aria-hidden="true"></span>
+                </button>
               </div>
               <button class="drag-tile" type="button" draggable="true"
                       title="circle — drag to canvas · create: Space + 2×">
@@ -460,9 +467,9 @@
 
             <div class="kind-row">
               <div class="kind-row-left">
-                <span class="kind-vis-toggle is-on" aria-hidden="true">
-                  <span class="kind-vis-dot" aria-hidden="true"></span>
-                </span>
+                <button type="button" class="head-vis-toggle is-on" aria-label="Visibility · rectangle" aria-pressed="true">
+                  <span class="head-vis-dot" aria-hidden="true"></span>
+                </button>
               </div>
               <button class="drag-tile" type="button" draggable="true"
                       title="rectangle — drag to canvas · create: Ctrl/⌘ + 2×">
@@ -470,7 +477,6 @@
               </button>
             </div>
 
-          </div>
         </div>
       </div>
     </div>
@@ -479,7 +485,7 @@
   <div class="annotations">
     <h3>Source of truth</h3>
     <div class="note"><span class="pin">A</span><code>Shape.kind: K</code> at <code>types.ts:120</code>; <code>ShapeKind = keyof ShapePoints</code> at <code>types.ts:70</code> — exactly the five rows. <code>Line</code> extends <code>Shape&lt;K&gt;</code> (<code>types.ts:143-146</code>) and uses the same <code>kind</code>; diagram edges are not a sixth discriminator.</div>
-    <div class="note"><span class="pin">B</span>Each row: decorative per-kind visibility dot (left); only the <strong>drag tile</strong> is interactive — drag to the canvas to create a node of that kind.</div>
+    <div class="note"><span class="pin">B</span>Each column: per-kind visibility toggle (<code>head-vis-toggle</code>, same chrome as the panel header); drag tile creates that kind on the canvas.</div>
     <div class="note"><span class="pin">C</span>Today: no kind-change mutation in <code>mutations.ts</code>; kind is only set at <code>addNode()</code> creation time. Drag-to-create is the primary affordance.</div>
   </div>
 </section>
@@ -500,10 +506,12 @@
     <div class="canvas-bg"></div>
 
     <header class="editor-topbar">
-      <div class="topbar-toolbar">
+      <div class="topbar-leading">
         <a class="topbar-brand" href="#" aria-label="NeSyCat Semiotics">
           <svg class="logo-mark"><use href="#logo-mark"/></svg>
         </a>
+      </div>
+      <div class="topbar-center">
         <div class="topbar-tools" role="toolbar" aria-label="Shape editor">
           <button class="sidebar-tool tool-name"            type="button" title="Name"><svg><use href="#ic-name"/></svg></button>
           <button class="sidebar-tool tool-points"          type="button" title="Points"><svg><use href="#ic-points"/></svg></button>
@@ -531,7 +539,7 @@
       </div>
 
       <!-- Popover anchored to the order button (i=3, top 198). -->
-      <div class="tool-popover" style="left: 198px; width: 280px">
+      <div class="tool-popover" style="left: 821px; width: 280px">
         <div class="head">
           <button type="button" class="head-vis-toggle is-on" aria-label="Visibility" aria-pressed="true">
             <span class="head-vis-dot" aria-hidden="true"></span>
@@ -572,10 +580,11 @@
 <section class="wireframe-section">
   <h2 class="t-h1">Scene 9 — color popover</h2>
   <p class="lead">
-    The <code>color</code> popover is a full HSV picker — annular hue ring
-    + inner S/V square, HSB sliders, alpha track, swatches grid. Mirrors
-    the layout of Adobe Fresco's "Color" panel. Today there's no picker;
-    shapes initialise to <code>DEFAULT_COLOR = [59/255, 130/255, 246/255]</code>
+    The <code>color</code> popover is a full HSV picker — smooth annular hue ring
+    (conic spectrum), inner S/V square, four corner actions (white / black /
+    eyedropper / transparency), opacity under the wheel, HSB sliders, and
+    swatches. Mirrors the Adobe Fresco Color panel layout. Today there's no picker.
+    Shapes initialise to <code>DEFAULT_COLOR = [59/255, 130/255, 246/255]</code>
     from <code>color.ts:5</code> and never change.
   </p>
 
@@ -583,10 +592,12 @@
     <div class="canvas-bg"></div>
 
     <header class="editor-topbar">
-      <div class="topbar-toolbar">
+      <div class="topbar-leading">
         <a class="topbar-brand" href="#" aria-label="NeSyCat Semiotics">
           <svg class="logo-mark"><use href="#logo-mark"/></svg>
         </a>
+      </div>
+      <div class="topbar-center">
         <div class="topbar-tools" role="toolbar" aria-label="Shape editor">
           <button class="sidebar-tool tool-name"            type="button" title="Name"><svg><use href="#ic-name"/></svg></button>
           <button class="sidebar-tool tool-points"          type="button" title="Points"><svg><use href="#ic-points"/></svg></button>
@@ -614,7 +625,7 @@
       </div>
 
       <!-- Popover anchored to the color button (i=4, top 244). -->
-      <div class="tool-popover" style="left: 244px; width: 280px">
+      <div class="tool-popover tool-popover--color" style="left: 867px; width: 296px">
         <div class="head">
           <button type="button" class="head-vis-toggle is-on" aria-label="Visibility" aria-pressed="true">
             <span class="head-vis-dot" aria-hidden="true"></span>
@@ -622,38 +633,33 @@
           <span class="head-title">Color</span>
         </div>
         <div class="body">
-          <div class="color-wheel" aria-label="HSV wheel">
-            <div class="color-current" title="Current color"></div>
-            <svg viewBox="0 0 220 220" width="220" height="220">
-              <defs>
-                <linearGradient id="cw-sv-h" x1="0" y1="0" x2="1" y2="0">
-                  <stop offset="0" stop-color="#fff"/>
-                  <stop offset="1" stop-color="rgb(59,130,246)"/>
-                </linearGradient>
-                <linearGradient id="cw-sv-v" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0" stop-color="rgba(0,0,0,0)"/>
-                  <stop offset="1" stop-color="#000"/>
-                </linearGradient>
-              </defs>
-              <!-- hue ring (rough; 8-stop conic via dashed segments) -->
-              <g fill="none" stroke-width="22">
-                <circle cx="110" cy="110" r="92" stroke="#f00" stroke-dasharray="72 506"  stroke-dashoffset="0"/>
-                <circle cx="110" cy="110" r="92" stroke="#ff0" stroke-dasharray="72 506"  stroke-dashoffset="-72"/>
-                <circle cx="110" cy="110" r="92" stroke="#0f0" stroke-dasharray="72 506"  stroke-dashoffset="-144"/>
-                <circle cx="110" cy="110" r="92" stroke="#0ff" stroke-dasharray="72 506"  stroke-dashoffset="-216"/>
-                <circle cx="110" cy="110" r="92" stroke="#00f" stroke-dasharray="72 506"  stroke-dashoffset="-288"/>
-                <circle cx="110" cy="110" r="92" stroke="#f0f" stroke-dasharray="72 506"  stroke-dashoffset="-360"/>
-                <circle cx="110" cy="110" r="92" stroke="#f00" stroke-dasharray="72 506"  stroke-dashoffset="-432"/>
-              </g>
-              <!-- S/V square inside the ring -->
-              <rect x="60" y="60" width="100" height="100" fill="url(#cw-sv-h)"/>
-              <rect x="60" y="60" width="100" height="100" fill="url(#cw-sv-v)"/>
-              <!-- markers -->
-              <circle cx="195" cy="110" r="6" fill="none" stroke="#fff" stroke-width="2"/>
-              <circle cx="120" cy="100" r="5" fill="none" stroke="#fff" stroke-width="2"/>
-            </svg>
+          <div class="color-wheel" aria-label="HSV wheel — hue ring and saturation / brightness field">
+            <div class="color-wheel-frame">
+              <button type="button" class="color-corner color-corner--white" title="Pure white" aria-label="Set white"></button>
+              <button type="button" class="color-corner color-corner--black" title="Pure black" aria-label="Set black"></button>
+              <button type="button" class="color-corner color-corner--eyedropper" title="Sample from canvas (pipette)" aria-label="Pipette — sample color">
+                <!-- Lucide “pipette” (MIT): github.com/lucide-icons/lucide -->
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="m12 9-8.414 8.414A2 2 0 0 0 3 18.828v1.344a2 2 0 0 1-.586 1.414A2 2 0 0 1 3.828 21h1.344a2 2 0 0 0 1.414-.586L15 12"/>
+                  <path d="m18 9 .4.4a1 1 0 1 1-3 3l-3.8-3.8a1 1 0 1 1 3-3l.4.4 3.4-3.4a1 1 0 1 1 3 3z"/>
+                  <path d="m2 22 .414-.414"/>
+                </svg>
+              </button>
+              <button type="button" class="color-corner color-corner--transparent" title="Transparency" aria-label="Transparency preset"></button>
+              <!-- Smooth spectral ring (CSS conic-gradient + radial mask) -->
+              <div class="color-hue-ring" aria-hidden="true"></div>
+              <div class="color-hue-thumb" aria-hidden="true"></div>
+              <div class="color-sv-field">
+                <div class="color-sv-thumb" aria-hidden="true"></div>
+              </div>
+            </div>
           </div>
           <div class="color-sliders">
+            <div class="slider-row">
+              <span class="row-label">α</span>
+              <div class="h-track alpha"><div class="h-thumb" style="left: 100%"></div></div>
+              <input class="num-input" value="100" title="Opacity %" />
+            </div>
             <div class="slider-row">
               <span class="row-label">H</span>
               <div class="h-track hue"><div class="h-thumb" style="left: 60%"></div></div>
@@ -668,11 +674,6 @@
               <span class="row-label">B</span>
               <div class="h-track val"><div class="h-thumb" style="left: 96%"></div></div>
               <input class="num-input" value="96" />
-            </div>
-            <div class="slider-row">
-              <span class="row-label">α</span>
-              <div class="h-track alpha"><div class="h-thumb" style="left: 100%"></div></div>
-              <input class="num-input" value="100" />
             </div>
           </div>
           <span class="body-label">Swatches</span>
@@ -726,10 +727,12 @@
     <div class="canvas-bg"></div>
 
     <header class="editor-topbar">
-      <div class="topbar-toolbar">
+      <div class="topbar-leading">
         <a class="topbar-brand" href="#" aria-label="NeSyCat Semiotics">
           <svg class="logo-mark"><use href="#logo-mark"/></svg>
         </a>
+      </div>
+      <div class="topbar-center">
         <div class="topbar-tools" role="toolbar" aria-label="Shape editor">
           <button class="sidebar-tool tool-name"                type="button" title="Name"><svg><use href="#ic-name"/></svg></button>
           <button class="sidebar-tool tool-points"              type="button" title="Points"><svg><use href="#ic-points"/></svg></button>
@@ -757,7 +760,7 @@
       </div>
 
       <!-- Popover anchored to the transform button (i=5, top 290). -->
-      <div class="tool-popover" style="left: 290px; width: 296px">
+      <div class="tool-popover" style="left: 913px; width: 296px">
         <div class="head">
           <button type="button" class="head-vis-toggle is-on" aria-label="Visibility" aria-pressed="true">
             <span class="head-vis-dot" aria-hidden="true"></span>
@@ -765,19 +768,26 @@
           <span class="head-title">Transform</span>
         </div>
         <div class="body">
-          <span class="body-label">Translate</span>
-          <div class="txn-grid">
-            <div class="cell"><span class="row-label">tx</span><input class="num-input" value="120" /></div>
-            <div class="cell"><span class="row-label">ty</span><input class="num-input" value="-40" /></div>
+          <div class="transform-row">
+            <span class="transform-row-name">Scale</span>
+            <div class="transform-row-fields">
+              <div class="transform-field"><span class="transform-field-label">sx</span><input class="num-input" type="text" value="1.00" aria-label="Scale x" /></div>
+              <div class="transform-field"><span class="transform-field-label">sy</span><input class="num-input" type="text" value="1.00" aria-label="Scale y" /></div>
+            </div>
           </div>
-          <span class="body-label">Rotate / scale</span>
-          <div class="txn-grid">
-            <div class="cell"><span class="row-label">θ</span><input class="num-input" value="0°" /></div>
-            <div class="cell"><span class="row-label">sx</span><input class="num-input" value="1.00" /></div>
-            <div class="cell" style="grid-column: 1"><span class="row-label">sy</span><input class="num-input" value="1.00" /></div>
-            <button class="reset-btn" type="button">Reset</button>
+          <div class="transform-row">
+            <span class="transform-row-name">Translate</span>
+            <div class="transform-row-fields">
+              <div class="transform-field"><span class="transform-field-label">tx</span><input class="num-input" type="text" value="120" aria-label="Translate x" /></div>
+              <div class="transform-field"><span class="transform-field-label">ty</span><input class="num-input" type="text" value="-40" aria-label="Translate y" /></div>
+            </div>
           </div>
-          <span class="hint">Drag on canvas to translate. Rotation / scale aren't bound to handles yet.</span>
+          <div class="transform-row">
+            <span class="transform-row-name">Rotate</span>
+            <div class="transform-row-fields">
+              <div class="transform-field"><span class="transform-field-label">θ</span><input class="num-input" type="text" value="0°" aria-label="Rotation" /></div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -807,10 +817,12 @@
     <div class="canvas-bg"></div>
 
     <header class="editor-topbar">
-      <div class="topbar-toolbar">
+      <div class="topbar-leading">
         <a class="topbar-brand" href="#" aria-label="NeSyCat Semiotics">
           <svg class="logo-mark"><use href="#logo-mark"/></svg>
         </a>
+      </div>
+      <div class="topbar-center">
         <div class="topbar-tools" role="toolbar" aria-label="Shape editor">
           <button class="sidebar-tool tool-name"                type="button" title="Name"><svg><use href="#ic-name"/></svg></button>
           <button class="sidebar-tool tool-points"              type="button" title="Points"><svg><use href="#ic-points"/></svg></button>
@@ -838,21 +850,21 @@
       </div>
 
       <!-- Popover anchored to the equations button (i=6, top 336). -->
-      <div class="tool-popover" style="left: 336px; width: 296px">
+      <div class="tool-popover tool-popover--equations" style="left: 959px; width: 352px">
         <div class="head">
           <button type="button" class="head-vis-toggle is-on" aria-label="Visibility" aria-pressed="true">
             <span class="head-vis-dot" aria-hidden="true"></span>
           </button>
           <span class="head-title">Equations</span>
+          <button type="button" class="sidebar-tool eq-popover-add" title="Add equation" aria-label="Add equation">
+            <svg><use href="#ic-plus"/></svg>
+          </button>
         </div>
         <div class="body">
-          <span class="body-label">this = …</span>
           <div class="eq-list">
             <div class="eq-row"><span>x + y</span><span class="delete">×</span></div>
             <div class="eq-row"><span>2 · z − w</span><span class="delete">×</span></div>
           </div>
-          <button class="eq-add" type="button">+ Add equation</button>
-          <span class="hint">Encoding: strings are shape refs, numbers literals, objects ops (<code>+ − * /</code>). Grammar at <code>types.ts:99-100</code>.</span>
         </div>
       </div>
     </div>
@@ -882,10 +894,12 @@
     <div class="canvas-bg"></div>
 
     <header class="editor-topbar">
-      <div class="topbar-toolbar">
+      <div class="topbar-leading">
         <a class="topbar-brand" href="#" aria-label="NeSyCat Semiotics">
           <svg class="logo-mark"><use href="#logo-mark"/></svg>
         </a>
+      </div>
+      <div class="topbar-center">
         <div class="topbar-tools" role="toolbar" aria-label="Shape editor">
           <button class="sidebar-tool tool-name"             type="button" title="Name"><svg><use href="#ic-name"/></svg></button>
           <button class="sidebar-tool tool-points"           type="button" title="Points"><svg><use href="#ic-points"/></svg></button>
@@ -913,7 +927,7 @@
       </div>
 
       <!-- Popover anchored to the weight button (i=7, top 382). -->
-      <div class="tool-popover" style="left: 382px; width: 280px">
+      <div class="tool-popover" style="left: 1005px; width: 280px">
         <div class="head">
           <button type="button" class="head-vis-toggle" aria-label="Visibility" aria-pressed="false">
             <span class="head-vis-dot" aria-hidden="true"></span>
@@ -921,25 +935,21 @@
           <span class="head-title">Weight</span>
         </div>
         <div class="body">
-          <div style="display:flex; align-items:center; gap:12px; justify-content:space-between;">
-            <span class="body-label">Mass</span>
-            <input class="num-input" type="text" value="1.0" aria-label="Weight value" />
-          </div>
-          <div class="slider-col">
-            <div class="slider-stack">
-              <div class="slider-track">
-                <div class="slider-thumb" style="top: 80%"></div>
+          <div class="slider-col slider-col--weight">
+            <div class="weight-slider-controls">
+              <div class="weight-num-row">
+                <input class="num-input" type="text" value="1.0" aria-label="Weight value" />
+              </div>
+              <div class="slider-stack">
+                <div class="slider-track">
+                  <div class="slider-thumb" style="top: 80%"></div>
+                </div>
               </div>
             </div>
-            <div class="slider-notches" aria-hidden="true">
-              <span>5</span><span>4</span><span>3</span><span>2</span><span>1</span><span>0</span>
-            </div>
-            <div class="preview-col">
-              <div class="preview-disk" style="width: 48px; height: 48px"></div>
-              <span class="hint" style="text-align:center;">weight = 1.0<br/>(continuous)</span>
+            <div class="preview-col preview-col--weight-square">
+              <div class="preview-disk"></div>
             </div>
           </div>
-          <span class="hint">Drag the slider or type a 1-decimal value; preview scales with mass.</span>
         </div>
       </div>
     </div>
@@ -958,20 +968,24 @@
 <section class="wireframe-section">
   <h2 class="t-h1">Scene 13 — diagram data panel open</h2>
   <p class="lead">
-    The share control in the top bar opens diagram data — a 400-wide,
-    500-max-height glass panel below it on the right. Header strip
-    carries &quot;Diagram Data&quot; plus Export / Import. Body is the JSON
-    <code>pre</code> at <code>rgba(0,0,0,0.25)</code> background.
+    The share control opens diagram data as the same floating
+    <code>tool-popover</code> chrome as the shape inspector (head + body),
+    anchored top-right inside the canvas (<code>top: 8px; right: 12px</code>),
+    <code>400</code>×<code>max-height: 500</code>. Export / Import live in
+    <code>.head .actions</code>; the JSON payload is a
+    <code>&lt;pre&gt;</code> inside <code>.body</code>.
   </p>
 
   <div class="editor-frame">
     <div class="canvas-bg"></div>
 
     <header class="editor-topbar">
-      <div class="topbar-toolbar">
+      <div class="topbar-leading">
         <a class="topbar-brand" href="#" aria-label="NeSyCat Semiotics">
           <svg class="logo-mark"><use href="#logo-mark"/></svg>
         </a>
+      </div>
+      <div class="topbar-center">
         <div class="topbar-tools" role="toolbar" aria-label="Shape editor">
           <button class="sidebar-tool tool-name"      type="button" aria-label="Name"      title="Name"><svg><use href="#ic-name"/></svg></button>
           <button class="sidebar-tool tool-points"    type="button" aria-label="Points"    title="Points"><svg><use href="#ic-points"/></svg></button>
@@ -992,16 +1006,16 @@
 
     <div class="canvas-area">
 
-      <div class="json-panel-anchor">
-        <div class="json-panel">
-          <div class="header">
-            <span class="label">Diagram Data</span>
-            <div class="actions">
-              <button type="button">Export</button>
-              <button type="button">Import</button>
-            </div>
+      <div class="tool-popover" style="top: 8px; right: 12px; left: auto; width: 400px; max-height: 500px">
+        <div class="head">
+          <span class="head-title">Diagram Data</span>
+          <div class="actions">
+            <button type="button">Export</button>
+            <button type="button">Import</button>
           </div>
-          <pre class="body">{
+        </div>
+        <div class="body">
+          <pre>{
   "schemaVersion": 1,
   "nodes": [
     {
@@ -1054,10 +1068,10 @@
 
   <div class="annotations">
     <h3>Panel (<code>Canvas.tsx</code> 680–710)</h3>
-    <div class="note"><span class="pin">P</span>Width 400, max-height 500, glass panel + 8 px radius. Header strip border-bottom glass-border.</div>
-    <div class="note"><span class="pin">Q</span>Caption: "DIAGRAM DATA" — 11 px Mono / 600 wt / uppercase / muted, 0.05em letter-spacing.</div>
-    <div class="note"><span class="pin">R</span>Export / Import: glass buttons, 4 px radius, 11 px / 2×10 padding. Import opens a hidden file input.</div>
-    <div class="note"><span class="pin">S</span>Body <code>&lt;pre&gt;</code>: <code>rgba(0,0,0,0.25)</code> bg, 12 px padding, 10 px Mono, line-height 1.4, scrollable.</div>
+    <div class="note"><span class="pin">P</span>Same <code>.tool-popover</code> as shape popovers; instance <code>style</code> sets width 400 and max-height 500.</div>
+    <div class="note"><span class="pin">Q</span>Caption uses <code>.head-title</code> (shared with Weight, etc.).</div>
+    <div class="note"><span class="pin">R</span>Export / Import: <code>.head .actions button</code> — light text buttons, shared rule with all diagram-data popovers.</div>
+    <div class="note"><span class="pin">S</span>JSON: <code>.body &gt; pre</code> — mono 10px, scroll; no separate panel bg (inherits <code>--color-glass-panel-bg</code>).</div>
   </div>
 </section>
 
