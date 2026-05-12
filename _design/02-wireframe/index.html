@@ -42,37 +42,44 @@
       <path d="M8 11V7a4 4 0 1 1 8 0v4"
             stroke="currentColor" stroke-width="2" fill="none" />
     </symbol>
+    <!-- Share / export — upload-from-tray (wireframe; evokes iOS share sheet) -->
+    <symbol id="ic-share" viewBox="0 0 24 24">
+      <path d="M12 4v10M8 8l4-4 4 4" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M5 14v5a2 2 0 002 2h10a2 2 0 002-2v-5" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round"/>
+    </symbol>
 
     <!--
-      Shape-spine tool-rail icons. Each maps 1:1 to a slot of `Shape<K>` in
-      components/editor/types.ts (lines 116-126). viewBox is 24×24 so the
+      Shape-spine tool-rail icons. Each maps 1:1 to a user-facing field of
+      `Shape<K>` in components/editor/types.ts (lines 116-126). viewBox is 24×24 so the
       rail's 18×18 rendering keeps a 3 px optical inset on each side.
     -->
-    <!-- (-1) name — Geist “A”; fill/font on <text> so &lt;use&gt; shadow tree still paints (CSS won’t target cloned nodes). -->
+    <!-- name — Geist “A”; fill/font on <text> so &lt;use&gt; shadow tree still paints (CSS won’t target cloned nodes). -->
     <symbol id="ic-name" viewBox="0 0 24 24">
       <text x="12" y="12" text-anchor="middle" dominant-baseline="central"
             fill="currentColor" stroke="none"
             font-family="Geist, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, Roboto, sans-serif"
             font-weight="500" font-size="20" letter-spacing="-0.11">A</text>
     </symbol>
-    <!-- (0) points — two filled dots, wider spacing (recursive sub-shapes) -->
+    <!-- points — two filled dots, wider spacing (recursive sub-shapes) -->
     <symbol id="ic-points" viewBox="0 0 24 24">
       <circle cx="6.25" cy="12" r="2.5" />
       <circle cx="17.75" cy="12" r="2.5" />
     </symbol>
-    <!-- (1) kind — apex-up triangle, representative of `ShapeKind` (empty / triangle / rhombus / circle / rectangle) -->
+    <!-- kind — apex-up triangle, representative of `ShapeKind` (empty / triangle / rhombus / circle / rectangle) -->
     <symbol id="ic-kind" viewBox="0 0 24 24">
       <path d="M12 4l8 16H4z" />
     </symbol>
-    <!-- (2) order — three ascending bars, scalar Order -->
+    <!-- order — three ascending bars, scalar Order -->
     <symbol id="ic-order" viewBox="0 0 24 24">
       <path d="M5 19v-4M12 19v-8M19 19v-12" />
     </symbol>
-    <!-- (3) color — filled disk in the shape's current color -->
+    <!-- color — filled disk in the shape's current color -->
     <symbol id="ic-color" viewBox="0 0 24 24">
       <circle cx="12" cy="12" r="7" />
     </symbol>
-    <!-- (4) transform — 4-way move arrows (translation/rotation/scale of SpaceTime) -->
+    <!-- transform — 4-way move arrows (translation/rotation/scale of SpaceTime) -->
     <symbol id="ic-transform" viewBox="0 0 24 24">
       <path d="M12 3v18M3 12h18" />
       <path d="M12 3l-2 2.5M12 3l2 2.5" />
@@ -80,22 +87,20 @@
       <path d="M3 12l2.5-2M3 12l2.5 2" />
       <path d="M21 12l-2.5-2M21 12l-2.5 2" />
     </symbol>
-    <!-- (5) equations — equals sign, Expression[] -->
+    <!-- equations — equals sign, Expression[] -->
     <symbol id="ic-equations" viewBox="0 0 24 24">
       <rect x="4" y="9"  width="16" height="2.2" rx="1" />
       <rect x="4" y="14" width="16" height="2.2" rx="1" />
     </symbol>
-    <!-- (6) weight — kettlebell, scalar Mass -->
+    <!-- weight — kettlebell, scalar Mass -->
     <symbol id="ic-weight" viewBox="0 0 24 24">
       <path d="M9 7a3 3 0 1 1 6 0" />
       <path d="M7 9h10l1.6 11H5.4z" />
     </symbol>
 
-    <!-- Kind-picker glyphs (Scene 7): one per ShapeKind in types.ts:38-65.
-         Used inside the kind-picker tiles. -->
-    <symbol id="kind-empty" viewBox="0 0 24 24">
-      <rect x="5" y="5" width="14" height="14" rx="1.5" />
-    </symbol>
+    <!-- Kind-picker glyphs (Scene 7): one tile per ShapeKind key in types.ts ShapePoints (types.ts:38-65). -->
+    <!-- empty: no glyph — reads only from tile label -->
+    <symbol id="kind-empty" viewBox="0 0 24 24"></symbol>
     <symbol id="kind-triangle" viewBox="0 0 24 24">
       <path d="M12 4l8 16H4z" />
     </symbol>
@@ -106,7 +111,8 @@
       <circle cx="12" cy="12" r="8" />
     </symbol>
     <symbol id="kind-rectangle" viewBox="0 0 24 24">
-      <rect x="3" y="7" width="18" height="10" rx="1" />
+      <!-- Square circumscribing kind-circle (r=8 → side 16); sharp corners -->
+      <rect x="4" y="4" width="16" height="16" />
     </symbol>
   </defs>
 </svg>
@@ -116,8 +122,8 @@
   <h1 class="t-h1">Editor chrome — pixel-faithful to today.</h1>
   <p>
     Each scene is a 1728×1080 frame sized for a 16″ MacBook Pro at default
-    scaling. Sidebar widths, panel sizes, button padding, font weights, kind
-    labels, hotkey chips, JSON-panel header copy, and React Flow controls
+    scaling. Sidebar widths, panel sizes, button padding, font weights,
+    JSON-panel header copy, and React Flow controls
     are pulled directly from <code>components/editor/EditorSidebar.tsx</code>
     and <code>components/editor/Canvas.tsx</code>. The React Flow canvas
     itself (shapes, points, wires, JSON spine) is intentionally left as a
@@ -130,53 +136,42 @@
 <section class="wireframe-section">
   <h2 class="t-h1">Scene 1 — default state</h2>
   <p class="lead">
-    Signed-in user has just opened a diagram. Left sidebar is a 56-wide icon
-    rail — one button per user-facing slot of <code>Shape&lt;K&gt;</code>
-    from <code>components/editor/types.ts</code> (slots −1…6). File
-    management (search, diagram list, +new) is no longer in the sidebar;
-    it lives in a separate picker. Top toolbar floats over the canvas with
-    two glass buttons. JSON panel collapsed. Zoom cluster bottom-left,
-    inset from the fixed-width rail (<code>--sidebar-offset</code>).
+    Signed-in user has just opened a diagram. A <strong>top bar</strong> holds
+    the logo, one tool button per exposed <code>Shape&lt;K&gt;</code> field
+    (<code>name</code> through <code>weight</code>), and a share-style control
+    for export / diagram data. The canvas uses the full width below the bar.
+    Zoom cluster stays bottom-left.
   </p>
 
   <div class="editor-frame">
     <!-- Dot-grid canvas background -->
     <div class="canvas-bg"></div>
 
-    <!-- Left sidebar — Shape-spine tool rail -->
-    <aside class="sidebar">
-      <div class="sidebar-inner">
-        <a class="sidebar-brand" href="#" title="Back to landing" aria-label="NeSyCat Semiotics">
+    <!-- Top bar — logo + shape tools + share -->
+    <header class="editor-topbar">
+      <div class="topbar-toolbar">
+        <a class="topbar-brand" href="#" title="Back to landing" aria-label="NeSyCat Semiotics">
           <svg class="logo-mark"><use href="#logo-mark"/></svg>
         </a>
-        <div class="sidebar-tools" role="toolbar" aria-label="Shape editor">
-          <button class="sidebar-tool tool-name"       type="button" aria-label="Name"      title="name (slot -1)"><svg><use href="#ic-name"/></svg></button>
-          <button class="sidebar-tool tool-points"     type="button" aria-label="Points"    title="points (slot 0)"><svg><use href="#ic-points"/></svg></button>
-          <button class="sidebar-tool tool-kind"       type="button" aria-label="Kind"      title="kind (slot 1)"><svg><use href="#ic-kind"/></svg></button>
-          <button class="sidebar-tool tool-order"      type="button" aria-label="Order"     title="order (slot 2)"><svg><use href="#ic-order"/></svg></button>
-          <button class="sidebar-tool tool-color is-active" type="button" aria-label="Color" title="color (slot 3)"><svg><use href="#ic-color"/></svg></button>
-          <button class="sidebar-tool tool-transform"  type="button" aria-label="Transform" title="transform (slot 4)"><svg><use href="#ic-transform"/></svg></button>
-          <button class="sidebar-tool tool-equations"  type="button" aria-label="Equations" title="equations (slot 5)"><svg><use href="#ic-equations"/></svg></button>
-          <button class="sidebar-tool tool-weight"     type="button" aria-label="Weight"    title="weight (slot 6)"><svg><use href="#ic-weight"/></svg></button>
+        <div class="topbar-tools" role="toolbar" aria-label="Shape editor">
+          <button class="sidebar-tool tool-name"       type="button" aria-label="Name"      title="Name"><svg><use href="#ic-name"/></svg></button>
+          <button class="sidebar-tool tool-points"     type="button" aria-label="Points"    title="Points"><svg><use href="#ic-points"/></svg></button>
+          <button class="sidebar-tool tool-kind"       type="button" aria-label="Kind"      title="Kind"><svg><use href="#ic-kind"/></svg></button>
+          <button class="sidebar-tool tool-order"      type="button" aria-label="Order"     title="Order"><svg><use href="#ic-order"/></svg></button>
+          <button class="sidebar-tool tool-color" type="button" aria-label="Color" title="Color"><svg><use href="#ic-color"/></svg></button>
+          <button class="sidebar-tool tool-transform"  type="button" aria-label="Transform" title="Transform"><svg><use href="#ic-transform"/></svg></button>
+          <button class="sidebar-tool tool-equations"  type="button" aria-label="Equations" title="Equations"><svg><use href="#ic-equations"/></svg></button>
+          <button class="sidebar-tool tool-weight"     type="button" aria-label="Weight"    title="Weight"><svg><use href="#ic-weight"/></svg></button>
         </div>
       </div>
-    </aside>
+      <div class="topbar-actions">
+        <button type="button" class="sidebar-tool topbar-share" title="Export or share diagram data" aria-label="Share or export diagram">
+          <svg><use href="#ic-share"/></svg>
+        </button>
+      </div>
+    </header>
 
     <div class="canvas-area">
-      <!-- Top-left toolbar -->
-      <div class="toolbar-topleft">
-        <div class="kinds-anchor">
-          <button class="panel-btn" type="button">Kinds</button>
-        </div>
-        <button class="panel-btn" type="button"
-                title="Edge path: straight — click to switch">Straight</button>
-      </div>
-
-      <!-- Top-right JSON button (collapsed) -->
-      <div class="topright">
-        <button class="panel-btn" type="button">JSON</button>
-      </div>
-
       <!-- Bottom-left React Flow controls -->
       <div class="controls-cluster" aria-label="Zoom controls">
         <button type="button" title="Zoom in"><svg><use href="#ic-plus"/></svg></button>
@@ -188,42 +183,39 @@
   </div>
 
   <div class="annotations">
-    <h3>Sidebar — Shape spine (<code>components/editor/types.ts</code>)</h3>
-    <div class="note"><span class="pin">A</span>56 px rail. Logo on top, 22×22, link back to landing.</div>
-    <div class="note"><span class="pin">B</span><code>name</code> slot (−1): user-visible label.</div>
-    <div class="note"><span class="pin">C</span><code>points</code> slot (0): recursive sub-shapes (<code>ShapePoints[K]</code>).</div>
-    <div class="note"><span class="pin">D</span><code>kind</code> slot (1): <code>ShapeKind</code> discriminator — empty / triangle / rhombus / circle / rectangle.</div>
-    <div class="note"><span class="pin">E</span><code>order</code> slot (2): scalar <code>number</code>.</div>
-    <div class="note"><span class="pin">F</span><code>color</code> slot (3): <code>[r, g, b] ∈ [0, 1]³</code>. Glyph fills with the current shape color so the rail doubles as a swatch.</div>
-    <div class="note"><span class="pin">G</span><code>transform</code> slot (4): <code>SpaceTime</code> — translation + rotation + scale (+ created/updated timestamps).</div>
-    <div class="note"><span class="pin">H</span><code>equations</code> slot (5): list of <code>Expression</code>s (rational over shape refs).</div>
-    <div class="note"><span class="pin">I</span><code>weight</code> slot (6): scalar <code>Mass</code>.</div>
-    <div class="note"><span class="pin">J</span>Slot −2 <code>id</code> intentionally absent — <code>types.ts:29</code>: "Auto-generated, unique, internal — never user-facing."</div>
+    <h3>Top bar — Shape spine (<code>components/editor/types.ts</code>)</h3>
+    <div class="note"><span class="pin">A</span>52 px–tall bar: logo 40×40, then eight 40×40 tools with 6 px gaps, share control flush right.</div>
+    <div class="note"><span class="pin">B</span><code>name</code> — user-visible label.</div>
+    <div class="note"><span class="pin">C</span><code>points</code> — recursive sub-shapes (<code>ShapePoints[K]</code>).</div>
+    <div class="note"><span class="pin">D</span><code>kind</code> — <code>ShapeKind</code> discriminator — empty / triangle / rhombus / circle / rectangle.</div>
+    <div class="note"><span class="pin">E</span><code>order</code> — scalar <code>number</code>.</div>
+    <div class="note"><span class="pin">F</span><code>color</code> — <code>[r, g, b] ∈ [0, 1]³</code>. Glyph fills with the current shape color so the rail doubles as a swatch.</div>
+    <div class="note"><span class="pin">G</span><code>transform</code> — <code>SpaceTime</code> — translation + rotation + scale (+ created/updated timestamps).</div>
+    <div class="note"><span class="pin">H</span><code>equations</code> — list of <code>Expression</code>s (rational over shape refs).</div>
+    <div class="note"><span class="pin">I</span><code>weight</code> — scalar <code>Mass</code>.</div>
+    <div class="note"><span class="pin">J</span>The internal-only <code>id</code> field has no rail button — <code>types.ts:29</code>: "Auto-generated, unique, internal — never user-facing."</div>
     <div class="note"><span class="pin">K</span>Buttons 40×40, 6 px radius. Active state tinted with <code>rgba(accent, 0.18)</code> + accent border. Hover swaps to glass-button bg + glass border.</div>
     <h3>Canvas chrome (<code>Canvas.tsx</code>)</h3>
-    <div class="note"><span class="pin">L</span>Top-left toolbar at 12 px from top, <code>12px + --sidebar-offset</code> from left (rail fixed at 56 px — not collapsible in this wireframe).</div>
-    <div class="note"><span class="pin">N</span>Each button: <code>panelStyle()</code> + 8 px radius + 6×14 padding, 12 px / 600 wt secondary text.</div>
-    <div class="note"><span class="pin">O</span>"Straight" label toggles to "Smooth" when clicked; tooltip carries the current state.</div>
-    <div class="note"><span class="pin">P</span>JSON button — open state in Scene 14 (panel expands below it, button stays visible above).</div>
-    <div class="note"><span class="pin">Q</span>Zoom cluster from React Flow's <code>&lt;Controls/&gt;</code>: 28 px buttons stacked, also tracks sidebar offset.</div>
+    <div class="note"><span class="pin">L</span>Share control in the top bar opens export / diagram data (panel open in Scene 13). Zoom controls bottom-left.</div>
+    <div class="note"><span class="pin">P</span>Share control; open state in Scene 13 (diagram-data panel drops below the bar on the right).</div>
+    <div class="note"><span class="pin">Q</span>Zoom cluster from React Flow <code>&lt;Controls/&gt;</code>: 28 px buttons stacked.</div>
 
     <h3>Redesign hooks</h3>
     <div class="note">File management (search, diagram list, +new) needs a new home — likely a separate picker / file-tree surface, opened via the logo or a dedicated chrome button.</div>
-    <div class="note">"Kinds ▾" in the top-left toolbar becomes redundant with the rail's <code>kind</code> button — consider merging into the slot-1 dropdown.</div>
-    <div class="note">Color slot's button doubles as the current-color swatch. Click to open a picker; the swatch updates in place.</div>
-    <div class="note">Rail order intentionally follows the slot indices (−1 → 6) in <code>types.ts</code> so it reads as the Shape's own field order.</div>
+    <div class="note">Color control doubles as the current-color swatch. Click to open a picker; the swatch updates in place.</div>
+    <div class="note">Rail order intentionally follows <code>Shape</code> field order in <code>types.ts</code>.</div>
   </div>
 </section>
 
-<!-- ═══════ Scene 5: name popover (slot -1) ═══════ -->
+<!-- ═══════ Scene 5: name popover ═══════ -->
 
 <section class="wireframe-section">
   <h2 class="t-h1">Scene 5 — name popover</h2>
   <p class="lead">
-    Clicking the <code>name</code> button opens a popover anchored to the
-    right of the rail at the button's y. Header strip names the slot, body
-    holds the editor, and a thin "visibility" footer parks the 3-state
-    "Off · Selected · All" toggle. Rename today happens inline (double-click
+    Clicking the <code>name</code> button opens a popover below the top bar,
+    aligned with that tool. The header row carries the panel
+    title and the 3-state visibility icons (Off · Selected · All); the body
+    holds the editor. Rename today happens inline (double-click
     on the canvas, <code>DiagramNode.tsx:360-448</code>); the input here is
     a faster alternative when the shape is already selected.
   </p>
@@ -231,30 +223,30 @@
   <div class="editor-frame">
     <div class="canvas-bg"></div>
 
-    <aside class="sidebar">
-      <div class="sidebar-inner">
-        <a class="sidebar-brand" href="#" aria-label="NeSyCat Semiotics">
+    <header class="editor-topbar">
+      <div class="topbar-toolbar">
+        <a class="topbar-brand" href="#" aria-label="NeSyCat Semiotics">
           <svg class="logo-mark"><use href="#logo-mark"/></svg>
         </a>
-        <div class="sidebar-tools" role="toolbar" aria-label="Shape editor">
-          <button class="sidebar-tool tool-name is-active" type="button" title="name (slot -1)"><svg><use href="#ic-name"/></svg></button>
-          <button class="sidebar-tool tool-points"         type="button" title="points (slot 0)"><svg><use href="#ic-points"/></svg></button>
-          <button class="sidebar-tool tool-kind"           type="button" title="kind (slot 1)"><svg><use href="#ic-kind"/></svg></button>
-          <button class="sidebar-tool tool-order"          type="button" title="order (slot 2)"><svg><use href="#ic-order"/></svg></button>
-          <button class="sidebar-tool tool-color"          type="button" title="color (slot 3)"><svg><use href="#ic-color"/></svg></button>
-          <button class="sidebar-tool tool-transform"      type="button" title="transform (slot 4)"><svg><use href="#ic-transform"/></svg></button>
-          <button class="sidebar-tool tool-equations"      type="button" title="equations (slot 5)"><svg><use href="#ic-equations"/></svg></button>
-          <button class="sidebar-tool tool-weight"         type="button" title="weight (slot 6)"><svg><use href="#ic-weight"/></svg></button>
+        <div class="topbar-tools" role="toolbar" aria-label="Shape editor">
+          <button class="sidebar-tool tool-name is-active" type="button" title="Name"><svg><use href="#ic-name"/></svg></button>
+          <button class="sidebar-tool tool-points"         type="button" title="Points"><svg><use href="#ic-points"/></svg></button>
+          <button class="sidebar-tool tool-kind"           type="button" title="Kind"><svg><use href="#ic-kind"/></svg></button>
+          <button class="sidebar-tool tool-order"          type="button" title="Order"><svg><use href="#ic-order"/></svg></button>
+          <button class="sidebar-tool tool-color"          type="button" title="Color"><svg><use href="#ic-color"/></svg></button>
+          <button class="sidebar-tool tool-transform"      type="button" title="Transform"><svg><use href="#ic-transform"/></svg></button>
+          <button class="sidebar-tool tool-equations"      type="button" title="Equations"><svg><use href="#ic-equations"/></svg></button>
+          <button class="sidebar-tool tool-weight"         type="button" title="Weight"><svg><use href="#ic-weight"/></svg></button>
         </div>
       </div>
-    </aside>
+      <div class="topbar-actions">
+        <button type="button" class="sidebar-tool topbar-share" title="Export or share diagram data" aria-label="Share or export diagram">
+          <svg><use href="#ic-share"/></svg>
+        </button>
+      </div>
+    </header>
 
     <div class="canvas-area">
-      <div class="toolbar-topleft">
-        <div class="kinds-anchor"><button class="panel-btn" type="button">Kinds</button></div>
-        <button class="panel-btn" type="button">Straight</button>
-      </div>
-      <div class="topright"><button class="panel-btn" type="button">JSON</button></div>
       <div class="controls-cluster">
         <button type="button"><svg><use href="#ic-plus"/></svg></button>
         <button type="button"><svg><use href="#ic-minus"/></svg></button>
@@ -263,20 +255,15 @@
       </div>
 
       <!-- Popover anchored to the name button (i=0, top 60). -->
-      <div class="tool-popover" style="top: 60px; width: 280px">
-        <div class="head">name · slot −1</div>
-        <div class="body">
-          <span class="body-label">Rename selected</span>
-          <input class="text-input" type="text" value="Y" />
-          <span class="hint">Or double-click a name on the canvas to edit inline.</span>
+      <div class="tool-popover" style="left: 60px; width: 280px">
+        <div class="head">
+          <button type="button" class="head-vis-toggle is-on" aria-label="Visibility" aria-pressed="true">
+            <span class="head-vis-dot" aria-hidden="true"></span>
+          </button>
+          <span class="head-title">Name</span>
         </div>
-        <div class="vis-footer">
-          <span class="footer-label">Visibility</span>
-          <div class="vis-seg" role="radiogroup">
-            <button class="seg" type="button">Off</button>
-            <button class="seg" type="button">Selected</button>
-            <button class="seg is-on" type="button">All</button>
-          </div>
+        <div class="body">
+          <input class="text-input" type="text" value="Y" />
         </div>
       </div>
     </div>
@@ -290,7 +277,7 @@
   </div>
 </section>
 
-<!-- ═══════ Scene 6: points popover (slot 0) ═══════ -->
+<!-- ═══════ Scene 6: points popover ═══════ -->
 
 <section class="wireframe-section">
   <h2 class="t-h1">Scene 6 — points popover</h2>
@@ -306,30 +293,30 @@
   <div class="editor-frame">
     <div class="canvas-bg"></div>
 
-    <aside class="sidebar">
-      <div class="sidebar-inner">
-        <a class="sidebar-brand" href="#" aria-label="NeSyCat Semiotics">
+    <header class="editor-topbar">
+      <div class="topbar-toolbar">
+        <a class="topbar-brand" href="#" aria-label="NeSyCat Semiotics">
           <svg class="logo-mark"><use href="#logo-mark"/></svg>
         </a>
-        <div class="sidebar-tools" role="toolbar" aria-label="Shape editor">
-          <button class="sidebar-tool tool-name"             type="button" title="name (slot -1)"><svg><use href="#ic-name"/></svg></button>
-          <button class="sidebar-tool tool-points is-active" type="button" title="points (slot 0)"><svg><use href="#ic-points"/></svg></button>
-          <button class="sidebar-tool tool-kind"             type="button" title="kind (slot 1)"><svg><use href="#ic-kind"/></svg></button>
-          <button class="sidebar-tool tool-order"            type="button" title="order (slot 2)"><svg><use href="#ic-order"/></svg></button>
-          <button class="sidebar-tool tool-color"            type="button" title="color (slot 3)"><svg><use href="#ic-color"/></svg></button>
-          <button class="sidebar-tool tool-transform"        type="button" title="transform (slot 4)"><svg><use href="#ic-transform"/></svg></button>
-          <button class="sidebar-tool tool-equations"        type="button" title="equations (slot 5)"><svg><use href="#ic-equations"/></svg></button>
-          <button class="sidebar-tool tool-weight"           type="button" title="weight (slot 6)"><svg><use href="#ic-weight"/></svg></button>
+        <div class="topbar-tools" role="toolbar" aria-label="Shape editor">
+          <button class="sidebar-tool tool-name"             type="button" title="Name"><svg><use href="#ic-name"/></svg></button>
+          <button class="sidebar-tool tool-points is-active" type="button" title="Points"><svg><use href="#ic-points"/></svg></button>
+          <button class="sidebar-tool tool-kind"             type="button" title="Kind"><svg><use href="#ic-kind"/></svg></button>
+          <button class="sidebar-tool tool-order"            type="button" title="Order"><svg><use href="#ic-order"/></svg></button>
+          <button class="sidebar-tool tool-color"            type="button" title="Color"><svg><use href="#ic-color"/></svg></button>
+          <button class="sidebar-tool tool-transform"        type="button" title="Transform"><svg><use href="#ic-transform"/></svg></button>
+          <button class="sidebar-tool tool-equations"        type="button" title="Equations"><svg><use href="#ic-equations"/></svg></button>
+          <button class="sidebar-tool tool-weight"           type="button" title="Weight"><svg><use href="#ic-weight"/></svg></button>
         </div>
       </div>
-    </aside>
+      <div class="topbar-actions">
+        <button type="button" class="sidebar-tool topbar-share" title="Export or share diagram data" aria-label="Share or export diagram">
+          <svg><use href="#ic-share"/></svg>
+        </button>
+      </div>
+    </header>
 
     <div class="canvas-area">
-      <div class="toolbar-topleft">
-        <div class="kinds-anchor"><button class="panel-btn" type="button">Kinds</button></div>
-        <button class="panel-btn" type="button">Straight</button>
-      </div>
-      <div class="topright"><button class="panel-btn" type="button">JSON</button></div>
       <div class="controls-cluster">
         <button type="button"><svg><use href="#ic-plus"/></svg></button>
         <button type="button"><svg><use href="#ic-minus"/></svg></button>
@@ -338,23 +325,12 @@
       </div>
 
       <!-- Popover anchored to the points button (i=1, top 106). -->
-      <div class="tool-popover" style="top: 106px; width: 280px">
-        <div class="head">points · slot 0</div>
-        <div class="body">
-          <span class="hint">
-            Add points via the <strong>+</strong> buttons that surface on
-            a selected shape. The set of slots offered is schema-driven
-            (<code>enumerateAddable()</code> reads <code>ShapePoints[K]</code>
-            from <code>types.ts:38-65</code>).
-          </span>
-        </div>
-        <div class="vis-footer">
-          <span class="footer-label">Visibility</span>
-          <div class="vis-seg" role="radiogroup">
-            <button class="seg" type="button">Off</button>
-            <button class="seg is-on" type="button">Selected</button>
-            <button class="seg" type="button">All</button>
-          </div>
+      <div class="tool-popover tool-popover--tight" style="left: 106px">
+        <div class="head">
+          <button type="button" class="head-vis-toggle is-on" aria-label="Visibility" aria-pressed="true">
+            <span class="head-vis-dot" aria-hidden="true"></span>
+          </button>
+          <span class="head-title">Points</span>
         </div>
       </div>
     </div>
@@ -362,52 +338,56 @@
 
   <div class="annotations">
     <h3>Source of truth</h3>
-    <div class="note"><span class="pin">A</span><code>Shape.points: ShapePoints[K]</code> at <code>types.ts:119</code> — recursive sub-shape tree, slot cardinalities per <code>ShapeKind</code>.</div>
+    <div class="note"><span class="pin">A</span><code>Shape.points: ShapePoints[K]</code> at <code>types.ts:119</code> — recursive sub-shape tree; branching shape differs per <code>ShapeKind</code>.</div>
     <div class="note"><span class="pin">B</span>Today: <code>visibility.points</code> in <code>store.ts:8</code>; CSS gate <code>.points-hidden .point-label</code> in <code>app/globals.css</code>.</div>
     <div class="note"><span class="pin">C</span>"Selected" is the new middle step — shows handles only on the active shape.</div>
   </div>
 </section>
 
-<!-- ═══════ Scene 7: kind popover (slot 1) ═══════ -->
+<!-- ═══════ Scene 7: kind popover ═══════ -->
 
 <section class="wireframe-section">
   <h2 class="t-h1">Scene 7 — kind popover</h2>
   <p class="lead">
-    The <code>kind</code> popover picks one of the five <code>ShapeKind</code>s
-    from <code>types.ts:38-65</code>: <code>empty</code>, <code>triangle</code>,
-    <code>rhombus</code>, <code>circle</code>, <code>rectangle</code>. Today
-    the kind is fixed at creation — this introduces a new mutation
-    ("change kind of selected") that <code>mutations.ts</code> doesn't have
-    yet. Tile glyphs match the <code>geometryRegistry</code> registry order.
+    The <code>kind</code> popover switches among the <strong>five</strong>
+    <code>ShapeKind</code> keys of <code>ShapePoints</code> in
+    <code>types.ts:38-65</code> — <code>empty</code>, <code>triangle</code>,
+    <code>rhombus</code>, <code>circle</code>, <code>rectangle</code>. That is
+    the complete set of shape discriminators for nodes; <code>Line</code>
+    (<code>types.ts:137-146</code>) still carries the same <code>kind</code>
+    field — wires are not a separate kind enum. Today shape kind is fixed at
+    creation; this panel assumes a future mutation. Rectangular tiles match the
+    rail; double-click create shortcuts from <code>geometry.ts</code> live in
+    each tile’s tooltip.
   </p>
 
   <div class="editor-frame">
     <div class="canvas-bg"></div>
 
-    <aside class="sidebar">
-      <div class="sidebar-inner">
-        <a class="sidebar-brand" href="#" aria-label="NeSyCat Semiotics">
+    <header class="editor-topbar">
+      <div class="topbar-toolbar">
+        <a class="topbar-brand" href="#" aria-label="NeSyCat Semiotics">
           <svg class="logo-mark"><use href="#logo-mark"/></svg>
         </a>
-        <div class="sidebar-tools" role="toolbar" aria-label="Shape editor">
-          <button class="sidebar-tool tool-name"           type="button" title="name (slot -1)"><svg><use href="#ic-name"/></svg></button>
-          <button class="sidebar-tool tool-points"         type="button" title="points (slot 0)"><svg><use href="#ic-points"/></svg></button>
-          <button class="sidebar-tool tool-kind is-active" type="button" title="kind (slot 1)"><svg><use href="#ic-kind"/></svg></button>
-          <button class="sidebar-tool tool-order"          type="button" title="order (slot 2)"><svg><use href="#ic-order"/></svg></button>
-          <button class="sidebar-tool tool-color"          type="button" title="color (slot 3)"><svg><use href="#ic-color"/></svg></button>
-          <button class="sidebar-tool tool-transform"      type="button" title="transform (slot 4)"><svg><use href="#ic-transform"/></svg></button>
-          <button class="sidebar-tool tool-equations"      type="button" title="equations (slot 5)"><svg><use href="#ic-equations"/></svg></button>
-          <button class="sidebar-tool tool-weight"         type="button" title="weight (slot 6)"><svg><use href="#ic-weight"/></svg></button>
+        <div class="topbar-tools" role="toolbar" aria-label="Shape editor">
+          <button class="sidebar-tool tool-name"           type="button" title="Name"><svg><use href="#ic-name"/></svg></button>
+          <button class="sidebar-tool tool-points"         type="button" title="Points"><svg><use href="#ic-points"/></svg></button>
+          <button class="sidebar-tool tool-kind is-active" type="button" title="Kind"><svg><use href="#ic-kind"/></svg></button>
+          <button class="sidebar-tool tool-order"          type="button" title="Order"><svg><use href="#ic-order"/></svg></button>
+          <button class="sidebar-tool tool-color"          type="button" title="Color"><svg><use href="#ic-color"/></svg></button>
+          <button class="sidebar-tool tool-transform"      type="button" title="Transform"><svg><use href="#ic-transform"/></svg></button>
+          <button class="sidebar-tool tool-equations"      type="button" title="Equations"><svg><use href="#ic-equations"/></svg></button>
+          <button class="sidebar-tool tool-weight"         type="button" title="Weight"><svg><use href="#ic-weight"/></svg></button>
         </div>
       </div>
-    </aside>
+      <div class="topbar-actions">
+        <button type="button" class="sidebar-tool topbar-share" title="Export or share diagram data" aria-label="Share or export diagram">
+          <svg><use href="#ic-share"/></svg>
+        </button>
+      </div>
+    </header>
 
     <div class="canvas-area">
-      <div class="toolbar-topleft">
-        <div class="kinds-anchor"><button class="panel-btn" type="button">Kinds</button></div>
-        <button class="panel-btn" type="button">Straight</button>
-      </div>
-      <div class="topright"><button class="panel-btn" type="button">JSON</button></div>
       <div class="controls-cluster">
         <button type="button"><svg><use href="#ic-plus"/></svg></button>
         <button type="button"><svg><use href="#ic-minus"/></svg></button>
@@ -415,40 +395,81 @@
         <button type="button"><svg><use href="#ic-lock"/></svg></button>
       </div>
 
-      <!-- Popover anchored to the kind button (i=2, top 152). -->
-      <div class="tool-popover" style="top: 152px; width: 296px">
-        <div class="head">kind · slot 1</div>
-        <div class="body">
-          <span class="body-label">Change kind of selected</span>
-          <div class="kind-picker">
-            <button class="tile" type="button" title="empty">
-              <svg><use href="#kind-empty"/></svg>
-              <span class="tile-label">empty</span>
-            </button>
-            <button class="tile is-on" type="button" title="triangle">
-              <svg><use href="#kind-triangle"/></svg>
-              <span class="tile-label">triangle</span>
-            </button>
-            <button class="tile" type="button" title="rhombus">
-              <svg><use href="#kind-rhombus"/></svg>
-              <span class="tile-label">rhombus</span>
-            </button>
-            <button class="tile" type="button" title="circle">
-              <svg><use href="#kind-circle"/></svg>
-              <span class="tile-label">circle</span>
-            </button>
-            <button class="tile" type="button" title="rectangle">
-              <svg><use href="#kind-rectangle"/></svg>
-              <span class="tile-label">rect</span>
-            </button>
-          </div>
+      <!-- Popover anchored to the kind button (i=2, top 152).
+           ShapeKind = keyof ShapePoints → exactly empty | triangle | rhombus | circle | rectangle (types.ts:38-70).
+           Line<K> extends Shape<K> and uses the same kind field — not a sixth ShapeKind (types.ts:137-148).
+           Layout: one row per ShapeKind. Left = decorative visibility dot (wireframe); only the drag tile on the right is interactive.
+           Header strip: panel-level visibility dot; rows keep per-kind visibility. -->
+      <div class="tool-popover" style="left: 152px; width: max-content; min-width: 0">
+        <div class="head">
+          <button type="button" class="head-vis-toggle is-on" aria-label="Panel visibility" aria-pressed="true">
+            <span class="head-vis-dot" aria-hidden="true"></span>
+          </button>
+          <span class="head-title">Kind</span>
         </div>
-        <div class="vis-footer">
-          <span class="footer-label">Visibility</span>
-          <div class="vis-seg" role="radiogroup">
-            <button class="seg" type="button">Off</button>
-            <button class="seg" type="button">Selected</button>
-            <button class="seg is-on" type="button">All</button>
+        <div class="body">
+          <div class="kind-rows" role="group" aria-label="Shape kind">
+
+            <div class="kind-row">
+              <div class="kind-row-left">
+                <span class="kind-vis-toggle is-on" aria-hidden="true">
+                  <span class="kind-vis-dot" aria-hidden="true"></span>
+                </span>
+              </div>
+              <button class="drag-tile" type="button" draggable="true"
+                      title="empty — drag to canvas · create: 2×">
+                <svg><use href="#kind-empty"/></svg>
+              </button>
+            </div>
+
+            <div class="kind-row is-active">
+              <div class="kind-row-left">
+                <span class="kind-vis-toggle is-on" aria-hidden="true">
+                  <span class="kind-vis-dot" aria-hidden="true"></span>
+                </span>
+              </div>
+              <button class="drag-tile" type="button" draggable="true"
+                      title="triangle — drag to canvas · create: Alt/⌥ + 2×">
+                <svg><use href="#kind-triangle"/></svg>
+              </button>
+            </div>
+
+            <div class="kind-row">
+              <div class="kind-row-left">
+                <span class="kind-vis-toggle is-on" aria-hidden="true">
+                  <span class="kind-vis-dot" aria-hidden="true"></span>
+                </span>
+              </div>
+              <button class="drag-tile" type="button" draggable="true"
+                      title="rhombus — drag to canvas · create: ⇧ + 2×">
+                <svg><use href="#kind-rhombus"/></svg>
+              </button>
+            </div>
+
+            <div class="kind-row">
+              <div class="kind-row-left">
+                <span class="kind-vis-toggle is-on" aria-hidden="true">
+                  <span class="kind-vis-dot" aria-hidden="true"></span>
+                </span>
+              </div>
+              <button class="drag-tile" type="button" draggable="true"
+                      title="circle — drag to canvas · create: Space + 2×">
+                <svg><use href="#kind-circle"/></svg>
+              </button>
+            </div>
+
+            <div class="kind-row">
+              <div class="kind-row-left">
+                <span class="kind-vis-toggle is-on" aria-hidden="true">
+                  <span class="kind-vis-dot" aria-hidden="true"></span>
+                </span>
+              </div>
+              <button class="drag-tile" type="button" draggable="true"
+                      title="rectangle — drag to canvas · create: Ctrl/⌘ + 2×">
+                <svg><use href="#kind-rectangle"/></svg>
+              </button>
+            </div>
+
           </div>
         </div>
       </div>
@@ -457,13 +478,13 @@
 
   <div class="annotations">
     <h3>Source of truth</h3>
-    <div class="note"><span class="pin">A</span><code>Shape.kind: K</code> at <code>types.ts:120</code>; <code>ShapeKind = keyof ShapePoints</code> at <code>types.ts:70</code>.</div>
-    <div class="note"><span class="pin">B</span>Today: no kind-change mutation in <code>mutations.ts</code>; only set at <code>addNode()</code> creation time.</div>
-    <div class="note"><span class="pin">C</span>Tile glyphs match the registry order rendered in the legacy "Kinds" dropdown (Scene 13).</div>
+    <div class="note"><span class="pin">A</span><code>Shape.kind: K</code> at <code>types.ts:120</code>; <code>ShapeKind = keyof ShapePoints</code> at <code>types.ts:70</code> — exactly the five rows. <code>Line</code> extends <code>Shape&lt;K&gt;</code> (<code>types.ts:143-146</code>) and uses the same <code>kind</code>; diagram edges are not a sixth discriminator.</div>
+    <div class="note"><span class="pin">B</span>Each row: decorative per-kind visibility dot (left); only the <strong>drag tile</strong> is interactive — drag to the canvas to create a node of that kind.</div>
+    <div class="note"><span class="pin">C</span>Today: no kind-change mutation in <code>mutations.ts</code>; kind is only set at <code>addNode()</code> creation time. Drag-to-create is the primary affordance.</div>
   </div>
 </section>
 
-<!-- ═══════ Scene 8: order popover (slot 2) ═══════ -->
+<!-- ═══════ Scene 8: order popover ═══════ -->
 
 <section class="wireframe-section">
   <h2 class="t-h1">Scene 8 — order popover</h2>
@@ -478,30 +499,30 @@
   <div class="editor-frame">
     <div class="canvas-bg"></div>
 
-    <aside class="sidebar">
-      <div class="sidebar-inner">
-        <a class="sidebar-brand" href="#" aria-label="NeSyCat Semiotics">
+    <header class="editor-topbar">
+      <div class="topbar-toolbar">
+        <a class="topbar-brand" href="#" aria-label="NeSyCat Semiotics">
           <svg class="logo-mark"><use href="#logo-mark"/></svg>
         </a>
-        <div class="sidebar-tools" role="toolbar" aria-label="Shape editor">
-          <button class="sidebar-tool tool-name"            type="button" title="name (slot -1)"><svg><use href="#ic-name"/></svg></button>
-          <button class="sidebar-tool tool-points"          type="button" title="points (slot 0)"><svg><use href="#ic-points"/></svg></button>
-          <button class="sidebar-tool tool-kind"            type="button" title="kind (slot 1)"><svg><use href="#ic-kind"/></svg></button>
-          <button class="sidebar-tool tool-order is-active" type="button" title="order (slot 2)"><svg><use href="#ic-order"/></svg></button>
-          <button class="sidebar-tool tool-color"           type="button" title="color (slot 3)"><svg><use href="#ic-color"/></svg></button>
-          <button class="sidebar-tool tool-transform"       type="button" title="transform (slot 4)"><svg><use href="#ic-transform"/></svg></button>
-          <button class="sidebar-tool tool-equations"       type="button" title="equations (slot 5)"><svg><use href="#ic-equations"/></svg></button>
-          <button class="sidebar-tool tool-weight"          type="button" title="weight (slot 6)"><svg><use href="#ic-weight"/></svg></button>
+        <div class="topbar-tools" role="toolbar" aria-label="Shape editor">
+          <button class="sidebar-tool tool-name"            type="button" title="Name"><svg><use href="#ic-name"/></svg></button>
+          <button class="sidebar-tool tool-points"          type="button" title="Points"><svg><use href="#ic-points"/></svg></button>
+          <button class="sidebar-tool tool-kind"            type="button" title="Kind"><svg><use href="#ic-kind"/></svg></button>
+          <button class="sidebar-tool tool-order is-active" type="button" title="Order"><svg><use href="#ic-order"/></svg></button>
+          <button class="sidebar-tool tool-color"           type="button" title="Color"><svg><use href="#ic-color"/></svg></button>
+          <button class="sidebar-tool tool-transform"       type="button" title="Transform"><svg><use href="#ic-transform"/></svg></button>
+          <button class="sidebar-tool tool-equations"       type="button" title="Equations"><svg><use href="#ic-equations"/></svg></button>
+          <button class="sidebar-tool tool-weight"          type="button" title="Weight"><svg><use href="#ic-weight"/></svg></button>
         </div>
       </div>
-    </aside>
+      <div class="topbar-actions">
+        <button type="button" class="sidebar-tool topbar-share" title="Export or share diagram data" aria-label="Share or export diagram">
+          <svg><use href="#ic-share"/></svg>
+        </button>
+      </div>
+    </header>
 
     <div class="canvas-area">
-      <div class="toolbar-topleft">
-        <div class="kinds-anchor"><button class="panel-btn" type="button">Kinds</button></div>
-        <button class="panel-btn" type="button">Straight</button>
-      </div>
-      <div class="topright"><button class="panel-btn" type="button">JSON</button></div>
       <div class="controls-cluster">
         <button type="button"><svg><use href="#ic-plus"/></svg></button>
         <button type="button"><svg><use href="#ic-minus"/></svg></button>
@@ -510,35 +531,28 @@
       </div>
 
       <!-- Popover anchored to the order button (i=3, top 198). -->
-      <div class="tool-popover" style="top: 198px; width: 280px">
-        <div class="head">order · slot 2</div>
+      <div class="tool-popover" style="left: 198px; width: 280px">
+        <div class="head">
+          <button type="button" class="head-vis-toggle is-on" aria-label="Visibility" aria-pressed="true">
+            <span class="head-vis-dot" aria-hidden="true"></span>
+          </button>
+          <span class="head-title">Order</span>
+        </div>
         <div class="body">
-          <div style="display:flex; align-items:center; gap:12px; justify-content:space-between;">
-            <span class="body-label">Order</span>
+          <div class="order-value-row">
             <input class="num-input" type="text" value="2" aria-label="Order value" />
-          </div>
-          <div class="slider-col">
-            <div class="slider-stack">
+            <div class="slider-col slider-col--horizontal">
+              <div class="slider-stack">
               <div class="slider-track">
-                <div class="slider-thumb" style="top: 70%"></div>
+                <div class="slider-thumb" aria-hidden="true">
+                  <span class="slider-thumb-dot"></span>
+                </div>
+              </div>
+              </div>
+              <div class="slider-notches" aria-hidden="true">
+                <span>0</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span>
               </div>
             </div>
-            <div class="slider-notches" aria-hidden="true">
-              <span>5</span><span>4</span><span>3</span><span>2</span><span>1</span><span>0</span>
-            </div>
-            <div class="preview-col">
-              <div class="preview-disk" style="width: 64px; height: 64px"></div>
-              <span class="hint" style="text-align:center;">order = 2<br/>(discrete steps)</span>
-            </div>
-          </div>
-          <span class="hint">Drag the slider or type a number; the preview scales with the order.</span>
-        </div>
-        <div class="vis-footer">
-          <span class="footer-label">Visibility</span>
-          <div class="vis-seg" role="radiogroup">
-            <button class="seg" type="button">Off</button>
-            <button class="seg is-on" type="button">Selected</button>
-            <button class="seg" type="button">All</button>
           </div>
         </div>
       </div>
@@ -553,7 +567,7 @@
   </div>
 </section>
 
-<!-- ═══════ Scene 9: color popover (slot 3) ═══════ -->
+<!-- ═══════ Scene 9: color popover ═══════ -->
 
 <section class="wireframe-section">
   <h2 class="t-h1">Scene 9 — color popover</h2>
@@ -568,30 +582,30 @@
   <div class="editor-frame">
     <div class="canvas-bg"></div>
 
-    <aside class="sidebar">
-      <div class="sidebar-inner">
-        <a class="sidebar-brand" href="#" aria-label="NeSyCat Semiotics">
+    <header class="editor-topbar">
+      <div class="topbar-toolbar">
+        <a class="topbar-brand" href="#" aria-label="NeSyCat Semiotics">
           <svg class="logo-mark"><use href="#logo-mark"/></svg>
         </a>
-        <div class="sidebar-tools" role="toolbar" aria-label="Shape editor">
-          <button class="sidebar-tool tool-name"            type="button" title="name (slot -1)"><svg><use href="#ic-name"/></svg></button>
-          <button class="sidebar-tool tool-points"          type="button" title="points (slot 0)"><svg><use href="#ic-points"/></svg></button>
-          <button class="sidebar-tool tool-kind"            type="button" title="kind (slot 1)"><svg><use href="#ic-kind"/></svg></button>
-          <button class="sidebar-tool tool-order"           type="button" title="order (slot 2)"><svg><use href="#ic-order"/></svg></button>
-          <button class="sidebar-tool tool-color is-active" type="button" title="color (slot 3)"><svg><use href="#ic-color"/></svg></button>
-          <button class="sidebar-tool tool-transform"       type="button" title="transform (slot 4)"><svg><use href="#ic-transform"/></svg></button>
-          <button class="sidebar-tool tool-equations"       type="button" title="equations (slot 5)"><svg><use href="#ic-equations"/></svg></button>
-          <button class="sidebar-tool tool-weight"          type="button" title="weight (slot 6)"><svg><use href="#ic-weight"/></svg></button>
+        <div class="topbar-tools" role="toolbar" aria-label="Shape editor">
+          <button class="sidebar-tool tool-name"            type="button" title="Name"><svg><use href="#ic-name"/></svg></button>
+          <button class="sidebar-tool tool-points"          type="button" title="Points"><svg><use href="#ic-points"/></svg></button>
+          <button class="sidebar-tool tool-kind"            type="button" title="Kind"><svg><use href="#ic-kind"/></svg></button>
+          <button class="sidebar-tool tool-order"           type="button" title="Order"><svg><use href="#ic-order"/></svg></button>
+          <button class="sidebar-tool tool-color is-active" type="button" title="Color"><svg><use href="#ic-color"/></svg></button>
+          <button class="sidebar-tool tool-transform"       type="button" title="Transform"><svg><use href="#ic-transform"/></svg></button>
+          <button class="sidebar-tool tool-equations"       type="button" title="Equations"><svg><use href="#ic-equations"/></svg></button>
+          <button class="sidebar-tool tool-weight"          type="button" title="Weight"><svg><use href="#ic-weight"/></svg></button>
         </div>
       </div>
-    </aside>
+      <div class="topbar-actions">
+        <button type="button" class="sidebar-tool topbar-share" title="Export or share diagram data" aria-label="Share or export diagram">
+          <svg><use href="#ic-share"/></svg>
+        </button>
+      </div>
+    </header>
 
     <div class="canvas-area">
-      <div class="toolbar-topleft">
-        <div class="kinds-anchor"><button class="panel-btn" type="button">Kinds</button></div>
-        <button class="panel-btn" type="button">Straight</button>
-      </div>
-      <div class="topright"><button class="panel-btn" type="button">JSON</button></div>
       <div class="controls-cluster">
         <button type="button"><svg><use href="#ic-plus"/></svg></button>
         <button type="button"><svg><use href="#ic-minus"/></svg></button>
@@ -600,8 +614,13 @@
       </div>
 
       <!-- Popover anchored to the color button (i=4, top 244). -->
-      <div class="tool-popover" style="top: 244px; width: 280px">
-        <div class="head">color · slot 3</div>
+      <div class="tool-popover" style="left: 244px; width: 280px">
+        <div class="head">
+          <button type="button" class="head-vis-toggle is-on" aria-label="Visibility" aria-pressed="true">
+            <span class="head-vis-dot" aria-hidden="true"></span>
+          </button>
+          <span class="head-title">Color</span>
+        </div>
         <div class="body">
           <div class="color-wheel" aria-label="HSV wheel">
             <div class="color-current" title="Current color"></div>
@@ -678,14 +697,6 @@
             <div class="sw" style="background:#000"></div>
           </div>
         </div>
-        <div class="vis-footer">
-          <span class="footer-label">Visibility</span>
-          <div class="vis-seg" role="radiogroup">
-            <button class="seg" type="button">Off</button>
-            <button class="seg" type="button">Selected</button>
-            <button class="seg is-on" type="button">All</button>
-          </div>
-        </div>
       </div>
     </div>
   </div>
@@ -698,7 +709,7 @@
   </div>
 </section>
 
-<!-- ═══════ Scene 10: transform popover (slot 4) ═══════ -->
+<!-- ═══════ Scene 10: transform popover ═══════ -->
 
 <section class="wireframe-section">
   <h2 class="t-h1">Scene 10 — transform popover</h2>
@@ -714,30 +725,30 @@
   <div class="editor-frame">
     <div class="canvas-bg"></div>
 
-    <aside class="sidebar">
-      <div class="sidebar-inner">
-        <a class="sidebar-brand" href="#" aria-label="NeSyCat Semiotics">
+    <header class="editor-topbar">
+      <div class="topbar-toolbar">
+        <a class="topbar-brand" href="#" aria-label="NeSyCat Semiotics">
           <svg class="logo-mark"><use href="#logo-mark"/></svg>
         </a>
-        <div class="sidebar-tools" role="toolbar" aria-label="Shape editor">
-          <button class="sidebar-tool tool-name"                type="button" title="name (slot -1)"><svg><use href="#ic-name"/></svg></button>
-          <button class="sidebar-tool tool-points"              type="button" title="points (slot 0)"><svg><use href="#ic-points"/></svg></button>
-          <button class="sidebar-tool tool-kind"                type="button" title="kind (slot 1)"><svg><use href="#ic-kind"/></svg></button>
-          <button class="sidebar-tool tool-order"               type="button" title="order (slot 2)"><svg><use href="#ic-order"/></svg></button>
-          <button class="sidebar-tool tool-color"               type="button" title="color (slot 3)"><svg><use href="#ic-color"/></svg></button>
-          <button class="sidebar-tool tool-transform is-active" type="button" title="transform (slot 4)"><svg><use href="#ic-transform"/></svg></button>
-          <button class="sidebar-tool tool-equations"           type="button" title="equations (slot 5)"><svg><use href="#ic-equations"/></svg></button>
-          <button class="sidebar-tool tool-weight"              type="button" title="weight (slot 6)"><svg><use href="#ic-weight"/></svg></button>
+        <div class="topbar-tools" role="toolbar" aria-label="Shape editor">
+          <button class="sidebar-tool tool-name"                type="button" title="Name"><svg><use href="#ic-name"/></svg></button>
+          <button class="sidebar-tool tool-points"              type="button" title="Points"><svg><use href="#ic-points"/></svg></button>
+          <button class="sidebar-tool tool-kind"                type="button" title="Kind"><svg><use href="#ic-kind"/></svg></button>
+          <button class="sidebar-tool tool-order"               type="button" title="Order"><svg><use href="#ic-order"/></svg></button>
+          <button class="sidebar-tool tool-color"               type="button" title="Color"><svg><use href="#ic-color"/></svg></button>
+          <button class="sidebar-tool tool-transform is-active" type="button" title="Transform"><svg><use href="#ic-transform"/></svg></button>
+          <button class="sidebar-tool tool-equations"           type="button" title="Equations"><svg><use href="#ic-equations"/></svg></button>
+          <button class="sidebar-tool tool-weight"              type="button" title="Weight"><svg><use href="#ic-weight"/></svg></button>
         </div>
       </div>
-    </aside>
+      <div class="topbar-actions">
+        <button type="button" class="sidebar-tool topbar-share" title="Export or share diagram data" aria-label="Share or export diagram">
+          <svg><use href="#ic-share"/></svg>
+        </button>
+      </div>
+    </header>
 
     <div class="canvas-area">
-      <div class="toolbar-topleft">
-        <div class="kinds-anchor"><button class="panel-btn" type="button">Kinds</button></div>
-        <button class="panel-btn" type="button">Straight</button>
-      </div>
-      <div class="topright"><button class="panel-btn" type="button">JSON</button></div>
       <div class="controls-cluster">
         <button type="button"><svg><use href="#ic-plus"/></svg></button>
         <button type="button"><svg><use href="#ic-minus"/></svg></button>
@@ -746,8 +757,13 @@
       </div>
 
       <!-- Popover anchored to the transform button (i=5, top 290). -->
-      <div class="tool-popover" style="top: 290px; width: 296px">
-        <div class="head">transform · slot 4</div>
+      <div class="tool-popover" style="left: 290px; width: 296px">
+        <div class="head">
+          <button type="button" class="head-vis-toggle is-on" aria-label="Visibility" aria-pressed="true">
+            <span class="head-vis-dot" aria-hidden="true"></span>
+          </button>
+          <span class="head-title">Transform</span>
+        </div>
         <div class="body">
           <span class="body-label">Translate</span>
           <div class="txn-grid">
@@ -763,14 +779,6 @@
           </div>
           <span class="hint">Drag on canvas to translate. Rotation / scale aren't bound to handles yet.</span>
         </div>
-        <div class="vis-footer">
-          <span class="footer-label">Visibility</span>
-          <div class="vis-seg" role="radiogroup">
-            <button class="seg" type="button">Off</button>
-            <button class="seg is-on" type="button">Selected</button>
-            <button class="seg" type="button">All</button>
-          </div>
-        </div>
       </div>
     </div>
   </div>
@@ -783,7 +791,7 @@
   </div>
 </section>
 
-<!-- ═══════ Scene 11: equations popover (slot 5) ═══════ -->
+<!-- ═══════ Scene 11: equations popover ═══════ -->
 
 <section class="wireframe-section">
   <h2 class="t-h1">Scene 11 — equations popover</h2>
@@ -798,30 +806,30 @@
   <div class="editor-frame">
     <div class="canvas-bg"></div>
 
-    <aside class="sidebar">
-      <div class="sidebar-inner">
-        <a class="sidebar-brand" href="#" aria-label="NeSyCat Semiotics">
+    <header class="editor-topbar">
+      <div class="topbar-toolbar">
+        <a class="topbar-brand" href="#" aria-label="NeSyCat Semiotics">
           <svg class="logo-mark"><use href="#logo-mark"/></svg>
         </a>
-        <div class="sidebar-tools" role="toolbar" aria-label="Shape editor">
-          <button class="sidebar-tool tool-name"                type="button" title="name (slot -1)"><svg><use href="#ic-name"/></svg></button>
-          <button class="sidebar-tool tool-points"              type="button" title="points (slot 0)"><svg><use href="#ic-points"/></svg></button>
-          <button class="sidebar-tool tool-kind"                type="button" title="kind (slot 1)"><svg><use href="#ic-kind"/></svg></button>
-          <button class="sidebar-tool tool-order"               type="button" title="order (slot 2)"><svg><use href="#ic-order"/></svg></button>
-          <button class="sidebar-tool tool-color"               type="button" title="color (slot 3)"><svg><use href="#ic-color"/></svg></button>
-          <button class="sidebar-tool tool-transform"           type="button" title="transform (slot 4)"><svg><use href="#ic-transform"/></svg></button>
-          <button class="sidebar-tool tool-equations is-active" type="button" title="equations (slot 5)"><svg><use href="#ic-equations"/></svg></button>
-          <button class="sidebar-tool tool-weight"              type="button" title="weight (slot 6)"><svg><use href="#ic-weight"/></svg></button>
+        <div class="topbar-tools" role="toolbar" aria-label="Shape editor">
+          <button class="sidebar-tool tool-name"                type="button" title="Name"><svg><use href="#ic-name"/></svg></button>
+          <button class="sidebar-tool tool-points"              type="button" title="Points"><svg><use href="#ic-points"/></svg></button>
+          <button class="sidebar-tool tool-kind"                type="button" title="Kind"><svg><use href="#ic-kind"/></svg></button>
+          <button class="sidebar-tool tool-order"               type="button" title="Order"><svg><use href="#ic-order"/></svg></button>
+          <button class="sidebar-tool tool-color"               type="button" title="Color"><svg><use href="#ic-color"/></svg></button>
+          <button class="sidebar-tool tool-transform"           type="button" title="Transform"><svg><use href="#ic-transform"/></svg></button>
+          <button class="sidebar-tool tool-equations is-active" type="button" title="Equations"><svg><use href="#ic-equations"/></svg></button>
+          <button class="sidebar-tool tool-weight"              type="button" title="Weight"><svg><use href="#ic-weight"/></svg></button>
         </div>
       </div>
-    </aside>
+      <div class="topbar-actions">
+        <button type="button" class="sidebar-tool topbar-share" title="Export or share diagram data" aria-label="Share or export diagram">
+          <svg><use href="#ic-share"/></svg>
+        </button>
+      </div>
+    </header>
 
     <div class="canvas-area">
-      <div class="toolbar-topleft">
-        <div class="kinds-anchor"><button class="panel-btn" type="button">Kinds</button></div>
-        <button class="panel-btn" type="button">Straight</button>
-      </div>
-      <div class="topright"><button class="panel-btn" type="button">JSON</button></div>
       <div class="controls-cluster">
         <button type="button"><svg><use href="#ic-plus"/></svg></button>
         <button type="button"><svg><use href="#ic-minus"/></svg></button>
@@ -830,8 +838,13 @@
       </div>
 
       <!-- Popover anchored to the equations button (i=6, top 336). -->
-      <div class="tool-popover" style="top: 336px; width: 296px">
-        <div class="head">equations · slot 5</div>
+      <div class="tool-popover" style="left: 336px; width: 296px">
+        <div class="head">
+          <button type="button" class="head-vis-toggle is-on" aria-label="Visibility" aria-pressed="true">
+            <span class="head-vis-dot" aria-hidden="true"></span>
+          </button>
+          <span class="head-title">Equations</span>
+        </div>
         <div class="body">
           <span class="body-label">this = …</span>
           <div class="eq-list">
@@ -840,14 +853,6 @@
           </div>
           <button class="eq-add" type="button">+ Add equation</button>
           <span class="hint">Encoding: strings are shape refs, numbers literals, objects ops (<code>+ − * /</code>). Grammar at <code>types.ts:99-100</code>.</span>
-        </div>
-        <div class="vis-footer">
-          <span class="footer-label">Visibility</span>
-          <div class="vis-seg" role="radiogroup">
-            <button class="seg" type="button">Off</button>
-            <button class="seg is-on" type="button">Selected</button>
-            <button class="seg" type="button">All</button>
-          </div>
         </div>
       </div>
     </div>
@@ -861,7 +866,7 @@
   </div>
 </section>
 
-<!-- ═══════ Scene 12: weight popover (slot 6) ═══════ -->
+<!-- ═══════ Scene 12: weight popover ═══════ -->
 
 <section class="wireframe-section">
   <h2 class="t-h1">Scene 12 — weight popover</h2>
@@ -876,30 +881,30 @@
   <div class="editor-frame">
     <div class="canvas-bg"></div>
 
-    <aside class="sidebar">
-      <div class="sidebar-inner">
-        <a class="sidebar-brand" href="#" aria-label="NeSyCat Semiotics">
+    <header class="editor-topbar">
+      <div class="topbar-toolbar">
+        <a class="topbar-brand" href="#" aria-label="NeSyCat Semiotics">
           <svg class="logo-mark"><use href="#logo-mark"/></svg>
         </a>
-        <div class="sidebar-tools" role="toolbar" aria-label="Shape editor">
-          <button class="sidebar-tool tool-name"             type="button" title="name (slot -1)"><svg><use href="#ic-name"/></svg></button>
-          <button class="sidebar-tool tool-points"           type="button" title="points (slot 0)"><svg><use href="#ic-points"/></svg></button>
-          <button class="sidebar-tool tool-kind"             type="button" title="kind (slot 1)"><svg><use href="#ic-kind"/></svg></button>
-          <button class="sidebar-tool tool-order"            type="button" title="order (slot 2)"><svg><use href="#ic-order"/></svg></button>
-          <button class="sidebar-tool tool-color"            type="button" title="color (slot 3)"><svg><use href="#ic-color"/></svg></button>
-          <button class="sidebar-tool tool-transform"        type="button" title="transform (slot 4)"><svg><use href="#ic-transform"/></svg></button>
-          <button class="sidebar-tool tool-equations"        type="button" title="equations (slot 5)"><svg><use href="#ic-equations"/></svg></button>
-          <button class="sidebar-tool tool-weight is-active" type="button" title="weight (slot 6)"><svg><use href="#ic-weight"/></svg></button>
+        <div class="topbar-tools" role="toolbar" aria-label="Shape editor">
+          <button class="sidebar-tool tool-name"             type="button" title="Name"><svg><use href="#ic-name"/></svg></button>
+          <button class="sidebar-tool tool-points"           type="button" title="Points"><svg><use href="#ic-points"/></svg></button>
+          <button class="sidebar-tool tool-kind"             type="button" title="Kind"><svg><use href="#ic-kind"/></svg></button>
+          <button class="sidebar-tool tool-order"            type="button" title="Order"><svg><use href="#ic-order"/></svg></button>
+          <button class="sidebar-tool tool-color"            type="button" title="Color"><svg><use href="#ic-color"/></svg></button>
+          <button class="sidebar-tool tool-transform"        type="button" title="Transform"><svg><use href="#ic-transform"/></svg></button>
+          <button class="sidebar-tool tool-equations"        type="button" title="Equations"><svg><use href="#ic-equations"/></svg></button>
+          <button class="sidebar-tool tool-weight is-active" type="button" title="Weight"><svg><use href="#ic-weight"/></svg></button>
         </div>
       </div>
-    </aside>
+      <div class="topbar-actions">
+        <button type="button" class="sidebar-tool topbar-share" title="Export or share diagram data" aria-label="Share or export diagram">
+          <svg><use href="#ic-share"/></svg>
+        </button>
+      </div>
+    </header>
 
     <div class="canvas-area">
-      <div class="toolbar-topleft">
-        <div class="kinds-anchor"><button class="panel-btn" type="button">Kinds</button></div>
-        <button class="panel-btn" type="button">Straight</button>
-      </div>
-      <div class="topright"><button class="panel-btn" type="button">JSON</button></div>
       <div class="controls-cluster">
         <button type="button"><svg><use href="#ic-plus"/></svg></button>
         <button type="button"><svg><use href="#ic-minus"/></svg></button>
@@ -908,8 +913,13 @@
       </div>
 
       <!-- Popover anchored to the weight button (i=7, top 382). -->
-      <div class="tool-popover" style="top: 382px; width: 280px">
-        <div class="head">weight · slot 6</div>
+      <div class="tool-popover" style="left: 382px; width: 280px">
+        <div class="head">
+          <button type="button" class="head-vis-toggle" aria-label="Visibility" aria-pressed="false">
+            <span class="head-vis-dot" aria-hidden="true"></span>
+          </button>
+          <span class="head-title">Weight</span>
+        </div>
         <div class="body">
           <div style="display:flex; align-items:center; gap:12px; justify-content:space-between;">
             <span class="body-label">Mass</span>
@@ -931,14 +941,6 @@
           </div>
           <span class="hint">Drag the slider or type a 1-decimal value; preview scales with mass.</span>
         </div>
-        <div class="vis-footer">
-          <span class="footer-label">Visibility</span>
-          <div class="vis-seg" role="radiogroup">
-            <button class="seg is-on" type="button">Off</button>
-            <button class="seg" type="button">Selected</button>
-            <button class="seg" type="button">All</button>
-          </div>
-        </div>
       </div>
     </div>
   </div>
@@ -951,158 +953,46 @@
   </div>
 </section>
 
-<!-- ═══════ Scene 13: Kinds menu open ═══════ -->
+<!-- ═══════ Scene 13: JSON panel open ═══════ -->
 
 <section class="wireframe-section">
-  <h2 class="t-h1">Scene 13 — Kinds menu open</h2>
+  <h2 class="t-h1">Scene 13 — diagram data panel open</h2>
   <p class="lead">
-    Hovering the "Kinds" button reveals a glass dropdown 6 px below it.
-    Eight rows: five per-kind toggles (in registry order — Empties,
-    Triangles, Rhombuses, Circles, Rectangles) and three orthogonal toggles
-    (Points, Lines, Outlines). Each row is 5×10 padding, 11 px / 500 wt text;
-    on-state colours the dot accent-blue with a 3 px halo and brightens the
-    label to secondary; off rows stay dimmed.
+    The share control in the top bar opens diagram data — a 400-wide,
+    500-max-height glass panel below it on the right. Header strip
+    carries &quot;Diagram Data&quot; plus Export / Import. Body is the JSON
+    <code>pre</code> at <code>rgba(0,0,0,0.25)</code> background.
   </p>
 
   <div class="editor-frame">
     <div class="canvas-bg"></div>
 
-    <aside class="sidebar">
-      <div class="sidebar-inner">
-        <a class="sidebar-brand" href="#" aria-label="NeSyCat Semiotics">
+    <header class="editor-topbar">
+      <div class="topbar-toolbar">
+        <a class="topbar-brand" href="#" aria-label="NeSyCat Semiotics">
           <svg class="logo-mark"><use href="#logo-mark"/></svg>
         </a>
-        <div class="sidebar-tools" role="toolbar" aria-label="Shape editor">
-          <button class="sidebar-tool tool-name"      type="button" aria-label="Name"      title="name (slot -1)"><svg><use href="#ic-name"/></svg></button>
-          <button class="sidebar-tool tool-points"    type="button" aria-label="Points"    title="points (slot 0)"><svg><use href="#ic-points"/></svg></button>
-          <button class="sidebar-tool tool-kind"      type="button" aria-label="Kind"      title="kind (slot 1)"><svg><use href="#ic-kind"/></svg></button>
-          <button class="sidebar-tool tool-order"     type="button" aria-label="Order"     title="order (slot 2)"><svg><use href="#ic-order"/></svg></button>
-          <button class="sidebar-tool tool-color"     type="button" aria-label="Color"     title="color (slot 3)"><svg><use href="#ic-color"/></svg></button>
-          <button class="sidebar-tool tool-transform" type="button" aria-label="Transform" title="transform (slot 4)"><svg><use href="#ic-transform"/></svg></button>
-          <button class="sidebar-tool tool-equations" type="button" aria-label="Equations" title="equations (slot 5)"><svg><use href="#ic-equations"/></svg></button>
-          <button class="sidebar-tool tool-weight"    type="button" aria-label="Weight"    title="weight (slot 6)"><svg><use href="#ic-weight"/></svg></button>
+        <div class="topbar-tools" role="toolbar" aria-label="Shape editor">
+          <button class="sidebar-tool tool-name"      type="button" aria-label="Name"      title="Name"><svg><use href="#ic-name"/></svg></button>
+          <button class="sidebar-tool tool-points"    type="button" aria-label="Points"    title="Points"><svg><use href="#ic-points"/></svg></button>
+          <button class="sidebar-tool tool-kind"      type="button" aria-label="Kind"      title="Kind"><svg><use href="#ic-kind"/></svg></button>
+          <button class="sidebar-tool tool-order"     type="button" aria-label="Order"     title="Order"><svg><use href="#ic-order"/></svg></button>
+          <button class="sidebar-tool tool-color"     type="button" aria-label="Color"     title="Color"><svg><use href="#ic-color"/></svg></button>
+          <button class="sidebar-tool tool-transform" type="button" aria-label="Transform" title="Transform"><svg><use href="#ic-transform"/></svg></button>
+          <button class="sidebar-tool tool-equations" type="button" aria-label="Equations" title="Equations"><svg><use href="#ic-equations"/></svg></button>
+          <button class="sidebar-tool tool-weight"    type="button" aria-label="Weight"    title="Weight"><svg><use href="#ic-weight"/></svg></button>
         </div>
       </div>
-    </aside>
+      <div class="topbar-actions">
+        <button type="button" class="sidebar-tool topbar-share is-panel-open" title="Export or share diagram data" aria-label="Share or export diagram" aria-expanded="true">
+          <svg><use href="#ic-share"/></svg>
+        </button>
+      </div>
+    </header>
 
     <div class="canvas-area">
-      <div class="toolbar-topleft">
-        <div class="kinds-anchor">
-          <button class="panel-btn" type="button">Kinds</button>
-          <div class="kinds-menu">
-            <div class="panel">
-              <!-- Per-kind toggles in registry order (Canvas.tsx 651-653). -->
-              <div class="kind-row is-on">
-                <span class="dot"></span>
-                <span class="label">Empties</span>
-                <span class="kbds"><span class="kbd">2×</span></span>
-              </div>
-              <div class="kind-row is-on">
-                <span class="dot"></span>
-                <span class="label">Triangles</span>
-                <span class="kbds"><span class="kbd">Alt/⌥</span><span class="kbd">2×</span></span>
-              </div>
-              <div class="kind-row is-on">
-                <span class="dot"></span>
-                <span class="label">Rhombuses</span>
-                <span class="kbds"><span class="kbd">⇧</span><span class="kbd">2×</span></span>
-              </div>
-              <div class="kind-row is-on">
-                <span class="dot"></span>
-                <span class="label">Circles</span>
-                <span class="kbds"><span class="kbd">2×</span></span>
-              </div>
-              <div class="kind-row is-on">
-                <span class="dot"></span>
-                <span class="label">Rectangles</span>
-                <span class="kbds"><span class="kbd">Ctrl/⌘</span><span class="kbd">2×</span></span>
-              </div>
-              <!-- Orthogonal toggles (Canvas.tsx 655-657). -->
-              <div class="kind-row is-on">
-                <span class="dot"></span>
-                <span class="label">Points</span>
-                <span class="kbds"><span class="kbd">click +</span></span>
-              </div>
-              <div class="kind-row is-on">
-                <span class="dot"></span>
-                <span class="label">Lines</span>
-                <span class="kbds"><span class="kbd">drag ○→○</span></span>
-              </div>
-              <div class="kind-row">
-                <span class="dot"></span>
-                <span class="label">Outlines</span>
-              </div>
-            </div>
-          </div>
-        </div>
-        <button class="panel-btn" type="button">Straight</button>
-      </div>
 
-      <div class="topright">
-        <button class="panel-btn" type="button">JSON</button>
-      </div>
-
-      <div class="controls-cluster">
-        <button type="button"><svg><use href="#ic-plus"/></svg></button>
-        <button type="button"><svg><use href="#ic-minus"/></svg></button>
-        <button type="button"><svg><use href="#ic-fit"/></svg></button>
-        <button type="button"><svg><use href="#ic-lock"/></svg></button>
-      </div>
-    </div>
-  </div>
-
-  <div class="annotations">
-    <h3>Menu structure (<code>Canvas.tsx</code> 646–660)</h3>
-    <div class="note"><span class="pin">K</span>Panel: <code>panelStyle()</code> + 8 px radius, 6×6 padding, <code>minWidth: 220</code>.</div>
-    <div class="note"><span class="pin">L</span>Rows iterate <code>geometryRegistry</code> — adding a kind in <code>types.ts</code> auto-extends this menu.</div>
-    <div class="note"><span class="pin">M</span>Dot: 6×6 circle, accent at 90% with a 3 px halo when on; transparent + 22% border when off.</div>
-    <div class="note"><span class="pin">N</span>Kbd chips: min-width 18, 18 px tall, 1 px glass border, 10 px Mono / 500 wt. Compound shortcuts use two chips side-by-side.</div>
-    <div class="note"><span class="pin">O</span>Outlines off here illustrates the off-state — dimmed label, hollow dot, no kbd hint.</div>
-  </div>
-</section>
-
-<!-- ═══════ Scene 14: JSON panel open ═══════ -->
-
-<section class="wireframe-section">
-  <h2 class="t-h1">Scene 14 — JSON panel open</h2>
-  <p class="lead">
-    JSON button toggles a 400-wide, 500-max-height glass panel. Header strip
-    carries a "DIAGRAM DATA" caption (11 px Mono / 600 wt / uppercase /
-    muted) plus Export / Import buttons. Body renders the diagram JSON in
-    10 px monospace at <code>rgba(0,0,0,0.25)</code> background.
-  </p>
-
-  <div class="editor-frame">
-    <div class="canvas-bg"></div>
-
-    <aside class="sidebar">
-      <div class="sidebar-inner">
-        <a class="sidebar-brand" href="#" aria-label="NeSyCat Semiotics">
-          <svg class="logo-mark"><use href="#logo-mark"/></svg>
-        </a>
-        <div class="sidebar-tools" role="toolbar" aria-label="Shape editor">
-          <button class="sidebar-tool tool-name"      type="button" aria-label="Name"      title="name (slot -1)"><svg><use href="#ic-name"/></svg></button>
-          <button class="sidebar-tool tool-points"    type="button" aria-label="Points"    title="points (slot 0)"><svg><use href="#ic-points"/></svg></button>
-          <button class="sidebar-tool tool-kind"      type="button" aria-label="Kind"      title="kind (slot 1)"><svg><use href="#ic-kind"/></svg></button>
-          <button class="sidebar-tool tool-order"     type="button" aria-label="Order"     title="order (slot 2)"><svg><use href="#ic-order"/></svg></button>
-          <button class="sidebar-tool tool-color"     type="button" aria-label="Color"     title="color (slot 3)"><svg><use href="#ic-color"/></svg></button>
-          <button class="sidebar-tool tool-transform" type="button" aria-label="Transform" title="transform (slot 4)"><svg><use href="#ic-transform"/></svg></button>
-          <button class="sidebar-tool tool-equations" type="button" aria-label="Equations" title="equations (slot 5)"><svg><use href="#ic-equations"/></svg></button>
-          <button class="sidebar-tool tool-weight"    type="button" aria-label="Weight"    title="weight (slot 6)"><svg><use href="#ic-weight"/></svg></button>
-        </div>
-      </div>
-    </aside>
-
-    <div class="canvas-area">
-      <div class="toolbar-topleft">
-        <div class="kinds-anchor">
-          <button class="panel-btn" type="button">Kinds</button>
-        </div>
-        <button class="panel-btn" type="button">Straight</button>
-      </div>
-
-      <div class="topright">
-        <button class="panel-btn" type="button">JSON</button>
+      <div class="json-panel-anchor">
         <div class="json-panel">
           <div class="header">
             <span class="label">Diagram Data</span>
@@ -1171,10 +1061,10 @@
   </div>
 </section>
 
-<!-- ═══════ Scene 15: Star-prompt modal ═══════ -->
+<!-- ═══════ Scene 14: Star-prompt modal ═══════ -->
 
 <section class="wireframe-section">
-  <h2 class="t-h1">Scene 15 — Star-prompt modal</h2>
+  <h2 class="t-h1">Scene 14 — Star-prompt modal</h2>
   <p class="lead">
     After ~45 s idle, a full-screen modal asks the user to star the GitHub
     repo. 50% dark scrim over the editor, body centred at ~420 px wide.
@@ -1201,7 +1091,7 @@
 <footer class="wireframe-section" style="border-bottom: none">
   <p class="t-small" style="color: var(--color-text-dimmed)">
     Out of scope: the React Flow canvas itself (node / point / line rendering),
-    the inline rename input on double-clicking a point name, the slot
+    the inline rename input on double-clicking a point name, the canvas
     <code>+</code> buttons that surface when a shape is selected. Those live
     inside the canvas and belong to a separate redesign pass.
   </p>

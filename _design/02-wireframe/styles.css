@@ -7,7 +7,7 @@
  * the real viewport once the macOS chrome is removed.
  *
  * Token + styling sources cited inline next to each rule:
- *   EditorSidebar.tsx           — sidebar
+ *   Top bar (shape tools + share)     — replaces left rail in this wireframe
  *   Canvas.tsx (Kinds toolbar)  — top-left
  *   Canvas.tsx (KindRow + Kbd)  — Kinds menu
  *   Canvas.tsx (JSON panel)     — top-right
@@ -64,12 +64,13 @@ body {
  *     <EditorSidebar diagrams={diagrams} />
  *   </div>
  * Width fixed at 1728, height 1080, no scrollbars. CSS var
- * `--sidebar-offset` mirrors the rail width so canvas chrome aligns with the
- * sidebar (rail is always visible in this wireframe — not collapsible).
+ * `--sidebar-offset` is 0 (top bar only; rail removed from this wireframe).
+ * `--editor-topbar-height` reserves space for the horizontal tool strip + share.
  */
 
 .editor-frame {
-  --sidebar-offset: 56px;
+  --sidebar-offset: 0px;
+  --editor-topbar-height: 52px;
   position: relative;
   width: 1728px;
   height: 1080px;
@@ -83,27 +84,110 @@ body {
 /* Canvas dot grid (mirrors React Flow <Background variant="dots" gap={20} size={1} />) */
 .editor-frame .canvas-bg {
   position: absolute;
-  inset: 0;
+  top: var(--editor-topbar-height);
+  left: 0;
+  right: 0;
+  bottom: 0;
   background-image: radial-gradient(var(--canvas-grid-color) 1px, transparent 1px);
   background-size: 20px 20px;
   z-index: 0;
 }
 
-/* ───────── Left sidebar — Shape-spine tool rail ─────────
+/* ───────── Top bar — logo + horizontal tool strip + share ───────── */
+
+.editor-topbar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--editor-topbar-height);
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: 0 10px 0 6px;
+  background: var(--color-glass-panel-bg);
+  backdrop-filter: blur(var(--effect-blur));
+  -webkit-backdrop-filter: blur(var(--effect-blur));
+  border-bottom: 1px solid var(--color-glass-border);
+  overflow: hidden;
+}
+
+/* Logo + shape tools: one row, same 6px rhythm as between rail buttons (see .topbar-tools). */
+.topbar-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.topbar-brand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  box-sizing: border-box;
+  border-radius: 8px;
+  text-decoration: none;
+  position: relative;
+}
+/* Full-height vertical rule centered in the 6px gap between logo and tools (matches .topbar-toolbar gap). */
+.topbar-brand::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: calc(100% + 3px);
+  width: 1px;
+  height: var(--editor-topbar-height);
+  transform: translate(-50%, -50%);
+  background: var(--color-glass-border);
+  pointer-events: none;
+}
+.topbar-brand:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+.topbar-tools {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+/* Share uses .sidebar-tool (same 40×40, radius 6, hover/focus chrome as shape tools). */
+.sidebar-tool.topbar-share.is-panel-open {
+  background: rgba(var(--color-accent-rgb), 0.18);
+  border-color: rgba(var(--color-accent-rgb), 0.5);
+  color: var(--color-text-primary);
+}
+.editor-topbar .sidebar-tool {
+  flex-shrink: 0;
+}
+
+/* ───────── Left sidebar (reference / vertical mock only — not used in frames) ─────────
  *
- * 56-wide vertical rail. The buttons mirror the user-facing slots of
- * `Shape<K>` in components/editor/types.ts (lines 116-126):
+ * 56-wide vertical rail. Buttons mirror user-facing fields of `Shape<K>`
+ * in components/editor/types.ts (lines 116-126), in declaration order:
  *
- *   slot (-1) name       → tool-name        — Geist “A” (label)
- *   slot  (0) points     → tool-points      — two dots, wider spacing
- *   slot  (1) kind       → tool-kind        — triangle (representative kind)
- *   slot  (2) order      → tool-order       — three ascending bars
- *   slot  (3) color      → tool-color       — filled disk in current shape color
- *   slot  (4) transform  → tool-transform   — 4-way move arrows (translate/rotate/scale)
- *   slot  (5) equations  → tool-equations   — "=" glyph
- *   slot  (6) weight     → tool-weight      — kettlebell glyph
+ *   name        → tool-name        — Geist “A” (label)
+ *   points      → tool-points      — two dots, wider spacing
+ *   kind        → tool-kind        — triangle (representative kind)
+ *   order       → tool-order       — three ascending bars
+ *   color       → tool-color       — filled disk in current shape color
+ *   transform   → tool-transform   — 4-way move arrows (translate/rotate/scale)
+ *   equations   → tool-equations   — "=" glyph
+ *   weight      → tool-weight      — kettlebell glyph
  *
- * `id` (slot -2) is internal-only (types.ts:29) and has no button.
+ * Internal-only `id` (types.ts:29) has no button.
  * File-management (search / +new / diagram list) moves out of the sidebar;
  * picker lives elsewhere in a later iteration.
  */
@@ -143,7 +227,7 @@ body {
 /* Inline SVG logo mark (matches LogoMark in EditorSidebar.tsx). */
 .logo-mark { width: 22px; height: 22px; flex-shrink: 0; }
 
-/* Tool list — vertically stacked icon buttons, one per Shape slot. */
+/* Tool list — vertically stacked icon buttons, one per editable Shape field. */
 .sidebar-tools {
   display: flex;
   flex-direction: column;
@@ -209,7 +293,10 @@ body {
 
 .canvas-area {
   position: absolute;
-  inset: 0;
+  top: var(--editor-topbar-height);
+  left: 0;
+  right: 0;
+  bottom: 0;
   z-index: 1;
 }
 
@@ -223,8 +310,8 @@ body {
 
 .toolbar-topleft {
   position: absolute;
-  top: 12px;
-  left: calc(12px + var(--sidebar-offset));
+  top: calc(12px + var(--editor-topbar-height));
+  left: 12px;
   z-index: 10;
   display: flex;
   gap: 8px;
@@ -266,8 +353,8 @@ body {
   padding: 6px 6px;
   min-width: 220px;
 }
-/* KindRow — Canvas.tsx 730-755 */
-.kind-row {
+/* KindRow — Canvas.tsx 730-755 (scoped: only the mock “Kinds” dropdown, not the Kind popover list) */
+.kinds-menu .kind-row {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -279,9 +366,9 @@ body {
   cursor: pointer;
   user-select: none;
 }
-.kind-row.is-on  { color: var(--color-text-secondary); }
-.kind-row:hover  { background: rgba(255, 255, 255, 0.04); }
-.kind-row .dot {
+.kinds-menu .kind-row.is-on  { color: var(--color-text-secondary); }
+.kinds-menu .kind-row:hover  { background: rgba(255, 255, 255, 0.04); }
+.kinds-menu .kind-row .dot {
   width: 6px;
   height: 6px;
   border-radius: 50%;
@@ -290,13 +377,13 @@ body {
   margin-left: 2px;
   flex-shrink: 0;
 }
-.kind-row.is-on .dot {
+.kinds-menu .kind-row.is-on .dot {
   background: rgba(var(--color-accent-rgb), 0.9);
   border-color: transparent;
   box-shadow: 0 0 0 3px rgba(var(--color-accent-rgb), 0.2);
 }
-.kind-row .label { flex: 1; }
-.kind-row .kbds {
+.kinds-menu .kind-row .label { flex: 1; }
+.kinds-menu .kind-row .kbds {
   margin-left: auto;
   display: inline-flex;
   align-items: center;
@@ -324,9 +411,10 @@ body {
 
 /* ───────── Top-right JSON button + panel (Canvas.tsx 671-710) ───────── */
 
-.topright {
+.topright,
+.json-panel-anchor {
   position: absolute;
-  top: 12px;
+  top: calc(12px + var(--editor-topbar-height));
   right: 12px;
   z-index: 10;
   display: flex;
@@ -399,7 +487,7 @@ body {
 .controls-cluster {
   position: absolute;
   bottom: 12px;
-  left: calc(12px + var(--sidebar-offset));
+  left: 12px;
   z-index: 10;
   background: var(--color-glass-panel-bg);
   backdrop-filter: blur(var(--effect-blur));
@@ -537,14 +625,15 @@ code {
  *
  * One popover per rail button. Floats just to the right of the 56-wide rail
  * at the y-position of the originating button. Anchored to `.editor-frame`.
- * Structure: header (caption) → body (editor) → vis-footer (3-state
- * "Off · Selected · All"). The visibility footer is parked at the bottom
- * per the user's choice — editor stays in the visual foreground.
+ * Structure: header row (caption + KindRow-style visibility dot) → body (editor).
+ * Dot matches `KindRow` in Canvas.tsx (630–743) / `.kind-row .dot` in this stylesheet.
+ * Visibility lives in `.head` — same glass panel as the body (no separate footer band).
  */
 
 .tool-popover {
   position: absolute;
-  left: calc(var(--sidebar-offset) + 8px);
+  left: 8px;
+  top: 8px;
   z-index: 12;
   min-width: 240px;
   background: var(--color-glass-panel-bg);
@@ -556,18 +645,29 @@ code {
   flex-direction: column;
   overflow: hidden;
 }
+
 .tool-popover .head {
   padding: 8px 12px;
   border-bottom: 1px solid var(--color-glass-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 36px;
+}
+.tool-popover .head-title {
   font-family: var(--font-geist-mono);
   font-size: 11px;
   font-weight: 600;
   color: var(--color-text-muted);
   text-transform: uppercase;
   letter-spacing: 0.05em;
+  flex: 1;
+  min-width: 0;
 }
 .tool-popover .body {
-  padding: 12px;
+  --popover-body-pad: 12px;
+  padding: var(--popover-body-pad);
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -581,50 +681,56 @@ code {
   color: var(--color-text-dimmed);
   line-height: 1.4;
 }
-.tool-popover .vis-footer {
-  padding: 10px 12px 12px;
-  border-top: 1px solid var(--color-glass-border);
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  background: rgba(255, 255, 255, 0.02);
-}
-.tool-popover .vis-footer .footer-label {
-  font-family: var(--font-geist-mono);
-  font-size: 10px;
-  font-weight: 600;
-  color: var(--color-text-dimmed);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
 
-/* 3-state visibility segmented control */
-.vis-seg {
-  display: flex;
-  gap: 4px;
-  background: var(--color-glass-button-bg);
-  border: 1px solid var(--color-glass-border);
-  border-radius: 6px;
-  padding: 2px;
-}
-.vis-seg .seg {
-  flex: 1;
-  padding: 6px 10px;
-  border: 1px solid transparent;
+/* Dot toggle — Kinds menu (Canvas.tsx KindRow); head is interactive, kind-row dots are decorative wireframe */
+.tool-popover .head .head-vis-toggle,
+.tool-popover .kind-row-left .kind-vis-toggle {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  margin: 0;
+  border: none;
   border-radius: 4px;
   background: transparent;
-  color: var(--color-text-muted);
-  font-family: var(--font-geist-sans);
-  font-size: 11px;
-  font-weight: 500;
-  cursor: pointer;
-  text-align: center;
+  flex-shrink: 0;
+  transition: background 0.12s;
 }
-.vis-seg .seg:hover  { color: var(--color-text-secondary); }
-.vis-seg .seg.is-on {
-  background: rgba(var(--color-accent-rgb), 0.22);
-  border-color: rgba(var(--color-accent-rgb), 0.5);
-  color: var(--color-text-primary);
+.tool-popover .head .head-vis-toggle {
+  cursor: pointer;
+}
+.tool-popover .kind-row-left .kind-vis-toggle {
+  cursor: default;
+}
+.tool-popover .head .head-vis-toggle:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+.tool-popover .head .head-vis-dot,
+.tool-popover .kind-row-left .kind-vis-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: transparent;
+  flex-shrink: 0;
+  transition: background 0.12s, border-color 0.12s, box-shadow 0.12s;
+}
+.tool-popover .head .head-vis-toggle.is-on .head-vis-dot,
+.tool-popover .kind-row-left .kind-vis-toggle.is-on .kind-vis-dot {
+  background: rgba(var(--color-accent-rgb), 0.9);
+  border-color: transparent;
+  box-shadow: 0 0 0 3px rgba(var(--color-accent-rgb), 0.2);
+}
+
+/* Popover with no body (or header-only): width follows title + visibility control —
+   avoids the default 240px floor and flex:1 title stretching the head sideways. */
+.tool-popover.tool-popover--tight {
+  width: max-content;
+  min-width: 0;
+}
+.tool-popover.tool-popover--tight .head-title {
+  flex: 0 0 auto;
 }
 
 /* Shared form controls inside the popover body */
@@ -654,30 +760,74 @@ code {
   outline: none;
 }
 
-/* Scene 7 — kind picker (5 shape tiles) */
-.kind-picker {
+/* Scene 8 Order — numeric field to the left of horizontal slider */
+.tool-popover .order-value-row {
   display: flex;
-  gap: 8px;
-  padding-bottom: 18px;          /* room for the tile-label below */
+  align-items: center;
+  gap: 12px;
+  width: 100%;
 }
-.kind-picker .tile {
+.tool-popover .order-value-row .num-input {
+  flex: 0 0 auto;
+}
+.tool-popover .order-value-row .slider-col.slider-col--horizontal {
+  flex: 1;
+  min-width: 0;
+  width: auto;
+}
+
+/* Scene 7 — kind rows: one row per ShapeKind.
+   Bleed past body padding so each row is as wide as the glass panel; inner pad matches body. */
+.kind-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: calc(100% + 2 * var(--popover-body-pad));
+  margin-left: calc(-1 * var(--popover-body-pad));
+  margin-right: calc(-1 * var(--popover-body-pad));
+  box-sizing: border-box;
+}
+.kind-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  box-sizing: border-box;
+  padding-left: var(--popover-body-pad);
+  padding-right: var(--popover-body-pad);
+  /* Row is chrome only: not a hit target — only .drag-tile is interactive. */
+  cursor: default;
+  pointer-events: none;
+}
+.kind-row .drag-tile {
+  pointer-events: auto;
   width: 40px;
-  height: 40px;
+  min-height: 40px;
+  flex: 0 0 auto;
   display: grid;
   place-items: center;
   border-radius: 6px;
   border: 1px solid var(--color-glass-border);
-  background: var(--color-glass-button-bg);
+  background: transparent;
   color: var(--color-text-muted);
-  cursor: pointer;
-  position: relative;
+  cursor: grab;
 }
-.kind-picker .tile.is-on {
-  background: rgba(var(--color-accent-rgb), 0.22);
-  border-color: rgba(var(--color-accent-rgb), 0.5);
+/* Left column = same 28px track as .head .head-vis-toggle so dots align vertically */
+.kind-row-left {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  flex: 0 0 28px;
+  width: 28px;
+  min-width: 28px;
+}
+.kind-row.is-active .drag-tile {
+  background: rgba(var(--color-accent-rgb), 0.14);
+  border-color: rgba(var(--color-accent-rgb), 0.45);
   color: var(--color-text-primary);
 }
-.kind-picker .tile svg {
+.kind-row .drag-tile svg {
   width: 22px;
   height: 22px;
   fill: none;
@@ -685,22 +835,55 @@ code {
   stroke-width: 1.4;
   stroke-linejoin: round;
 }
-.kind-picker .tile .tile-label {
-  position: absolute;
-  bottom: -16px;
-  left: 50%;
-  transform: translateX(-50%);
-  font-family: var(--font-geist-mono);
-  font-size: 9px;
-  color: var(--color-text-dimmed);
-  white-space: nowrap;
-}
 
-/* Scenes 8 + 12 — vertical slider (Fresco "Tamaño 6,0" style) */
+/* Scene 8 — horizontal tick bar; Scene 12 — vertical (Fresco "Tamaño" style) */
 .slider-col {
   display: flex;
   align-items: flex-start;
   gap: 18px;
+}
+/* Scene 8 Order popover — track + ticks read left → right (0 … 5) */
+.slider-col.slider-col--horizontal {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  width: 100%;
+}
+.slider-col.slider-col--horizontal .slider-stack {
+  width: 100%;
+}
+.slider-col.slider-col--horizontal .slider-track {
+  width: 100%;
+  height: 4px;
+  min-height: 4px;
+}
+.slider-col.slider-col--horizontal .slider-thumb {
+  left: 40%;
+  top: 50%;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  background: transparent;
+  border: none;
+  box-sizing: border-box;
+  /* Match .head-vis-toggle hit area; inner dot matches .head-vis-dot.is-on */
+}
+.slider-col.slider-col--horizontal .slider-thumb-dot {
+  display: block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(var(--color-accent-rgb), 0.9);
+  border: 1px solid transparent;
+  box-shadow: 0 0 0 3px rgba(var(--color-accent-rgb), 0.2);
+}
+.slider-col.slider-col--horizontal .slider-notches {
+  flex-direction: row;
+  justify-content: space-between;
+  width: 100%;
+  height: auto;
 }
 .slider-col .slider-stack {
   display: flex;
