@@ -69,7 +69,17 @@ body {
  */
 
 .editor-frame {
+  /*
+   * Shape-tool geometry (used to anchor `.tool-popover`s).
+   *   stride       = button width (40) + gap (6) = 46
+   *   cluster-start = (frame 1728 − cluster 362) / 2 = 683
+   *   where cluster = 8 buttons × 40 + 7 gaps × 6 = 362
+   * Each popover declares `style="--tool-index: <0..7>"` instead of a
+   * hand-computed pixel `left`; the rule below picks up the value.
+   */
   --editor-topbar-height: 52px;
+  --shape-cluster-start: 683px;
+  --shape-tool-stride:   46px;
   position: relative;
   width: 1728px;
   height: 1080px;
@@ -429,15 +439,17 @@ code {
 /* ───────── Tool popovers — shape inspector + diagram-data panel ─────────
  *
  * Same `.tool-popover` shell everywhere: `.head` (caption row) + `.body` (editor).
- * Shape tools: anchored left via inline `style="left: …"` from `.canvas-area`.
- * Diagram data (share open): same class, `style="top: 8px; right: 12px; left: auto; width: 400px; max-height: 500px"`.
- * Head may pair `.head-title` with `.head-vis-toggle` or `.head .actions` (Export / Import).
+ * Shape-tool popovers: declare `style="--tool-index: <0..7>"`; `left` resolves
+ *   to `cluster-start + index × stride` via the .editor-frame vars above.
+ * Diagram data (share open): override `left` inline → `right: 12px; left: auto`.
+ * Head may pair `.head-title` with `.head-vis-toggle` or `.head .actions`
+ *   (Export / Import).
  */
 
 .tool-popover {
   position: absolute;
-  left: 8px;
   top: 8px;
+  left: calc(var(--shape-cluster-start) + var(--tool-index, 0) * var(--shape-tool-stride));
   z-index: 12;
   min-width: 240px;
   background: var(--color-glass-panel-bg);
@@ -521,9 +533,13 @@ code {
   line-height: 1.4;
 }
 
-/* Dot toggle — header + kind strip share .head-vis-toggle / .head-vis-dot */
-.tool-popover .head .head-vis-toggle,
-.tool-popover .kind-row-left .head-vis-toggle {
+/*
+ * Visibility dot toggle (`.head-vis-toggle` + `.head-vis-dot`). Used in
+ * popover heads and in Scene 7's per-kind column. The compact size
+ * (24×24 hit target, 5 px dot, 2 px halo) goes on popover heads via
+ * `.is-compact`; the base 28×28 / 6 px / 3 px halo stays on kind columns.
+ */
+.head-vis-toggle {
   display: grid;
   place-items: center;
   width: 28px;
@@ -533,19 +549,12 @@ code {
   border: none;
   border-radius: 4px;
   background: transparent;
+  cursor: pointer;
   flex-shrink: 0;
   transition: background 0.12s;
 }
-.tool-popover .head .head-vis-toggle,
-.tool-popover .kind-row-left .head-vis-toggle {
-  cursor: pointer;
-}
-.tool-popover .head .head-vis-toggle:hover,
-.tool-popover .kind-row-left .head-vis-toggle:hover {
-  background: rgba(255, 255, 255, 0.04);
-}
-.tool-popover .head .head-vis-dot,
-.tool-popover .kind-row-left .head-vis-dot {
+.head-vis-toggle:hover { background: rgba(255, 255, 255, 0.04); }
+.head-vis-dot {
   width: 6px;
   height: 6px;
   border-radius: 50%;
@@ -554,22 +563,14 @@ code {
   flex-shrink: 0;
   transition: background 0.12s, border-color 0.12s, box-shadow 0.12s;
 }
-.tool-popover .head .head-vis-toggle.is-on .head-vis-dot,
-.tool-popover .kind-row-left .head-vis-toggle.is-on .head-vis-dot {
+.head-vis-toggle.is-on .head-vis-dot {
   background: rgba(var(--color-accent-rgb), 0.9);
   border-color: transparent;
   box-shadow: 0 0 0 3px rgba(var(--color-accent-rgb), 0.2);
 }
-/* Slightly tighter hit target in popover chrome only — kind columns keep 28×28 for grid rhythm. */
-.tool-popover .head .head-vis-toggle {
-  width: 24px;
-  height: 24px;
-}
-.tool-popover .head .head-vis-dot {
-  width: 5px;
-  height: 5px;
-}
-.tool-popover .head .head-vis-toggle.is-on .head-vis-dot {
+.head-vis-toggle.is-compact { width: 24px; height: 24px; }
+.head-vis-toggle.is-compact .head-vis-dot { width: 5px; height: 5px; }
+.head-vis-toggle.is-compact.is-on .head-vis-dot {
   box-shadow: 0 0 0 2px rgba(var(--color-accent-rgb), 0.2);
 }
 
@@ -1036,14 +1037,14 @@ code {
   background: linear-gradient(to right, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00);
 }
 .color-sliders .slider-row .h-track.sat {
-  background: linear-gradient(to right, rgba(255,255,255,0.1), rgb(59,130,246));
+  background: linear-gradient(to right, rgba(255,255,255,0.1), rgb(var(--color-accent-rgb)));
 }
 .color-sliders .slider-row .h-track.val {
-  background: linear-gradient(to right, #000, rgb(59,130,246));
+  background: linear-gradient(to right, #000, rgb(var(--color-accent-rgb)));
 }
 .color-sliders .slider-row .h-track.alpha {
   background:
-    linear-gradient(to right, rgba(59,130,246,0), rgb(59,130,246)),
+    linear-gradient(to right, rgba(59,130,246,0), rgb(var(--color-accent-rgb))),
     repeating-conic-gradient(rgba(255,255,255,0.2) 0% 25%, transparent 0% 50%) 0 0 / 8px 8px;
 }
 .color-sliders .slider-row .h-thumb {

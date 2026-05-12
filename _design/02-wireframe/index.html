@@ -16,11 +16,14 @@
 <svg width="0" height="0" style="position: absolute" aria-hidden="true">
   <defs>
     <symbol id="logo-mark" viewBox="0 0 24 24">
+      <!-- Stroke / fill resolved via currentColor on use site; default is the accent. -->
       <rect x="2" y="2" width="20" height="20"
-            fill="rgba(59,130,246,0.1)" stroke="rgb(59,130,246)" stroke-width="1.3" />
+            fill="rgba(var(--color-accent-rgb), 0.1)"
+            stroke="rgb(var(--color-accent-rgb))" stroke-width="1.3" />
       <polygon points="12,3 21,12 12,21 3,12"
-               fill="rgba(59,130,246,0.25)" stroke="rgb(59,130,246)" stroke-width="1.3" />
-      <circle cx="12" cy="12" r="2.2" fill="rgb(59,130,246)" />
+               fill="rgba(var(--color-accent-rgb), 0.25)"
+               stroke="rgb(var(--color-accent-rgb))" stroke-width="1.3" />
+      <circle cx="12" cy="12" r="2.2" fill="rgb(var(--color-accent-rgb))" />
     </symbol>
     <!-- Zoom-control icons (match React Flow's <Controls />). -->
     <symbol id="ic-plus" viewBox="0 0 24 24">
@@ -119,7 +122,7 @@
 </svg>
 
 <header class="page-header">
-  <div class="t-caption">NeSyCat · Wireframe · v0.5 · 1728×1080 (16″ MBP scaled)</div>
+  <div class="t-caption">NeSyCat · Wireframe · v0.6 · 1728×1080 (16″ MBP scaled)</div>
   <h1 class="t-h1">Editor chrome — pixel-faithful to today.</h1>
   <p>
     Each scene is a 1728×1080 frame sized for a 16″ MacBook Pro at default
@@ -199,9 +202,8 @@
     <div class="note"><span class="pin">J</span>The internal-only <code>id</code> field has no rail button — <code>types.ts:29</code>: "Auto-generated, unique, internal — never user-facing."</div>
     <div class="note"><span class="pin">K</span>Buttons 40×40, 6 px radius. Active state tinted with <code>rgba(accent, 0.18)</code> + accent border. Hover swaps to glass-button bg + glass border.</div>
     <h3>Canvas chrome (<code>Canvas.tsx</code>)</h3>
-    <div class="note"><span class="pin">L</span>Share control in the top bar opens export / diagram data (panel open in Scene 13). Zoom controls bottom-left.</div>
-    <div class="note"><span class="pin">P</span>Share control; open state in Scene 13 (diagram-data panel drops below the bar on the right).</div>
-    <div class="note"><span class="pin">Q</span>Zoom cluster from React Flow <code>&lt;Controls/&gt;</code>: 28 px buttons stacked.</div>
+    <div class="note"><span class="pin">L</span>Share control opens export / diagram data — open state in Scene 13 (panel drops below the bar on the right).</div>
+    <div class="note"><span class="pin">M</span>Zoom cluster from React Flow <code>&lt;Controls/&gt;</code>: 28 px buttons stacked, bottom-left.</div>
 
     <h3>Redesign hooks</h3>
     <div class="note">File management (search, diagram list, +new) needs a new home — likely a separate picker / file-tree surface, opened via the logo or a dedicated chrome button.</div>
@@ -216,11 +218,11 @@
   <h2 class="t-h1">Scene 5 — name popover</h2>
   <p class="lead">
     Clicking the <code>name</code> button opens a popover below the top bar,
-    aligned with that tool. The header row carries the panel
-    title and the 3-state visibility icons (Off · Selected · All); the body
-    holds the editor. Rename today happens inline (double-click
-    on the canvas, <code>DiagramNode.tsx:360-448</code>); the input here is
-    a faster alternative when the shape is already selected.
+    aligned with that tool. The head carries the title and a binary
+    visibility dot (click to hide name labels on the canvas); the body
+    holds the editor. Rename today happens inline (double-click on the
+    canvas, <code>DiagramNode.tsx:360-448</code>); the input here is a
+    faster alternative when the shape is already selected.
   </p>
 
   <div class="editor-frame">
@@ -259,10 +261,10 @@
         <button type="button"><svg><use href="#ic-lock"/></svg></button>
       </div>
 
-      <!-- Popover anchored to the name button (cluster left + i×46). -->
-      <div class="tool-popover" style="left: 683px; width: 280px">
+      <!-- Popover anchored to the name button (i=0). -->
+      <div class="tool-popover" style="--tool-index: 0; width: 280px">
         <div class="head">
-          <button type="button" class="head-vis-toggle is-on" aria-label="Visibility" aria-pressed="true">
+          <button type="button" class="head-vis-toggle is-on is-compact" aria-label="Visibility" aria-pressed="true">
             <span class="head-vis-dot" aria-hidden="true"></span>
           </button>
           <span class="head-title">Name</span>
@@ -278,7 +280,7 @@
     <h3>Source of truth</h3>
     <div class="note"><span class="pin">A</span><code>Shape.name?: string</code> at <code>types.ts:118</code> — only set on labeled leaves.</div>
     <div class="note"><span class="pin">B</span>Today's UI: inline rename via <code>DiagramNode.tsx:360-448</code>. No popover yet.</div>
-    <div class="note"><span class="pin">C</span><code>Off</code> globally hides name labels; <code>Selected</code> shows the label only on the active selection; <code>All</code> = today's behaviour.</div>
+    <div class="note"><span class="pin">C</span>Visibility dot in the head toggles name labels on the canvas (binary — today's behaviour vs hidden).</div>
   </div>
 </section>
 
@@ -290,9 +292,9 @@
     The <code>points</code> popover is visibility-first — there's no
     editor for the nested-shape tree itself; points are added via the
     <code>+</code> buttons that surface on a selected shape
-    (<code>DiagramNode.tsx:514-537</code>). Today's
-    <code>visibility.points</code> flag maps to "All" / "Off"; the
-    new "Selected" middle step shows handles only on the active shape.
+    (<code>DiagramNode.tsx:514-537</code>). The head's binary visibility
+    dot toggles today's <code>visibility.points</code> flag
+    (<code>store.ts:8</code>).
   </p>
 
   <div class="editor-frame">
@@ -331,10 +333,10 @@
         <button type="button"><svg><use href="#ic-lock"/></svg></button>
       </div>
 
-      <!-- Popover anchored to the points button. -->
-      <div class="tool-popover tool-popover--tight" style="left: 729px">
+      <!-- Popover anchored to the points button (i=1). -->
+      <div class="tool-popover tool-popover--tight" style="--tool-index: 1">
         <div class="head">
-          <button type="button" class="head-vis-toggle is-on" aria-label="Visibility" aria-pressed="true">
+          <button type="button" class="head-vis-toggle is-on is-compact" aria-label="Visibility" aria-pressed="true">
             <span class="head-vis-dot" aria-hidden="true"></span>
           </button>
           <span class="head-title">Points</span>
@@ -347,7 +349,7 @@
     <h3>Source of truth</h3>
     <div class="note"><span class="pin">A</span><code>Shape.points: ShapePoints[K]</code> at <code>types.ts:119</code> — recursive sub-shape tree; branching shape differs per <code>ShapeKind</code>.</div>
     <div class="note"><span class="pin">B</span>Today: <code>visibility.points</code> in <code>store.ts:8</code>; CSS gate <code>.points-hidden .point-label</code> in <code>app/globals.css</code>.</div>
-    <div class="note"><span class="pin">C</span>"Selected" is the new middle step — shows handles only on the active shape.</div>
+    <div class="note"><span class="pin">C</span>Same dot chrome as the panel head — click to hide / show point handles globally.</div>
   </div>
 </section>
 
@@ -409,9 +411,9 @@
            Line<K> extends Shape<K> and uses the same kind field — not a sixth ShapeKind (types.ts:137-148).
            Layout: one horizontal strip — one column per ShapeKind (visibility dot above drag tile).
            Header strip: panel-level visibility toggle; each column has the same toggle chrome per kind. -->
-      <div class="tool-popover" style="left: 775px; width: max-content; min-width: 0">
+      <div class="tool-popover" style="--tool-index: 2; width: max-content; min-width: 0">
         <div class="head">
-          <button type="button" class="head-vis-toggle is-on" aria-label="Panel visibility" aria-pressed="true">
+          <button type="button" class="head-vis-toggle is-on is-compact" aria-label="Panel visibility" aria-pressed="true">
             <span class="head-vis-dot" aria-hidden="true"></span>
           </button>
           <span class="head-title">Kind</span>
@@ -539,17 +541,17 @@
         <button type="button"><svg><use href="#ic-lock"/></svg></button>
       </div>
 
-      <!-- Popover anchored to the order button (i=3, top 198). -->
-      <div class="tool-popover" style="left: 821px; width: 280px">
+      <!-- Popover anchored to the order button (i=3). -->
+      <div class="tool-popover" style="--tool-index: 3; width: 280px">
         <div class="head">
-          <button type="button" class="head-vis-toggle is-on" aria-label="Visibility" aria-pressed="true">
+          <button type="button" class="head-vis-toggle is-on is-compact" aria-label="Visibility" aria-pressed="true">
             <span class="head-vis-dot" aria-hidden="true"></span>
           </button>
           <span class="head-title">Order</span>
         </div>
         <div class="body">
           <div class="order-value-row">
-            <input class="num-input" type="text" value="2" aria-label="Order value" />
+            <input class="num-input" type="text" inputmode="numeric" value="2" aria-label="Order value" />
             <div class="slider-col slider-col--horizontal">
               <div class="slider-stack">
               <div class="slider-track">
@@ -625,10 +627,10 @@
         <button type="button"><svg><use href="#ic-lock"/></svg></button>
       </div>
 
-      <!-- Popover anchored to the color button (i=4, top 244). -->
-      <div class="tool-popover tool-popover--color" style="left: 867px; width: 296px">
+      <!-- Popover anchored to the color button (i=4). -->
+      <div class="tool-popover tool-popover--color" style="--tool-index: 4; width: 296px">
         <div class="head">
-          <button type="button" class="head-vis-toggle is-on" aria-label="Visibility" aria-pressed="true">
+          <button type="button" class="head-vis-toggle is-on is-compact" aria-label="Visibility" aria-pressed="true">
             <span class="head-vis-dot" aria-hidden="true"></span>
           </button>
           <span class="head-title">Color</span>
@@ -679,7 +681,7 @@
           </div>
           <span class="body-label">Swatches</span>
           <div class="swatches">
-            <div class="sw" style="background:rgb(59,130,246)"></div>
+            <div class="sw" style="background:var(--color-accent-blue)"></div>
             <div class="sw" style="background:rgb(99, 157, 255)"></div>
             <div class="sw" style="background:rgb(155, 89, 235)"></div>
             <div class="sw" style="background:rgb(236, 72, 153)"></div>
@@ -707,7 +709,7 @@
     <h3>Source of truth</h3>
     <div class="note"><span class="pin">A</span><code>Shape.color: Color</code> at <code>types.ts:122</code>; <code>Color = [r, g, b] ∈ [0, 1]³</code> at <code>types.ts:79</code>.</div>
     <div class="note"><span class="pin">B</span>Today: no picker. Shapes init to <code>DEFAULT_COLOR</code> from <code>color.ts:5</code> (same as <code>--color-accent-rgb</code>).</div>
-    <div class="note"><span class="pin">C</span><code>Off</code> renders shapes monochrome (outlines only); <code>Selected</code> tints the selection alone; <code>All</code> matches today.</div>
+    <div class="note"><span class="pin">C</span>Visibility dot toggles colored fill on the canvas; off renders shapes monochrome (outlines only).</div>
   </div>
 </section>
 
@@ -760,10 +762,10 @@
         <button type="button"><svg><use href="#ic-lock"/></svg></button>
       </div>
 
-      <!-- Popover anchored to the transform button (i=5, top 290). -->
-      <div class="tool-popover" style="left: 913px; width: 296px">
+      <!-- Popover anchored to the transform button (i=5). -->
+      <div class="tool-popover" style="--tool-index: 5; width: 296px">
         <div class="head">
-          <button type="button" class="head-vis-toggle is-on" aria-label="Visibility" aria-pressed="true">
+          <button type="button" class="head-vis-toggle is-on is-compact" aria-label="Visibility" aria-pressed="true">
             <span class="head-vis-dot" aria-hidden="true"></span>
           </button>
           <span class="head-title">Transform</span>
@@ -772,21 +774,21 @@
           <div class="transform-row">
             <span class="transform-row-name">Scale</span>
             <div class="transform-row-fields">
-              <div class="transform-field"><span class="transform-field-label">sx</span><input class="num-input" type="text" value="1.00" aria-label="Scale x" /></div>
-              <div class="transform-field"><span class="transform-field-label">sy</span><input class="num-input" type="text" value="1.00" aria-label="Scale y" /></div>
+              <div class="transform-field"><span class="transform-field-label">sx</span><input class="num-input" type="text" inputmode="numeric" value="1.00" aria-label="Scale x" /></div>
+              <div class="transform-field"><span class="transform-field-label">sy</span><input class="num-input" type="text" inputmode="numeric" value="1.00" aria-label="Scale y" /></div>
             </div>
           </div>
           <div class="transform-row">
             <span class="transform-row-name">Translate</span>
             <div class="transform-row-fields">
-              <div class="transform-field"><span class="transform-field-label">tx</span><input class="num-input" type="text" value="120" aria-label="Translate x" /></div>
-              <div class="transform-field"><span class="transform-field-label">ty</span><input class="num-input" type="text" value="-40" aria-label="Translate y" /></div>
+              <div class="transform-field"><span class="transform-field-label">tx</span><input class="num-input" type="text" inputmode="numeric" value="120" aria-label="Translate x" /></div>
+              <div class="transform-field"><span class="transform-field-label">ty</span><input class="num-input" type="text" inputmode="numeric" value="-40" aria-label="Translate y" /></div>
             </div>
           </div>
           <div class="transform-row">
             <span class="transform-row-name">Rotate</span>
             <div class="transform-row-fields">
-              <div class="transform-field"><span class="transform-field-label">θ</span><input class="num-input" type="text" value="0°" aria-label="Rotation" /></div>
+              <div class="transform-field"><span class="transform-field-label">θ</span><input class="num-input" type="text" inputmode="numeric" value="0°" aria-label="Rotation" /></div>
             </div>
           </div>
         </div>
@@ -798,7 +800,7 @@
     <h3>Source of truth</h3>
     <div class="note"><span class="pin">A</span><code>Shape.transform: SpaceTime</code> at <code>types.ts:123</code>; <code>Space</code> + <code>Time</code> at <code>types.ts:86-92</code>.</div>
     <div class="note"><span class="pin">B</span>Today: only translation editable. Rotation / scale fields exist but no UI.</div>
-    <div class="note"><span class="pin">C</span>Visibility "Selected" shows transform handles only on the active selection — useful when many shapes overlap.</div>
+    <div class="note"><span class="pin">C</span>Visibility dot toggles whether rotation / scale handles are drawn on the canvas (binary; off keeps drag-translation only).</div>
   </div>
 </section>
 
@@ -850,10 +852,10 @@
         <button type="button"><svg><use href="#ic-lock"/></svg></button>
       </div>
 
-      <!-- Popover anchored to the equations button (i=6, top 336). -->
-      <div class="tool-popover tool-popover--equations" style="left: 959px; width: 352px">
+      <!-- Popover anchored to the equations button (i=6). -->
+      <div class="tool-popover tool-popover--equations" style="--tool-index: 6; width: 352px">
         <div class="head">
-          <button type="button" class="head-vis-toggle is-on" aria-label="Visibility" aria-pressed="true">
+          <button type="button" class="head-vis-toggle is-on is-compact" aria-label="Visibility" aria-pressed="true">
             <span class="head-vis-dot" aria-hidden="true"></span>
           </button>
           <span class="head-title">Equations</span>
@@ -927,10 +929,10 @@
         <button type="button"><svg><use href="#ic-lock"/></svg></button>
       </div>
 
-      <!-- Popover anchored to the weight button (i=7, top 382). -->
-      <div class="tool-popover" style="left: 1005px; width: 280px">
+      <!-- Popover anchored to the weight button (i=7). -->
+      <div class="tool-popover" style="--tool-index: 7; width: 280px">
         <div class="head">
-          <button type="button" class="head-vis-toggle" aria-label="Visibility" aria-pressed="false">
+          <button type="button" class="head-vis-toggle is-compact" aria-label="Visibility" aria-pressed="false">
             <span class="head-vis-dot" aria-hidden="true"></span>
           </button>
           <span class="head-title">Weight</span>
@@ -939,7 +941,7 @@
           <div class="slider-col slider-col--weight">
             <div class="weight-slider-controls">
               <div class="weight-num-row">
-                <input class="num-input" type="text" value="1.0" aria-label="Weight value" />
+                <input class="num-input" type="text" inputmode="numeric" value="1.0" aria-label="Weight value" />
               </div>
               <div class="slider-stack">
                 <div class="slider-track">
@@ -1069,10 +1071,10 @@
 
   <div class="annotations">
     <h3>Panel (<code>Canvas.tsx</code> 680–710)</h3>
-    <div class="note"><span class="pin">P</span>Same <code>.tool-popover</code> as shape popovers; instance <code>style</code> sets width 400 and max-height 500.</div>
-    <div class="note"><span class="pin">Q</span>Caption uses <code>.head-title</code> (shared with Weight, etc.).</div>
-    <div class="note"><span class="pin">R</span>Export / Import: <code>.head .actions button</code> — light text buttons, shared rule with all diagram-data popovers.</div>
-    <div class="note"><span class="pin">S</span>JSON: <code>.body &gt; pre</code> — mono 10px, scroll; no separate panel bg (inherits <code>--color-glass-panel-bg</code>).</div>
+    <div class="note"><span class="pin">A</span>Same <code>.tool-popover</code> as shape popovers; instance <code>style</code> sets width 400 and max-height 500.</div>
+    <div class="note"><span class="pin">B</span>Caption uses <code>.head-title</code> (shared with Weight, etc.).</div>
+    <div class="note"><span class="pin">C</span>Export / Import: <code>.head .actions button</code> — light text buttons, shared rule with all diagram-data popovers.</div>
+    <div class="note"><span class="pin">D</span>JSON: <code>.body &gt; pre</code> — mono 10px, scroll; no separate panel bg (inherits <code>--color-glass-panel-bg</code>).</div>
   </div>
 </section>
 
