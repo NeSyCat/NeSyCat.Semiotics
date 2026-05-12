@@ -2,10 +2,1117 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>02 — Wireframe</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>02 — Wireframe · Editor chrome (16″ MBP)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@500;600&display=swap" />
+  <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
-  <h1>02 — Wireframe</h1>
-  <p>Placeholder. Replace with structural HTML+CSS.</p>
+
+<!-- Reusable SVG logo (LogoMark from EditorSidebar.tsx). -->
+<svg width="0" height="0" style="position: absolute" aria-hidden="true">
+  <defs>
+    <symbol id="logo-mark" viewBox="0 0 24 24">
+      <!-- Stroke / fill resolved via currentColor on use site; default is the accent. -->
+      <rect x="2" y="2" width="20" height="20"
+            fill="rgba(var(--color-accent-rgb), 0.1)"
+            stroke="rgb(var(--color-accent-rgb))" stroke-width="1.3" />
+      <polygon points="12,3 21,12 12,21 3,12"
+               fill="rgba(var(--color-accent-rgb), 0.25)"
+               stroke="rgb(var(--color-accent-rgb))" stroke-width="1.3" />
+      <circle cx="12" cy="12" r="2.2" fill="rgb(var(--color-accent-rgb))" />
+    </symbol>
+    <!-- Zoom-control icons (match React Flow's <Controls />). -->
+    <symbol id="ic-plus" viewBox="0 0 24 24">
+      <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" fill="none" />
+    </symbol>
+    <symbol id="ic-minus" viewBox="0 0 24 24">
+      <path d="M5 12h14" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" fill="none" />
+    </symbol>
+    <symbol id="ic-fit" viewBox="0 0 24 24">
+      <path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"
+            stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round" fill="none" />
+    </symbol>
+    <symbol id="ic-lock" viewBox="0 0 24 24">
+      <rect x="5" y="11" width="14" height="9" rx="1.5"
+            stroke="currentColor" stroke-width="2" fill="none" />
+      <path d="M8 11V7a4 4 0 1 1 8 0v4"
+            stroke="currentColor" stroke-width="2" fill="none" />
+    </symbol>
+    <!-- Share / export — upload-from-tray (wireframe; evokes iOS share sheet) -->
+    <symbol id="ic-share" viewBox="0 0 24 24">
+      <path d="M12 4v10M8 8l4-4 4 4" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M5 14v5a2 2 0 002 2h10a2 2 0 002-2v-5" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round"/>
+    </symbol>
+
+    <!--
+      Shape-spine tool-button icons (live inside the .editor-topbar). Each
+      maps 1:1 to a user-facing field of `Shape<K>` in
+      components/editor/types.ts (lines 116-126). viewBox is 24×24 so the
+      18×18 rendering keeps a 3 px optical inset on each side.
+    -->
+    <!-- name — Geist “A”; fill/font on <text> so &lt;use&gt; shadow tree still paints (CSS won’t target cloned nodes). -->
+    <symbol id="ic-name" viewBox="0 0 24 24">
+      <text x="12" y="12" text-anchor="middle" dominant-baseline="central"
+            fill="currentColor" stroke="none"
+            font-family="Geist, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, Roboto, sans-serif"
+            font-weight="500" font-size="20" letter-spacing="-0.11">A</text>
+    </symbol>
+    <!-- points — two filled dots, wider spacing (recursive sub-shapes) -->
+    <symbol id="ic-points" viewBox="0 0 24 24">
+      <circle cx="6.25" cy="12" r="2.5" />
+      <circle cx="17.75" cy="12" r="2.5" />
+    </symbol>
+    <!-- kind — apex-up triangle, representative of `ShapeKind` (empty / triangle / rhombus / circle / rectangle) -->
+    <symbol id="ic-kind" viewBox="0 0 24 24">
+      <path d="M12 4l8 16H4z" />
+    </symbol>
+    <!-- order — three ascending bars, scalar Order -->
+    <symbol id="ic-order" viewBox="0 0 24 24">
+      <path d="M5 19v-4M12 19v-8M19 19v-12" />
+    </symbol>
+    <!-- color — filled disk in the shape's current color -->
+    <symbol id="ic-color" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="7" />
+    </symbol>
+    <!-- transform — 4-way move arrows (translation/rotation/scale of SpaceTime) -->
+    <symbol id="ic-transform" viewBox="0 0 24 24">
+      <path d="M12 3v18M3 12h18" />
+      <path d="M12 3l-2 2.5M12 3l2 2.5" />
+      <path d="M12 21l-2-2.5M12 21l2-2.5" />
+      <path d="M3 12l2.5-2M3 12l2.5 2" />
+      <path d="M21 12l-2.5-2M21 12l-2.5 2" />
+    </symbol>
+    <!-- equations — equals sign, Expression[] -->
+    <symbol id="ic-equations" viewBox="0 0 24 24">
+      <rect x="4" y="9"  width="16" height="2.2" rx="1" />
+      <rect x="4" y="14" width="16" height="2.2" rx="1" />
+    </symbol>
+    <!-- weight — kettlebell, scalar Mass -->
+    <symbol id="ic-weight" viewBox="0 0 24 24">
+      <path d="M9 7a3 3 0 1 1 6 0" />
+      <path d="M7 9h10l1.6 11H5.4z" />
+    </symbol>
+
+    <!-- Kind-picker glyphs (Scene 7): one tile per ShapeKind key in types.ts ShapePoints (types.ts:38-65). -->
+    <!-- empty: no glyph — reads only from tile label -->
+    <symbol id="kind-empty" viewBox="0 0 24 24"></symbol>
+    <symbol id="kind-triangle" viewBox="0 0 24 24">
+      <path d="M12 4l8 16H4z" />
+    </symbol>
+    <symbol id="kind-rhombus" viewBox="0 0 24 24">
+      <path d="M12 3l9 9-9 9-9-9z" />
+    </symbol>
+    <symbol id="kind-circle" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="8" />
+    </symbol>
+    <symbol id="kind-rectangle" viewBox="0 0 24 24">
+      <!-- Square circumscribing kind-circle (r=8 → side 16); sharp corners -->
+      <rect x="4" y="4" width="16" height="16" />
+    </symbol>
+  </defs>
+</svg>
+
+<header class="page-header">
+  <div class="t-caption">NeSyCat · Wireframe · v0.6 · 1728×1080 (16″ MBP scaled)</div>
+  <h1 class="t-h1">Editor chrome — pixel-faithful to today.</h1>
+  <p>
+    Each scene is a 1728×1080 frame sized for a 16″ MacBook Pro at default
+    scaling. Sidebar widths, panel sizes, button padding, font weights,
+    JSON-panel header copy, and React Flow controls
+    are pulled directly from <code>components/editor/EditorSidebar.tsx</code>
+    and <code>components/editor/Canvas.tsx</code>. The React Flow canvas
+    itself (shapes, points, wires, JSON spine) is intentionally left as a
+    dot-grid background — it's out of scope for the redesign.
+  </p>
+</header>
+
+<!-- ═══════ Scene 1: default editor state ═══════ -->
+
+<section class="wireframe-section">
+  <h2 class="t-h1">Scene 1 — default state</h2>
+  <p class="lead">
+    Signed-in user has just opened a diagram. A <strong>top bar</strong> holds
+    the logo, one tool button per exposed <code>Shape&lt;K&gt;</code> field
+    (<code>name</code> through <code>weight</code>), and a share-style control
+    for export / diagram data. The canvas uses the full width below the bar.
+    Zoom cluster stays bottom-left.
+  </p>
+
+  <div class="editor-frame">
+    <!-- Dot-grid canvas background -->
+    <div class="canvas-bg"></div>
+
+    <!-- Top bar — logo + shape tools + share -->
+    <header class="editor-topbar">
+      <div class="topbar-leading">
+        <a class="topbar-brand" href="#" title="Back to landing" aria-label="NeSyCat Semiotics">
+          <svg class="logo-mark"><use href="#logo-mark"/></svg>
+        </a>
+      </div>
+      <div class="topbar-center">
+        <div class="topbar-tools" role="toolbar" aria-label="Shape editor">
+          <button class="shape-tool tool-name"       type="button" aria-label="Name"      title="Name"><svg><use href="#ic-name"/></svg></button>
+          <button class="shape-tool tool-points"     type="button" aria-label="Points"    title="Points"><svg><use href="#ic-points"/></svg></button>
+          <button class="shape-tool tool-kind"       type="button" aria-label="Kind"      title="Kind"><svg><use href="#ic-kind"/></svg></button>
+          <button class="shape-tool tool-order"      type="button" aria-label="Order"     title="Order"><svg><use href="#ic-order"/></svg></button>
+          <button class="shape-tool tool-color" type="button" aria-label="Color" title="Color"><svg><use href="#ic-color"/></svg></button>
+          <button class="shape-tool tool-transform"  type="button" aria-label="Transform" title="Transform"><svg><use href="#ic-transform"/></svg></button>
+          <button class="shape-tool tool-equations"  type="button" aria-label="Equations" title="Equations"><svg><use href="#ic-equations"/></svg></button>
+          <button class="shape-tool tool-weight"     type="button" aria-label="Weight"    title="Weight"><svg><use href="#ic-weight"/></svg></button>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <button type="button" class="shape-tool topbar-share" title="Export or share diagram data" aria-label="Share or export diagram">
+          <svg><use href="#ic-share"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <div class="canvas-area">
+      <!-- Bottom-left React Flow controls -->
+      <div class="controls-cluster" aria-label="Zoom controls">
+        <button type="button" title="Zoom in"><svg><use href="#ic-plus"/></svg></button>
+        <button type="button" title="Zoom out"><svg><use href="#ic-minus"/></svg></button>
+        <button type="button" title="Fit view"><svg><use href="#ic-fit"/></svg></button>
+        <button type="button" title="Lock"><svg><use href="#ic-lock"/></svg></button>
+      </div>
+    </div>
+  </div>
+
+  <div class="annotations">
+    <h3>Top bar — Shape spine (<code>components/editor/types.ts</code>)</h3>
+    <div class="note"><span class="pin">A</span>52 px–tall bar: logo 40×40 left, eight 40×40 tools centered as a group (6 px gaps), share flush right.</div>
+    <div class="note"><span class="pin">B</span><code>name</code> — user-visible label.</div>
+    <div class="note"><span class="pin">C</span><code>points</code> — recursive sub-shapes (<code>ShapePoints[K]</code>).</div>
+    <div class="note"><span class="pin">D</span><code>kind</code> — <code>ShapeKind</code> discriminator — empty / triangle / rhombus / circle / rectangle.</div>
+    <div class="note"><span class="pin">E</span><code>order</code> — scalar <code>number</code>.</div>
+    <div class="note"><span class="pin">F</span><code>color</code> — <code>[r, g, b] ∈ [0, 1]³</code>. Glyph fills with the current shape color so the rail doubles as a swatch.</div>
+    <div class="note"><span class="pin">G</span><code>transform</code> — <code>SpaceTime</code> — translation + rotation + scale (+ created/updated timestamps).</div>
+    <div class="note"><span class="pin">H</span><code>equations</code> — list of <code>Expression</code>s (rational over shape refs).</div>
+    <div class="note"><span class="pin">I</span><code>weight</code> — scalar <code>Mass</code>.</div>
+    <div class="note"><span class="pin">J</span>The internal-only <code>id</code> field has no rail button — <code>types.ts:29</code>: "Auto-generated, unique, internal — never user-facing."</div>
+    <div class="note"><span class="pin">K</span>Buttons 40×40, 6 px radius. Active state tinted with <code>rgba(accent, 0.18)</code> + accent border. Hover swaps to glass-button bg + glass border.</div>
+    <h3>Canvas chrome (<code>Canvas.tsx</code>)</h3>
+    <div class="note"><span class="pin">L</span>Share control opens export / diagram data — open state in Scene 13 (panel drops below the bar on the right).</div>
+    <div class="note"><span class="pin">M</span>Zoom cluster from React Flow <code>&lt;Controls/&gt;</code>: 28 px buttons stacked, bottom-left.</div>
+
+    <h3>Redesign hooks</h3>
+    <div class="note">File management (search, diagram list, +new) needs a new home — likely a separate picker / file-tree surface, opened via the logo or a dedicated chrome button.</div>
+    <div class="note">Color control doubles as the current-color swatch. Click to open a picker; the swatch updates in place.</div>
+    <div class="note">Rail order intentionally follows <code>Shape</code> field order in <code>types.ts</code>.</div>
+  </div>
+</section>
+
+<!-- ═══════ Scene 5: name popover ═══════ -->
+
+<section class="wireframe-section">
+  <h2 class="t-h1">Scene 5 — name popover</h2>
+  <p class="lead">
+    Clicking the <code>name</code> button opens a popover below the top bar,
+    aligned with that tool. The head carries the title and a binary
+    visibility dot (click to hide name labels on the canvas); the body
+    holds the editor. Rename today happens inline (double-click on the
+    canvas, <code>DiagramNode.tsx:360-448</code>); the input here is a
+    faster alternative when the shape is already selected.
+  </p>
+
+  <div class="editor-frame">
+    <div class="canvas-bg"></div>
+
+    <header class="editor-topbar">
+      <div class="topbar-leading">
+        <a class="topbar-brand" href="#" aria-label="NeSyCat Semiotics">
+          <svg class="logo-mark"><use href="#logo-mark"/></svg>
+        </a>
+      </div>
+      <div class="topbar-center">
+        <div class="topbar-tools" role="toolbar" aria-label="Shape editor">
+          <button class="shape-tool tool-name is-active" type="button" title="Name"><svg><use href="#ic-name"/></svg></button>
+          <button class="shape-tool tool-points"         type="button" title="Points"><svg><use href="#ic-points"/></svg></button>
+          <button class="shape-tool tool-kind"           type="button" title="Kind"><svg><use href="#ic-kind"/></svg></button>
+          <button class="shape-tool tool-order"          type="button" title="Order"><svg><use href="#ic-order"/></svg></button>
+          <button class="shape-tool tool-color"          type="button" title="Color"><svg><use href="#ic-color"/></svg></button>
+          <button class="shape-tool tool-transform"      type="button" title="Transform"><svg><use href="#ic-transform"/></svg></button>
+          <button class="shape-tool tool-equations"      type="button" title="Equations"><svg><use href="#ic-equations"/></svg></button>
+          <button class="shape-tool tool-weight"         type="button" title="Weight"><svg><use href="#ic-weight"/></svg></button>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <button type="button" class="shape-tool topbar-share" title="Export or share diagram data" aria-label="Share or export diagram">
+          <svg><use href="#ic-share"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <div class="canvas-area">
+      <div class="controls-cluster">
+        <button type="button"><svg><use href="#ic-plus"/></svg></button>
+        <button type="button"><svg><use href="#ic-minus"/></svg></button>
+        <button type="button"><svg><use href="#ic-fit"/></svg></button>
+        <button type="button"><svg><use href="#ic-lock"/></svg></button>
+      </div>
+
+      <!-- Popover anchored to the name button (i=0). -->
+      <div class="tool-popover" style="--tool-index: 0; width: 280px">
+        <div class="head">
+          <button type="button" class="head-vis-toggle is-on is-compact" aria-label="Visibility" aria-pressed="true">
+            <span class="head-vis-dot" aria-hidden="true"></span>
+          </button>
+          <span class="head-title">Name</span>
+        </div>
+        <div class="body">
+          <input class="text-input" type="text" value="Y" />
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="annotations">
+    <h3>Source of truth</h3>
+    <div class="note"><span class="pin">A</span><code>Shape.name?: string</code> at <code>types.ts:118</code> — only set on labeled leaves.</div>
+    <div class="note"><span class="pin">B</span>Today's UI: inline rename via <code>DiagramNode.tsx:360-448</code>. No popover yet.</div>
+    <div class="note"><span class="pin">C</span>Visibility dot in the head toggles name labels on the canvas (binary — today's behaviour vs hidden).</div>
+  </div>
+</section>
+
+<!-- ═══════ Scene 6: points popover ═══════ -->
+
+<section class="wireframe-section">
+  <h2 class="t-h1">Scene 6 — points popover</h2>
+  <p class="lead">
+    The <code>points</code> popover is visibility-first — there's no
+    editor for the nested-shape tree itself; points are added via the
+    <code>+</code> buttons that surface on a selected shape
+    (<code>DiagramNode.tsx:514-537</code>). The head's binary visibility
+    dot toggles today's <code>visibility.points</code> flag
+    (<code>store.ts:8</code>).
+  </p>
+
+  <div class="editor-frame">
+    <div class="canvas-bg"></div>
+
+    <header class="editor-topbar">
+      <div class="topbar-leading">
+        <a class="topbar-brand" href="#" aria-label="NeSyCat Semiotics">
+          <svg class="logo-mark"><use href="#logo-mark"/></svg>
+        </a>
+      </div>
+      <div class="topbar-center">
+        <div class="topbar-tools" role="toolbar" aria-label="Shape editor">
+          <button class="shape-tool tool-name"             type="button" title="Name"><svg><use href="#ic-name"/></svg></button>
+          <button class="shape-tool tool-points is-active" type="button" title="Points"><svg><use href="#ic-points"/></svg></button>
+          <button class="shape-tool tool-kind"             type="button" title="Kind"><svg><use href="#ic-kind"/></svg></button>
+          <button class="shape-tool tool-order"            type="button" title="Order"><svg><use href="#ic-order"/></svg></button>
+          <button class="shape-tool tool-color"            type="button" title="Color"><svg><use href="#ic-color"/></svg></button>
+          <button class="shape-tool tool-transform"        type="button" title="Transform"><svg><use href="#ic-transform"/></svg></button>
+          <button class="shape-tool tool-equations"        type="button" title="Equations"><svg><use href="#ic-equations"/></svg></button>
+          <button class="shape-tool tool-weight"           type="button" title="Weight"><svg><use href="#ic-weight"/></svg></button>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <button type="button" class="shape-tool topbar-share" title="Export or share diagram data" aria-label="Share or export diagram">
+          <svg><use href="#ic-share"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <div class="canvas-area">
+      <div class="controls-cluster">
+        <button type="button"><svg><use href="#ic-plus"/></svg></button>
+        <button type="button"><svg><use href="#ic-minus"/></svg></button>
+        <button type="button"><svg><use href="#ic-fit"/></svg></button>
+        <button type="button"><svg><use href="#ic-lock"/></svg></button>
+      </div>
+
+      <!-- Popover anchored to the points button (i=1). -->
+      <div class="tool-popover tool-popover--tight" style="--tool-index: 1">
+        <div class="head">
+          <button type="button" class="head-vis-toggle is-on is-compact" aria-label="Visibility" aria-pressed="true">
+            <span class="head-vis-dot" aria-hidden="true"></span>
+          </button>
+          <span class="head-title">Points</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="annotations">
+    <h3>Source of truth</h3>
+    <div class="note"><span class="pin">A</span><code>Shape.points: ShapePoints[K]</code> at <code>types.ts:119</code> — recursive sub-shape tree; branching shape differs per <code>ShapeKind</code>.</div>
+    <div class="note"><span class="pin">B</span>Today: <code>visibility.points</code> in <code>store.ts:8</code>; CSS gate <code>.points-hidden .point-label</code> in <code>app/globals.css</code>.</div>
+    <div class="note"><span class="pin">C</span>Same dot chrome as the panel head — click to hide / show point handles globally.</div>
+  </div>
+</section>
+
+<!-- ═══════ Scene 7: kind popover ═══════ -->
+
+<section class="wireframe-section">
+  <h2 class="t-h1">Scene 7 — kind popover</h2>
+  <p class="lead">
+    The <code>kind</code> popover switches among the <strong>five</strong>
+    <code>ShapeKind</code> keys of <code>ShapePoints</code> in
+    <code>types.ts:38-65</code> — <code>empty</code>, <code>triangle</code>,
+    <code>rhombus</code>, <code>circle</code>, <code>rectangle</code>. That is
+    the complete set of shape discriminators for nodes; <code>Line</code>
+    (<code>types.ts:137-146</code>) still carries the same <code>kind</code>
+    field — wires are not a separate kind enum. Today shape kind is fixed at
+    creation; this panel assumes a future mutation. Rectangular tiles match the
+    rail; double-click create shortcuts from <code>geometry.ts</code> live in
+    each tile’s tooltip.
+  </p>
+
+  <div class="editor-frame">
+    <div class="canvas-bg"></div>
+
+    <header class="editor-topbar">
+      <div class="topbar-leading">
+        <a class="topbar-brand" href="#" aria-label="NeSyCat Semiotics">
+          <svg class="logo-mark"><use href="#logo-mark"/></svg>
+        </a>
+      </div>
+      <div class="topbar-center">
+        <div class="topbar-tools" role="toolbar" aria-label="Shape editor">
+          <button class="shape-tool tool-name"           type="button" title="Name"><svg><use href="#ic-name"/></svg></button>
+          <button class="shape-tool tool-points"         type="button" title="Points"><svg><use href="#ic-points"/></svg></button>
+          <button class="shape-tool tool-kind is-active" type="button" title="Kind"><svg><use href="#ic-kind"/></svg></button>
+          <button class="shape-tool tool-order"          type="button" title="Order"><svg><use href="#ic-order"/></svg></button>
+          <button class="shape-tool tool-color"          type="button" title="Color"><svg><use href="#ic-color"/></svg></button>
+          <button class="shape-tool tool-transform"      type="button" title="Transform"><svg><use href="#ic-transform"/></svg></button>
+          <button class="shape-tool tool-equations"      type="button" title="Equations"><svg><use href="#ic-equations"/></svg></button>
+          <button class="shape-tool tool-weight"         type="button" title="Weight"><svg><use href="#ic-weight"/></svg></button>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <button type="button" class="shape-tool topbar-share" title="Export or share diagram data" aria-label="Share or export diagram">
+          <svg><use href="#ic-share"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <div class="canvas-area">
+      <div class="controls-cluster">
+        <button type="button"><svg><use href="#ic-plus"/></svg></button>
+        <button type="button"><svg><use href="#ic-minus"/></svg></button>
+        <button type="button"><svg><use href="#ic-fit"/></svg></button>
+        <button type="button"><svg><use href="#ic-lock"/></svg></button>
+      </div>
+
+      <!-- Popover anchored to the kind button (i=2).
+           ShapeKind = keyof ShapePoints → exactly empty | triangle | rhombus | circle | rectangle (types.ts:38-70).
+           Line<K> extends Shape<K> and uses the same kind field — not a sixth ShapeKind (types.ts:137-148).
+           Layout: one horizontal strip — one column per ShapeKind (visibility dot above drag tile).
+           Header strip: panel-level visibility toggle; each column has the same toggle chrome per kind. -->
+      <div class="tool-popover" style="--tool-index: 2; width: max-content; min-width: 0">
+        <div class="head">
+          <button type="button" class="head-vis-toggle is-on is-compact" aria-label="Panel visibility" aria-pressed="true">
+            <span class="head-vis-dot" aria-hidden="true"></span>
+          </button>
+          <span class="head-title">Kind</span>
+        </div>
+        <div class="body kind-rows" role="group" aria-label="Shape kind">
+
+            <div class="kind-row">
+              <div class="kind-row-left">
+                <button type="button" class="head-vis-toggle is-on" aria-label="Visibility · empty" aria-pressed="true">
+                  <span class="head-vis-dot" aria-hidden="true"></span>
+                </button>
+              </div>
+              <button class="drag-tile" type="button" draggable="true"
+                      title="empty — drag to canvas · create: 2×">
+                <svg><use href="#kind-empty"/></svg>
+              </button>
+            </div>
+
+            <div class="kind-row is-active">
+              <div class="kind-row-left">
+                <button type="button" class="head-vis-toggle is-on" aria-label="Visibility · triangle" aria-pressed="true">
+                  <span class="head-vis-dot" aria-hidden="true"></span>
+                </button>
+              </div>
+              <button class="drag-tile" type="button" draggable="true"
+                      title="triangle — drag to canvas · create: Alt/⌥ + 2×">
+                <svg><use href="#kind-triangle"/></svg>
+              </button>
+            </div>
+
+            <div class="kind-row">
+              <div class="kind-row-left">
+                <button type="button" class="head-vis-toggle is-on" aria-label="Visibility · rhombus" aria-pressed="true">
+                  <span class="head-vis-dot" aria-hidden="true"></span>
+                </button>
+              </div>
+              <button class="drag-tile" type="button" draggable="true"
+                      title="rhombus — drag to canvas · create: ⇧ + 2×">
+                <svg><use href="#kind-rhombus"/></svg>
+              </button>
+            </div>
+
+            <div class="kind-row">
+              <div class="kind-row-left">
+                <button type="button" class="head-vis-toggle is-on" aria-label="Visibility · circle" aria-pressed="true">
+                  <span class="head-vis-dot" aria-hidden="true"></span>
+                </button>
+              </div>
+              <button class="drag-tile" type="button" draggable="true"
+                      title="circle — drag to canvas · create: Space + 2×">
+                <svg><use href="#kind-circle"/></svg>
+              </button>
+            </div>
+
+            <div class="kind-row">
+              <div class="kind-row-left">
+                <button type="button" class="head-vis-toggle is-on" aria-label="Visibility · rectangle" aria-pressed="true">
+                  <span class="head-vis-dot" aria-hidden="true"></span>
+                </button>
+              </div>
+              <button class="drag-tile" type="button" draggable="true"
+                      title="rectangle — drag to canvas · create: Ctrl/⌘ + 2×">
+                <svg><use href="#kind-rectangle"/></svg>
+              </button>
+            </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="annotations">
+    <h3>Source of truth</h3>
+    <div class="note"><span class="pin">A</span><code>Shape.kind: K</code> at <code>types.ts:120</code>; <code>ShapeKind = keyof ShapePoints</code> at <code>types.ts:70</code> — exactly the five rows. <code>Line</code> extends <code>Shape&lt;K&gt;</code> (<code>types.ts:143-146</code>) and uses the same <code>kind</code>; diagram edges are not a sixth discriminator.</div>
+    <div class="note"><span class="pin">B</span>Each column: per-kind visibility toggle (<code>head-vis-toggle</code>, same chrome as the panel header); drag tile creates that kind on the canvas.</div>
+    <div class="note"><span class="pin">C</span>Today: no kind-change mutation in <code>mutations.ts</code>; kind is only set at <code>addNode()</code> creation time. Drag-to-create is the primary affordance.</div>
+  </div>
+</section>
+
+<!-- ═══════ Scene 8: order popover ═══════ -->
+
+<section class="wireframe-section">
+  <h2 class="t-h1">Scene 8 — order popover</h2>
+  <p class="lead">
+    The <code>order</code> popover is a discrete numeric editor — vertical
+    slider with integer notches, plus a numeric box for typing the value
+    directly (mirroring Adobe Fresco's "Tamaño" slider). Today
+    <code>Order</code> is set programmatically at <code>addNode()</code>;
+    there's no UI to change it post-hoc.
+  </p>
+
+  <div class="editor-frame">
+    <div class="canvas-bg"></div>
+
+    <header class="editor-topbar">
+      <div class="topbar-leading">
+        <a class="topbar-brand" href="#" aria-label="NeSyCat Semiotics">
+          <svg class="logo-mark"><use href="#logo-mark"/></svg>
+        </a>
+      </div>
+      <div class="topbar-center">
+        <div class="topbar-tools" role="toolbar" aria-label="Shape editor">
+          <button class="shape-tool tool-name"            type="button" title="Name"><svg><use href="#ic-name"/></svg></button>
+          <button class="shape-tool tool-points"          type="button" title="Points"><svg><use href="#ic-points"/></svg></button>
+          <button class="shape-tool tool-kind"            type="button" title="Kind"><svg><use href="#ic-kind"/></svg></button>
+          <button class="shape-tool tool-order is-active" type="button" title="Order"><svg><use href="#ic-order"/></svg></button>
+          <button class="shape-tool tool-color"           type="button" title="Color"><svg><use href="#ic-color"/></svg></button>
+          <button class="shape-tool tool-transform"       type="button" title="Transform"><svg><use href="#ic-transform"/></svg></button>
+          <button class="shape-tool tool-equations"       type="button" title="Equations"><svg><use href="#ic-equations"/></svg></button>
+          <button class="shape-tool tool-weight"          type="button" title="Weight"><svg><use href="#ic-weight"/></svg></button>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <button type="button" class="shape-tool topbar-share" title="Export or share diagram data" aria-label="Share or export diagram">
+          <svg><use href="#ic-share"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <div class="canvas-area">
+      <div class="controls-cluster">
+        <button type="button"><svg><use href="#ic-plus"/></svg></button>
+        <button type="button"><svg><use href="#ic-minus"/></svg></button>
+        <button type="button"><svg><use href="#ic-fit"/></svg></button>
+        <button type="button"><svg><use href="#ic-lock"/></svg></button>
+      </div>
+
+      <!-- Popover anchored to the order button (i=3). -->
+      <div class="tool-popover" style="--tool-index: 3; width: 280px">
+        <div class="head">
+          <button type="button" class="head-vis-toggle is-on is-compact" aria-label="Visibility" aria-pressed="true">
+            <span class="head-vis-dot" aria-hidden="true"></span>
+          </button>
+          <span class="head-title">Order</span>
+        </div>
+        <div class="body">
+          <div class="order-value-row">
+            <input class="num-input" type="text" inputmode="numeric" value="2" aria-label="Order value" />
+            <div class="slider-col slider-col--horizontal">
+              <div class="slider-stack">
+              <div class="slider-track">
+                <div class="slider-thumb" aria-hidden="true">
+                  <span class="slider-thumb-dot"></span>
+                </div>
+              </div>
+              </div>
+              <div class="slider-notches" aria-hidden="true">
+                <span>0</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="annotations">
+    <h3>Source of truth</h3>
+    <div class="note"><span class="pin">A</span><code>Shape.order: Order</code> at <code>types.ts:121</code>; <code>Order = number</code> at <code>types.ts:74</code>.</div>
+    <div class="note"><span class="pin">B</span>Today: assigned at creation via <code>mutations.ts:118</code> (<code>order = d.nodes.length + 1</code>). No UI to change it.</div>
+    <div class="note"><span class="pin">C</span>Slider snaps to integers; for the wireframe, range is shown as 0–5 with the thumb sitting at value 2.</div>
+  </div>
+</section>
+
+<!-- ═══════ Scene 9: color popover ═══════ -->
+
+<section class="wireframe-section">
+  <h2 class="t-h1">Scene 9 — color popover</h2>
+  <p class="lead">
+    The <code>color</code> popover is a full HSV picker — smooth annular hue ring
+    (conic spectrum), inner S/V square, four corner actions (white / black /
+    eyedropper / transparency), opacity under the wheel, HSB sliders, and
+    swatches. Mirrors the Adobe Fresco Color panel layout. Today there's no picker.
+    Shapes initialise to <code>DEFAULT_COLOR = [59/255, 130/255, 246/255]</code>
+    from <code>color.ts:5</code> and never change.
+  </p>
+
+  <div class="editor-frame">
+    <div class="canvas-bg"></div>
+
+    <header class="editor-topbar">
+      <div class="topbar-leading">
+        <a class="topbar-brand" href="#" aria-label="NeSyCat Semiotics">
+          <svg class="logo-mark"><use href="#logo-mark"/></svg>
+        </a>
+      </div>
+      <div class="topbar-center">
+        <div class="topbar-tools" role="toolbar" aria-label="Shape editor">
+          <button class="shape-tool tool-name"            type="button" title="Name"><svg><use href="#ic-name"/></svg></button>
+          <button class="shape-tool tool-points"          type="button" title="Points"><svg><use href="#ic-points"/></svg></button>
+          <button class="shape-tool tool-kind"            type="button" title="Kind"><svg><use href="#ic-kind"/></svg></button>
+          <button class="shape-tool tool-order"           type="button" title="Order"><svg><use href="#ic-order"/></svg></button>
+          <button class="shape-tool tool-color is-active" type="button" title="Color"><svg><use href="#ic-color"/></svg></button>
+          <button class="shape-tool tool-transform"       type="button" title="Transform"><svg><use href="#ic-transform"/></svg></button>
+          <button class="shape-tool tool-equations"       type="button" title="Equations"><svg><use href="#ic-equations"/></svg></button>
+          <button class="shape-tool tool-weight"          type="button" title="Weight"><svg><use href="#ic-weight"/></svg></button>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <button type="button" class="shape-tool topbar-share" title="Export or share diagram data" aria-label="Share or export diagram">
+          <svg><use href="#ic-share"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <div class="canvas-area">
+      <div class="controls-cluster">
+        <button type="button"><svg><use href="#ic-plus"/></svg></button>
+        <button type="button"><svg><use href="#ic-minus"/></svg></button>
+        <button type="button"><svg><use href="#ic-fit"/></svg></button>
+        <button type="button"><svg><use href="#ic-lock"/></svg></button>
+      </div>
+
+      <!-- Popover anchored to the color button (i=4). -->
+      <div class="tool-popover tool-popover--color" style="--tool-index: 4; width: 296px">
+        <div class="head">
+          <button type="button" class="head-vis-toggle is-on is-compact" aria-label="Visibility" aria-pressed="true">
+            <span class="head-vis-dot" aria-hidden="true"></span>
+          </button>
+          <span class="head-title">Color</span>
+        </div>
+        <div class="body">
+          <div class="color-wheel" aria-label="HSV wheel — hue ring and saturation / brightness field">
+            <div class="color-wheel-frame">
+              <button type="button" class="color-corner color-corner--white" title="Pure white" aria-label="Set white"></button>
+              <button type="button" class="color-corner color-corner--black" title="Pure black" aria-label="Set black"></button>
+              <button type="button" class="color-corner color-corner--eyedropper" title="Sample from canvas (pipette)" aria-label="Pipette — sample color">
+                <!-- Lucide “pipette” (MIT): github.com/lucide-icons/lucide -->
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="m12 9-8.414 8.414A2 2 0 0 0 3 18.828v1.344a2 2 0 0 1-.586 1.414A2 2 0 0 1 3.828 21h1.344a2 2 0 0 0 1.414-.586L15 12"/>
+                  <path d="m18 9 .4.4a1 1 0 1 1-3 3l-3.8-3.8a1 1 0 1 1 3-3l.4.4 3.4-3.4a1 1 0 1 1 3 3z"/>
+                  <path d="m2 22 .414-.414"/>
+                </svg>
+              </button>
+              <button type="button" class="color-corner color-corner--transparent" title="Transparency" aria-label="Transparency preset"></button>
+              <!-- Smooth spectral ring (CSS conic-gradient + radial mask) -->
+              <div class="color-hue-ring" aria-hidden="true"></div>
+              <div class="color-hue-thumb" aria-hidden="true"></div>
+              <div class="color-sv-field">
+                <div class="color-sv-thumb" aria-hidden="true"></div>
+              </div>
+            </div>
+          </div>
+          <div class="color-sliders">
+            <div class="slider-row">
+              <span class="row-label">α</span>
+              <div class="h-track alpha"><div class="h-thumb" style="left: 100%"></div></div>
+              <input class="num-input" value="100" title="Opacity %" />
+            </div>
+            <div class="slider-row">
+              <span class="row-label">H</span>
+              <div class="h-track hue"><div class="h-thumb" style="left: 60%"></div></div>
+              <input class="num-input" value="216" />
+            </div>
+            <div class="slider-row">
+              <span class="row-label">S</span>
+              <div class="h-track sat"><div class="h-thumb" style="left: 76%"></div></div>
+              <input class="num-input" value="76" />
+            </div>
+            <div class="slider-row">
+              <span class="row-label">B</span>
+              <div class="h-track val"><div class="h-thumb" style="left: 96%"></div></div>
+              <input class="num-input" value="96" />
+            </div>
+          </div>
+          <span class="body-label">Swatches</span>
+          <div class="swatches">
+            <div class="sw" style="background:var(--color-accent-blue)"></div>
+            <div class="sw" style="background:rgb(99, 157, 255)"></div>
+            <div class="sw" style="background:rgb(155, 89, 235)"></div>
+            <div class="sw" style="background:rgb(236, 72, 153)"></div>
+            <div class="sw" style="background:rgb(244, 114, 91)"></div>
+            <div class="sw" style="background:rgb(245, 158, 11)"></div>
+            <div class="sw" style="background:rgb(234, 211, 16)"></div>
+            <div class="sw" style="background:rgb(132, 204, 22)"></div>
+            <div class="sw" style="background:rgb(34, 197, 94)"></div>
+            <div class="sw" style="background:rgb(20, 184, 166)"></div>
+            <div class="sw" style="background:rgb(14, 165, 233)"></div>
+            <div class="sw" style="background:rgb(99, 102, 241)"></div>
+            <div class="sw" style="background:rgba(255, 255, 255, 0.9)"></div>
+            <div class="sw" style="background:rgba(255, 255, 255, 0.5)"></div>
+            <div class="sw" style="background:rgba(255, 255, 255, 0.25)"></div>
+            <div class="sw" style="background:rgba(0, 0, 0, 0.5)"></div>
+            <div class="sw" style="background:rgba(0, 0, 0, 0.8)"></div>
+            <div class="sw" style="background:#000"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="annotations">
+    <h3>Source of truth</h3>
+    <div class="note"><span class="pin">A</span><code>Shape.color: Color</code> at <code>types.ts:122</code>; <code>Color = [r, g, b] ∈ [0, 1]³</code> at <code>types.ts:79</code>.</div>
+    <div class="note"><span class="pin">B</span>Today: no picker. Shapes init to <code>DEFAULT_COLOR</code> from <code>color.ts:5</code> (same as <code>--color-accent-rgb</code>).</div>
+    <div class="note"><span class="pin">C</span>Visibility dot toggles colored fill on the canvas; off renders shapes monochrome (outlines only).</div>
+  </div>
+</section>
+
+<!-- ═══════ Scene 10: transform popover ═══════ -->
+
+<section class="wireframe-section">
+  <h2 class="t-h1">Scene 10 — transform popover</h2>
+  <p class="lead">
+    The <code>transform</code> popover exposes the full <code>SpaceTime</code>
+    affine — translation (<code>tx</code>, <code>ty</code>), rotation
+    (<code>θ</code>), and scale (<code>sx</code>, <code>sy</code>). Today
+    only translation is bound to a UI (React Flow drag, committed via
+    <code>updateNodeTranslations()</code> in <code>mutations.ts</code>);
+    rotation/scale fields exist on <code>Space</code> but aren't editable.
+  </p>
+
+  <div class="editor-frame">
+    <div class="canvas-bg"></div>
+
+    <header class="editor-topbar">
+      <div class="topbar-leading">
+        <a class="topbar-brand" href="#" aria-label="NeSyCat Semiotics">
+          <svg class="logo-mark"><use href="#logo-mark"/></svg>
+        </a>
+      </div>
+      <div class="topbar-center">
+        <div class="topbar-tools" role="toolbar" aria-label="Shape editor">
+          <button class="shape-tool tool-name"                type="button" title="Name"><svg><use href="#ic-name"/></svg></button>
+          <button class="shape-tool tool-points"              type="button" title="Points"><svg><use href="#ic-points"/></svg></button>
+          <button class="shape-tool tool-kind"                type="button" title="Kind"><svg><use href="#ic-kind"/></svg></button>
+          <button class="shape-tool tool-order"               type="button" title="Order"><svg><use href="#ic-order"/></svg></button>
+          <button class="shape-tool tool-color"               type="button" title="Color"><svg><use href="#ic-color"/></svg></button>
+          <button class="shape-tool tool-transform is-active" type="button" title="Transform"><svg><use href="#ic-transform"/></svg></button>
+          <button class="shape-tool tool-equations"           type="button" title="Equations"><svg><use href="#ic-equations"/></svg></button>
+          <button class="shape-tool tool-weight"              type="button" title="Weight"><svg><use href="#ic-weight"/></svg></button>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <button type="button" class="shape-tool topbar-share" title="Export or share diagram data" aria-label="Share or export diagram">
+          <svg><use href="#ic-share"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <div class="canvas-area">
+      <div class="controls-cluster">
+        <button type="button"><svg><use href="#ic-plus"/></svg></button>
+        <button type="button"><svg><use href="#ic-minus"/></svg></button>
+        <button type="button"><svg><use href="#ic-fit"/></svg></button>
+        <button type="button"><svg><use href="#ic-lock"/></svg></button>
+      </div>
+
+      <!-- Popover anchored to the transform button (i=5). -->
+      <div class="tool-popover" style="--tool-index: 5; width: 296px">
+        <div class="head">
+          <button type="button" class="head-vis-toggle is-on is-compact" aria-label="Visibility" aria-pressed="true">
+            <span class="head-vis-dot" aria-hidden="true"></span>
+          </button>
+          <span class="head-title">Transform</span>
+        </div>
+        <div class="body">
+          <div class="transform-row">
+            <span class="transform-row-name">Scale</span>
+            <div class="transform-row-fields">
+              <div class="transform-field"><span class="transform-field-label">sx</span><input class="num-input" type="text" inputmode="numeric" value="1.00" aria-label="Scale x" /></div>
+              <div class="transform-field"><span class="transform-field-label">sy</span><input class="num-input" type="text" inputmode="numeric" value="1.00" aria-label="Scale y" /></div>
+            </div>
+          </div>
+          <div class="transform-row">
+            <span class="transform-row-name">Translate</span>
+            <div class="transform-row-fields">
+              <div class="transform-field"><span class="transform-field-label">tx</span><input class="num-input" type="text" inputmode="numeric" value="120" aria-label="Translate x" /></div>
+              <div class="transform-field"><span class="transform-field-label">ty</span><input class="num-input" type="text" inputmode="numeric" value="-40" aria-label="Translate y" /></div>
+            </div>
+          </div>
+          <div class="transform-row">
+            <span class="transform-row-name">Rotate</span>
+            <div class="transform-row-fields">
+              <div class="transform-field"><span class="transform-field-label">θ</span><input class="num-input" type="text" inputmode="numeric" value="0°" aria-label="Rotation" /></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="annotations">
+    <h3>Source of truth</h3>
+    <div class="note"><span class="pin">A</span><code>Shape.transform: SpaceTime</code> at <code>types.ts:123</code>; <code>Space</code> + <code>Time</code> at <code>types.ts:86-92</code>.</div>
+    <div class="note"><span class="pin">B</span>Today: only translation editable. Rotation / scale fields exist but no UI.</div>
+    <div class="note"><span class="pin">C</span>Visibility dot toggles whether rotation / scale handles are drawn on the canvas (binary; off keeps drag-translation only).</div>
+  </div>
+</section>
+
+<!-- ═══════ Scene 11: equations popover ═══════ -->
+
+<section class="wireframe-section">
+  <h2 class="t-h1">Scene 11 — equations popover</h2>
+  <p class="lead">
+    The <code>equations</code> popover lists the shape's
+    <code>Expression[]</code> (rational over shape refs, see
+    <code>types.ts:99-100</code>). Each equation reads as
+    <code>thisShape = E</code>. Today the field exists but no UI edits it —
+    this popover is a stub for the future expressions grammar.
+  </p>
+
+  <div class="editor-frame">
+    <div class="canvas-bg"></div>
+
+    <header class="editor-topbar">
+      <div class="topbar-leading">
+        <a class="topbar-brand" href="#" aria-label="NeSyCat Semiotics">
+          <svg class="logo-mark"><use href="#logo-mark"/></svg>
+        </a>
+      </div>
+      <div class="topbar-center">
+        <div class="topbar-tools" role="toolbar" aria-label="Shape editor">
+          <button class="shape-tool tool-name"                type="button" title="Name"><svg><use href="#ic-name"/></svg></button>
+          <button class="shape-tool tool-points"              type="button" title="Points"><svg><use href="#ic-points"/></svg></button>
+          <button class="shape-tool tool-kind"                type="button" title="Kind"><svg><use href="#ic-kind"/></svg></button>
+          <button class="shape-tool tool-order"               type="button" title="Order"><svg><use href="#ic-order"/></svg></button>
+          <button class="shape-tool tool-color"               type="button" title="Color"><svg><use href="#ic-color"/></svg></button>
+          <button class="shape-tool tool-transform"           type="button" title="Transform"><svg><use href="#ic-transform"/></svg></button>
+          <button class="shape-tool tool-equations is-active" type="button" title="Equations"><svg><use href="#ic-equations"/></svg></button>
+          <button class="shape-tool tool-weight"              type="button" title="Weight"><svg><use href="#ic-weight"/></svg></button>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <button type="button" class="shape-tool topbar-share" title="Export or share diagram data" aria-label="Share or export diagram">
+          <svg><use href="#ic-share"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <div class="canvas-area">
+      <div class="controls-cluster">
+        <button type="button"><svg><use href="#ic-plus"/></svg></button>
+        <button type="button"><svg><use href="#ic-minus"/></svg></button>
+        <button type="button"><svg><use href="#ic-fit"/></svg></button>
+        <button type="button"><svg><use href="#ic-lock"/></svg></button>
+      </div>
+
+      <!-- Popover anchored to the equations button (i=6). -->
+      <div class="tool-popover tool-popover--equations" style="--tool-index: 6; width: 352px">
+        <div class="head">
+          <button type="button" class="head-vis-toggle is-on is-compact" aria-label="Visibility" aria-pressed="true">
+            <span class="head-vis-dot" aria-hidden="true"></span>
+          </button>
+          <span class="head-title">Equations</span>
+          <button type="button" class="shape-tool eq-popover-add" title="Add equation" aria-label="Add equation">
+            <svg><use href="#ic-plus"/></svg>
+          </button>
+        </div>
+        <div class="body">
+          <div class="eq-list">
+            <div class="eq-row"><span>x + y</span><span class="delete">×</span></div>
+            <div class="eq-row"><span>2 · z − w</span><span class="delete">×</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="annotations">
+    <h3>Source of truth</h3>
+    <div class="note"><span class="pin">A</span><code>Shape.equations: Expression[]</code> at <code>types.ts:124</code>; <code>Expression</code> at <code>types.ts:100</code>.</div>
+    <div class="note"><span class="pin">B</span>Each row reads as an implicit <code>thisShape = E</code> equation.</div>
+    <div class="note"><span class="pin">C</span>Today: no UI; the field is always <code>[]</code> at creation. This popover is a stub.</div>
+  </div>
+</section>
+
+<!-- ═══════ Scene 12: weight popover ═══════ -->
+
+<section class="wireframe-section">
+  <h2 class="t-h1">Scene 12 — weight popover</h2>
+  <p class="lead">
+    The <code>weight</code> popover is the continuous twin of Scene 8 —
+    same Fresco-style slider, but with 1-decimal floats and no integer
+    snap. <code>Mass</code> is a scalar alias for <code>number</code>
+    (<code>types.ts:104</code>); today every shape initialises to
+    <code>1</code> at <code>mutations.ts:64</code> and never changes.
+  </p>
+
+  <div class="editor-frame">
+    <div class="canvas-bg"></div>
+
+    <header class="editor-topbar">
+      <div class="topbar-leading">
+        <a class="topbar-brand" href="#" aria-label="NeSyCat Semiotics">
+          <svg class="logo-mark"><use href="#logo-mark"/></svg>
+        </a>
+      </div>
+      <div class="topbar-center">
+        <div class="topbar-tools" role="toolbar" aria-label="Shape editor">
+          <button class="shape-tool tool-name"             type="button" title="Name"><svg><use href="#ic-name"/></svg></button>
+          <button class="shape-tool tool-points"           type="button" title="Points"><svg><use href="#ic-points"/></svg></button>
+          <button class="shape-tool tool-kind"             type="button" title="Kind"><svg><use href="#ic-kind"/></svg></button>
+          <button class="shape-tool tool-order"            type="button" title="Order"><svg><use href="#ic-order"/></svg></button>
+          <button class="shape-tool tool-color"            type="button" title="Color"><svg><use href="#ic-color"/></svg></button>
+          <button class="shape-tool tool-transform"        type="button" title="Transform"><svg><use href="#ic-transform"/></svg></button>
+          <button class="shape-tool tool-equations"        type="button" title="Equations"><svg><use href="#ic-equations"/></svg></button>
+          <button class="shape-tool tool-weight is-active" type="button" title="Weight"><svg><use href="#ic-weight"/></svg></button>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <button type="button" class="shape-tool topbar-share" title="Export or share diagram data" aria-label="Share or export diagram">
+          <svg><use href="#ic-share"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <div class="canvas-area">
+      <div class="controls-cluster">
+        <button type="button"><svg><use href="#ic-plus"/></svg></button>
+        <button type="button"><svg><use href="#ic-minus"/></svg></button>
+        <button type="button"><svg><use href="#ic-fit"/></svg></button>
+        <button type="button"><svg><use href="#ic-lock"/></svg></button>
+      </div>
+
+      <!-- Popover anchored to the weight button (i=7). -->
+      <div class="tool-popover" style="--tool-index: 7; width: 280px">
+        <div class="head">
+          <button type="button" class="head-vis-toggle is-compact" aria-label="Visibility" aria-pressed="false">
+            <span class="head-vis-dot" aria-hidden="true"></span>
+          </button>
+          <span class="head-title">Weight</span>
+        </div>
+        <div class="body">
+          <div class="slider-col slider-col--weight">
+            <div class="weight-slider-controls">
+              <div class="weight-num-row">
+                <input class="num-input" type="text" inputmode="numeric" value="1.0" aria-label="Weight value" />
+              </div>
+              <div class="slider-stack">
+                <div class="slider-track">
+                  <div class="slider-thumb" style="top: 80%"></div>
+                </div>
+              </div>
+            </div>
+            <div class="preview-col preview-col--weight-square">
+              <div class="preview-disk"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="annotations">
+    <h3>Source of truth</h3>
+    <div class="note"><span class="pin">A</span><code>Shape.weight: Mass</code> at <code>types.ts:125</code>; <code>Mass = number</code> at <code>types.ts:104</code>.</div>
+    <div class="note"><span class="pin">B</span>Today: no UI. Initialised to <code>1</code> at <code>mutations.ts:64</code>.</div>
+    <div class="note"><span class="pin">C</span>This popover defaults visibility to <code>Off</code> — weight isn't typically surfaced on the canvas.</div>
+  </div>
+</section>
+
+<!-- ═══════ Scene 13: JSON panel open ═══════ -->
+
+<section class="wireframe-section">
+  <h2 class="t-h1">Scene 13 — diagram data panel open</h2>
+  <p class="lead">
+    The share control opens diagram data as the same floating
+    <code>tool-popover</code> chrome as the shape inspector (head + body),
+    anchored top-right inside the canvas (<code>top: 8px; right: 12px</code>),
+    <code>400</code>×<code>max-height: 500</code>. Export / Import live in
+    <code>.head .actions</code>; the JSON payload is a
+    <code>&lt;pre&gt;</code> inside <code>.body</code>.
+  </p>
+
+  <div class="editor-frame">
+    <div class="canvas-bg"></div>
+
+    <header class="editor-topbar">
+      <div class="topbar-leading">
+        <a class="topbar-brand" href="#" aria-label="NeSyCat Semiotics">
+          <svg class="logo-mark"><use href="#logo-mark"/></svg>
+        </a>
+      </div>
+      <div class="topbar-center">
+        <div class="topbar-tools" role="toolbar" aria-label="Shape editor">
+          <button class="shape-tool tool-name"      type="button" aria-label="Name"      title="Name"><svg><use href="#ic-name"/></svg></button>
+          <button class="shape-tool tool-points"    type="button" aria-label="Points"    title="Points"><svg><use href="#ic-points"/></svg></button>
+          <button class="shape-tool tool-kind"      type="button" aria-label="Kind"      title="Kind"><svg><use href="#ic-kind"/></svg></button>
+          <button class="shape-tool tool-order"     type="button" aria-label="Order"     title="Order"><svg><use href="#ic-order"/></svg></button>
+          <button class="shape-tool tool-color"     type="button" aria-label="Color"     title="Color"><svg><use href="#ic-color"/></svg></button>
+          <button class="shape-tool tool-transform" type="button" aria-label="Transform" title="Transform"><svg><use href="#ic-transform"/></svg></button>
+          <button class="shape-tool tool-equations" type="button" aria-label="Equations" title="Equations"><svg><use href="#ic-equations"/></svg></button>
+          <button class="shape-tool tool-weight"    type="button" aria-label="Weight"    title="Weight"><svg><use href="#ic-weight"/></svg></button>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <button type="button" class="shape-tool topbar-share is-panel-open" title="Export or share diagram data" aria-label="Share or export diagram" aria-expanded="true">
+          <svg><use href="#ic-share"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <div class="canvas-area">
+
+      <div class="tool-popover" style="top: 8px; right: 12px; left: auto; width: 400px; max-height: 500px">
+        <div class="head">
+          <span class="head-title">Diagram Data</span>
+          <div class="actions">
+            <button type="button">Export</button>
+            <button type="button">Import</button>
+          </div>
+        </div>
+        <div class="body">
+          <pre>{
+  "schemaVersion": 1,
+  "nodes": [
+    {
+      "id": "S3",
+      "points": {
+        "center": {
+          "id": "P4",
+          "name": "Y",
+          "points": {},
+          "kind": "empty",
+          "order": 0,
+          "color": [
+            0.23137254901960785,
+            0.5098039215686274,
+            0.9647058823529412
+          ],
+          "transform": {
+            "time": {
+              "created": 1778342045963,
+              "updated": 1778342045963
+            },
+            "space": {
+              "scale": [
+                1,
+                1
+              ],
+              "rotation": 0,
+              "translation": [
+                0,
+                0
+              ]
+            }
+          }
+        }
+      }
+    }
+  ]
+}</pre>
+        </div>
+      </div>
+
+      <div class="controls-cluster">
+        <button type="button"><svg><use href="#ic-plus"/></svg></button>
+        <button type="button"><svg><use href="#ic-minus"/></svg></button>
+        <button type="button"><svg><use href="#ic-fit"/></svg></button>
+        <button type="button"><svg><use href="#ic-lock"/></svg></button>
+      </div>
+    </div>
+  </div>
+
+  <div class="annotations">
+    <h3>Panel (<code>Canvas.tsx</code> 680–710)</h3>
+    <div class="note"><span class="pin">A</span>Same <code>.tool-popover</code> as shape popovers; instance <code>style</code> sets width 400 and max-height 500.</div>
+    <div class="note"><span class="pin">B</span>Caption uses <code>.head-title</code> (shared with Weight, etc.).</div>
+    <div class="note"><span class="pin">C</span>Export / Import: <code>.head .actions button</code> — light text buttons, shared rule with all diagram-data popovers.</div>
+    <div class="note"><span class="pin">D</span>JSON: <code>.body &gt; pre</code> — mono 10px, scroll; no separate panel bg (inherits <code>--color-glass-panel-bg</code>).</div>
+  </div>
+</section>
+
+<!-- ═══════ Scene 14: Star-prompt modal ═══════ -->
+
+<section class="wireframe-section">
+  <h2 class="t-h1">Scene 14 — Star-prompt modal</h2>
+  <p class="lead">
+    After ~45 s idle, a full-screen modal asks the user to star the GitHub
+    repo. 50% dark scrim over the editor, body centred at ~420 px wide.
+    Dismiss with "Not now" (snooze 3 days) or "Star on GitHub" (opens repo).
+  </p>
+
+  <div class="modal-frame">
+    <div class="modal-scrim">
+      <div class="modal-body">
+        <div class="star">★</div>
+        <h2 class="t-h2" style="margin: 0">Enjoying NeSyCat?</h2>
+        <p class="t-small" style="margin: 0; color: var(--color-text-muted)">
+          A star on GitHub helps other category-theoretic AI folks find the project.
+        </p>
+        <div class="btn-row">
+          <button class="btn" type="button">Not now</button>
+          <button class="btn is-primary" type="button">Star on GitHub ↗</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer class="wireframe-section" style="border-bottom: none">
+  <p class="t-small" style="color: var(--color-text-dimmed)">
+    Out of scope: the React Flow canvas itself (node / point / line rendering),
+    the inline rename input on double-clicking a point name, the canvas
+    <code>+</code> buttons that surface when a shape is selected. Those live
+    inside the canvas and belong to a separate redesign pass.
+  </p>
+</footer>
+
 </body>
 </html>
