@@ -429,10 +429,11 @@
 <section class="wireframe-section">
   <h2 class="t-h1">Scene 7 — kind popover</h2>
   <p class="lead">
-    The bezel matches Points / Order / Colour (<code>.tool-popover.tool-popover--kind</code> at
+    Spine-width bezel (<code>.tool-popover.tool-popover--kind</code> —
     <code>left: var(--shape-pill-left)</code>, <code>width: var(--shape-pill-width)</code>
-    — <strong>380 px</strong> under the Spine pill). <strong>One</strong> row only:
-    <code>.topbar-tools.topbar-tools--popover-rail.kind-rail</code> sits <strong>directly</strong> inside the bezel (same stacking as centre Spine capsule).
+    → <strong>380 px</strong>); <strong>one</strong> child row —
+    <code>.topbar-tools.topbar-tools--popover-rail.kind-rail</code> —
+    mirrors Scene&nbsp;1 centre Spine stacking (bezels hug the pill content only).
     Eleven <strong>32×32</strong> <code>.drag-tile</code>s, left-to-right for Spine columns <strong>0 … 10</strong>:
     the <strong>empty form</strong> (column&nbsp;0: dashed circle — aligns with <code>ShapeKind.empty</code>),
     filled <strong>point</strong> (1), <strong>line</strong> (2), <strong>triangle</strong> (3), <strong>square</strong> (4),
@@ -528,7 +529,7 @@
   <div class="annotations">
     <h3>Source of truth</h3>
     <div class="note"><span class="pin">A</span><strong>0</strong> is the dashed-circle <strong>empty</strong>; <strong>8</strong> is <strong>octagon</strong>; <strong>9</strong> is <strong>nonagon</strong> (nine-edge tessera); <strong>circle</strong> is index <strong>10</strong> (Spine <strong>?</strong> column). Mapping to shipped <code>ShapeKind</code> remains partial (<code>types.ts:70</code>).</div>
-    <div class="note"><span class="pin">B</span>Popover dock + width match the Spine pill. The rail row nests <strong>directly</strong> under the bezel — same shallow DOM / padding as centre <code>.topbar-tools</code> (Kind is not exceptional anymore).</div>
+    <div class="note"><span class="pin">B</span>Dock + footprint match Spine; bezel wraps the rail row with no spacer <code>.body</code> layers between — same stacking as Scene&nbsp;1.</div>
     <div class="note"><span class="pin">C</span>Today: no kind-change mutation in <code>mutations.ts</code>; kind is only set at <code>addNode()</code> creation time. Drag-to-create is the primary affordance.</div>
   </div>
 </section>
@@ -779,7 +780,8 @@
   <h2 class="t-h1">Scene 11 — equations popover</h2>
   <p class="lead">
     The <code>equations</code> wireframe swaps stacked expression rows for a <strong>single</strong>
-    Spine-width glass capsule (<code>--shape-pill-width</code>) identical in stride to <code>.topbar-tools</code>:
+    Spine-width capsule (<code>--shape-pill-width</code>) wrapping <strong>one</strong>
+    <code>.topbar-tools.topbar-tools--popover-rail.eq-op-rail</code> bezel child — identical nesting to Scene&nbsp;6–9 rails:
     eleven <strong>32×32</strong> tiles (<strong>0 … 10</strong>) — one literal <strong>0</strong>, roman <strong>\min</strong>…<strong>\sup</strong>, binary <strong>$+$, $-$</strong>, <strong>$\times$</strong>, <strong>$\div$</strong>, then n-ary <strong>$\sum$</strong> and <strong>$\prod$</strong>
     drawn with <strong>STIX&nbsp;Two&nbsp;Math</strong> (same Google Fonts CDN as Geist — wireframe shorthand for LaTeX-style glyphs). Shipped <code>Expression</code> stays rationals only (<code>types.ts:99–100</code>);
     extended lattice / big operators remain future grammar only.
