@@ -6,11 +6,19 @@
  * 1728 × 1117 effective points. Each scene frame is 1728 × 1080 to mirror
  * the real viewport once the macOS chrome is removed.
  *
+ * v0.7 — Light theme, no top-bar. The shape-tool buttons live as free-
+ * floating pills over the canvas dot-grid; no logo, no chrome strip.
+ * Share is a separate floating pill in the top-right corner.
+ *
  * Region map:
- *   .editor-topbar          — logo · shape-tool strip · share (top, 52 px)
- *   .canvas-area            — full-width host below the bar
- *   .tool-popover           — shared shell for shape inspector + diagram-data
- *   .controls-cluster       — bottom-left zoom buttons (matches React Flow <Controls/>)
+ *   .editor-topbar          — invisible positioning frame for the floating
+ *                             pill cluster (centered) + share pill (right)
+ *   .canvas-area            — full-frame host (top: 0) for popovers + zoom
+ *   .tool-popover           — shape inspectors under rail (pill width · often one capsule;
+ *                             equations (`--equations`) — Spine-width operator rail (`eq-op-rail`);
+ *                             Affine x·y·θ·S (`--transform`);
+ *                             colour presets (`--color`); points inspector strip (`--points`); `--diagram` is share JSON.
+ *   .controls-cluster       — bottom-left zoom row (pills, no container)
  *   .modal-frame            — separate frame for the star-prompt scene
  *
  * Tokens come from ../00-design-system/tokens.css.
@@ -32,7 +40,7 @@ body {
 
 .page-header {
   padding: 36px 40px 16px;
-  max-width: 1808px;          /* 1728 frame + 40 each side, room for shadow */
+  max-width: 1808px;
   margin: 0 auto;
 }
 .page-header p {
@@ -45,10 +53,9 @@ body {
   max-width: 1808px;
   margin: 0 auto;
   padding: 32px 40px 64px;
+  border-bottom: 1px solid var(--color-glass-border);
 }
-.wireframe-section h2 {
-  margin: 0 0 4px;
-}
+.wireframe-section h2 { margin: 0 0 4px; }
 .wireframe-section .lead {
   color: var(--color-text-muted);
   margin: 0 0 24px;
@@ -58,103 +65,78 @@ body {
 }
 
 /* ───────── Editor frame (one scene = one viewport) ───────── */
-/*
- * Matches `app/editor/layout.tsx`:
- *   <div className="relative h-screen w-screen overflow-hidden">
- *     <main className="absolute inset-0">{Canvas}</main>
- *     <EditorSidebar diagrams={diagrams} />
- *   </div>
- * Width fixed at 1728, height 1080, no scrollbars.
- * `--editor-topbar-height` reserves space for the horizontal tool strip + share.
- */
 
 .editor-frame {
   /*
-   * Shape-tool geometry (used to anchor `.tool-popover`s).
-   *   stride       = button width (40) + gap (6) = 46
-   *   cluster-start = (frame 1728 − cluster 362) / 2 = 683
-   *   where cluster = 8 buttons × 40 + 7 gaps × 6 = 362
-   * Each popover declares `style="--tool-index: <0..7>"` instead of a
-   * hand-computed pixel `left`; the rule below picks up the value.
+   * Shape-tool cluster geometry — eleven tools INSIDE one big pill
+   * container (`.topbar-tools`): ID … Weight + slot 9 (stub) + column 10 (?), Apple-style
+   * soft-circle hover per icon — columns align with order / kind / colour rails (0 … 10).
+   *
+   *   inner row      = 11 × 32 icon + 10 × 2 gap = 372
+   *   container      = 4 px padding + 372 + 4 px padding = 380
+   *   center of frame = 1728 / 2 = 864
+   *   container left  = 864 − 380/2 = 674   → --shape-pill-left
+   *   first icon left = 674 + 4 (padding) = 678   → --shape-cluster-start
+   *   icon stride     = 32 + 2 = 34               → --shape-tool-stride
+   *
+   * All `.tool-popover` inspectors share `left`/`width` with this cluster (`top: 68`);
+   * most read as one second pill under the rail; equations uses one Spine-width operator rail (eleven tiles); colour uses a presets strip.
+   * Diagram-data uses `.tool-popover--diagram` (top-right) instead.
    */
-  --editor-topbar-height: 52px;
-  --shape-cluster-start: 683px;
-  --shape-tool-stride:   46px;
+  --pill-row-top:        16px;
+  --pill-size:           40px;
+  --shape-pill-left:     674px;
+  --shape-pill-width:    380px;
+  --shape-cluster-start: 678px;
+  --shape-tool-stride:   34px;
+  --popover-top:         68px;
+  /* Matches `.topbar-tools` horizontal padding — reuse for inspectors that sit under the cluster. */
+  --toolbar-pill-inner-pad: 4px;
   position: relative;
   width: 1728px;
   height: 1080px;
   max-width: 100%;
   border: 1px solid var(--color-glass-border);
-  border-radius: 10px;
+  border-radius: 14px;
   overflow: hidden;
   background: var(--color-canvas-bg);
+  box-shadow: var(--effect-shadow-pill);
 }
 
-/* Canvas dot grid (mirrors React Flow <Background variant="dots" gap={20} size={1} />) */
+/* Canvas dot grid — full frame (no topbar to push it down). */
 .editor-frame .canvas-bg {
   position: absolute;
-  top: var(--editor-topbar-height);
-  left: 0;
-  right: 0;
-  bottom: 0;
+  inset: 0;
   background-image: radial-gradient(var(--canvas-grid-color) 1px, transparent 1px);
   background-size: 20px 20px;
   z-index: 0;
 }
 
-/* ───────── Top bar — logo + horizontal tool strip + share ───────── */
+/* ───────── Floating pill row + share pill ─────────
+ *
+ * `.editor-topbar` is intentionally a *transparent* layout container —
+ * no background, no border, no blur. It only exists to position the
+ * centered tool cluster and the right-hand share pill. Each pill is its
+ * own free-floating element over the canvas dot-grid.
+ */
 
 .editor-topbar {
   position: absolute;
-  top: 0;
+  top: var(--pill-row-top);
   left: 0;
   right: 0;
-  height: var(--editor-topbar-height);
+  height: var(--pill-size);
   z-index: 5;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 0 10px 0 6px;
-  background: var(--color-glass-panel-bg);
-  backdrop-filter: blur(var(--effect-blur));
-  -webkit-backdrop-filter: blur(var(--effect-blur));
-  border-bottom: 1px solid var(--color-glass-border);
-  overflow: hidden;
-}
-
-/* Left chrome (logo). Rail tools are centered on the full bar via .topbar-center (absolute). */
-.topbar-leading {
-  flex: 0 0 auto;
-  position: relative;
-  z-index: 1;
-  padding-right: 6px;
-}
-.topbar-leading::after {
-  content: "";
-  position: absolute;
-  right: 0;
-  top: 50%;
-  width: 1px;
-  height: var(--editor-topbar-height);
-  transform: translateY(-50%);
-  background: var(--color-glass-border);
+  justify-content: flex-end;
+  padding: 0 16px;
+  background: transparent;
+  border: none;
   pointer-events: none;
 }
-.topbar-brand {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex: 0 0 auto;
-  width: 40px;
-  height: 40px;
-  box-sizing: border-box;
-  border-radius: 8px;
-  text-decoration: none;
-}
-.topbar-brand:hover {
-  background: rgba(255, 255, 255, 0.05);
-}
-/* Tool cluster: geometric center of the bar — not in flex flow so logo + share stay at edges. */
+.editor-topbar > * { pointer-events: auto; }
+
 .topbar-center {
   position: absolute;
   left: 50%;
@@ -163,122 +145,180 @@ body {
   transform: translateX(-50%);
   display: flex;
   align-items: center;
-  justify-content: center;
-  z-index: 0;
-  pointer-events: none;
 }
-.topbar-center .topbar-tools {
-  pointer-events: auto;
-}
-.topbar-tools {
-  display: flex;
+/*
+ * Glass pill containers. The top-center cluster (eleven tools), the top-right
+ * share group (1 icon), and the bottom-left zoom column (4 icons) all
+ * share the same container chrome. They're all "one pill" — same height
+ * (40 px: 4 padding + 32 inner-icon + 4 padding), width follows content.
+ */
+.topbar-tools,
+.topbar-actions {
+  display: inline-flex;
   flex-direction: row;
   align-items: center;
-  gap: 6px;
-  flex: 0 0 auto;
-  min-width: 0;
-}
-.topbar-actions {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex: 0 0 auto;
-  z-index: 1;
-}
-/* Share uses .shape-tool (same 40×40, radius 6, hover/focus chrome as shape tools). */
-.shape-tool.topbar-share.is-panel-open {
-  background: rgba(var(--color-accent-rgb), 0.18);
-  border-color: rgba(var(--color-accent-rgb), 0.5);
-  color: var(--color-text-primary);
-}
-.editor-topbar .shape-tool {
-  flex-shrink: 0;
-}
-/* Match .topbar-brand:hover — subtle fill, no glass border ring. */
-.editor-topbar .shape-tool:hover {
-  background: rgba(255, 255, 255, 0.05);
-  border-color: transparent;
-  color: var(--color-text-muted);
-}
-.editor-topbar .shape-tool.is-active:hover {
-  background: rgba(var(--color-accent-rgb), 0.22);
-  border-color: rgba(var(--color-accent-rgb), 0.55);
-  color: var(--color-text-primary);
-}
-.editor-topbar .shape-tool.topbar-share.is-panel-open:hover {
-  background: rgba(var(--color-accent-rgb), 0.25);
-  border-color: rgba(var(--color-accent-rgb), 0.55);
-  color: var(--color-text-primary);
+  gap: 2px;
+  padding: 4px;
+  border-radius: var(--size-radius-pill);
+  background: rgba(255, 255, 255, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  backdrop-filter: var(--effect-glass);
+  -webkit-backdrop-filter: var(--effect-glass);
+  box-shadow: var(--effect-shadow-pill), var(--effect-glass-inset);
 }
 
-/* ───────── Shape-spine tool buttons (live inside .editor-topbar) ─────────
+/* ───────── Shape-spine tool pills ─────────
  *
- * One button per user-facing field of `Shape<K>` in
- * components/editor/types.ts (lines 116-126), in declaration order:
+ * One pill per user-facing field of `Shape<K>` in
+ * components/editor/types.ts (lines 116–126), in declaration order, plus wireframe-only **ID** first,
+ * middot Spine column&nbsp;9 (unknown field placeholder), then **?** (<code>#ic-tbd</code>) as column&nbsp;10 —
+ * so columns pair with discrete indices **0 … 10** alongside order / colour / extended kind rails:
  *
- *   name        → tool-name        — Geist "A" (label)
- *   points      → tool-points      — two dots, wider spacing
- *   kind        → tool-kind        — triangle (representative kind)
- *   order       → tool-order       — three ascending bars
- *   color       → tool-color       — filled disk in current shape color
- *   transform   → tool-transform   — 4-way move arrows (translate/rotate/scale)
- *   equations   → tool-equations   — "=" glyph
- *   weight      → tool-weight      — kettlebell glyph
+ *   id          → tool-id          — Geist lowercase <strong>id</strong> glyph (<code>#ic-id</code>)
+ *   name        → tool-name        — Geist “A” label (<code>#ic-name</code>)
+ *   points      → tool-points      — stacked chevron pair (<code>#ic-points</code>)
+ *   kind        → tool-kind        — triangle (<code>#ic-kind</code>)
+ *   order       → tool-order       — three ascending bars (<code>#ic-order</code>)
+ *   color       → tool-color       — disk swatch (<code>#ic-color</code>)
+ *   transform   → tool-transform   — 4-way move (<code>#ic-transform</code>)
+ *   equations   → tool-equations   — equals bars (<code>#ic-equations</code>)
+ *   weight      → tool-weight      — kettlebell (<code>#ic-weight</code>)
+ *   (stub 9)    → tool-slot-9      — muted middot (<code>.</code> semantics TBD — aligns rail slot <strong>9</strong>)
+ *   (stub 10)   → tool-tbd         — <strong>?</strong>, column&nbsp;10 (<code>#ic-tbd</code>, semantics TBD)
  *
- * Internal-only `id` (types.ts:29) has no button.
+ * Internal-only diagram <code>id</code> (<code>types.ts:29</code>) gains a Spine slot here only;
+ * production may omit or treat as read-only/copy.
+ * Share / zoom cluster use <code>#ic-share</code>, <code>#ic-plus</code>, <code>#ic-minus</code>, <code>#ic-fit</code>, <code>#ic-lock</code> (inline <code>&lt;symbol&gt;</code>s at top of <code>index.html</code>).
  */
 
-/* Inline SVG logo mark (matches LogoMark in EditorSidebar.tsx). */
-.logo-mark { width: 22px; height: 22px; flex-shrink: 0; }
-
+/*
+ * .shape-tool — default styling is the STANDALONE single-icon pill (share
+ * button in `.topbar-actions`, etc.). Each standalone pill has its own glass background.
+ * Equations popover exposes one `.eq-op-rail` row (stub tokens) inside `.tool-popover--equations`.
+ *
+ * When a .shape-tool sits INSIDE a pill container (`.topbar-tools`), the
+ * cascade below strips the bg/border/shadow so it reads as a flat hover-
+ * circle icon (Apple Notes toolbar style).
+ */
 .shape-tool {
-  width: 40px;
-  height: 40px;
+  width: var(--pill-size);
+  height: var(--pill-size);
   display: grid;
   place-items: center;
-  border-radius: 6px;
-  border: 1px solid transparent;
-  background: transparent;
+  border-radius: var(--size-radius-pill);
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  background: rgba(255, 255, 255, 0.55);
+  backdrop-filter: var(--effect-glass);
+  -webkit-backdrop-filter: var(--effect-glass);
   color: var(--color-text-muted);
+  box-shadow: var(--effect-shadow-pill), var(--effect-glass-inset);
   cursor: pointer;
   padding: 0;
   position: relative;
+  transition: background 0.15s, color 0.15s;
 }
-.shape-tool:hover {
-  background: var(--color-glass-button-bg);
-  border-color: var(--color-glass-border);
-  color: var(--color-text-secondary);
-}
+/*
+ * No separate "selected" state — hover IS the selection. A tool's popover
+ * opens on hover, so the popover itself indicates which tool is current.
+ * `.is-active` here just paints the hover look so each scene renders the
+ * tool that "would be hovered" to open its popover.
+ */
+.shape-tool:hover,
 .shape-tool.is-active {
-  background: rgba(var(--color-accent-rgb), 0.18);
-  border-color: rgba(var(--color-accent-rgb), 0.5);
+  background: rgba(255, 255, 255, 0.78);
   color: var(--color-text-primary);
 }
-.shape-tool svg {
-  width: 18px;
-  height: 18px;
+
+/* ───── Pill-container override: flat icon w/ Apple-style soft-circle hover ───
+ * Applies inside the top cluster (.topbar-tools, eleven icons) AND inside the
+ * share group (.topbar-actions, 1 icon). The share thus reads as its own
+ * pill — same height as the cluster pill, just narrower — with the icon
+ * sitting in its own smaller hover circle exactly like the tools do.
+ */
+.topbar-tools .shape-tool,
+.topbar-actions .shape-tool,
+.tool-popover .topbar-tools.topbar-tools--popover-rail > .shape-tool {
+  width: 32px;
+  height: 32px;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+/* Hover IS the selection. `.is-active` / `.is-panel-open` paint the same circle. */
+.topbar-tools .shape-tool:hover,
+.topbar-tools .shape-tool.is-active,
+.topbar-actions .shape-tool:hover,
+.topbar-actions .shape-tool.is-active,
+.topbar-actions .shape-tool.is-panel-open,
+.tool-popover .topbar-tools.topbar-tools--popover-rail > .shape-tool:hover,
+.tool-popover .topbar-tools.topbar-tools--popover-rail > .shape-tool.is-active {
+  background: rgba(17, 24, 39, 0.07);
+  color: var(--color-text-primary);
+}
+.topbar-tools .shape-tool svg,
+.topbar-actions .shape-tool svg,
+.tool-popover .topbar-tools.topbar-tools--popover-rail > .shape-tool svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
   fill: none;
   stroke: currentColor;
   stroke-width: 1.6;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
-/* `tool-color`'s glyph IS the color — filled disk in current shape color. */
-.shape-tool.tool-color svg {
+/* Letterforms — stroke:none so &lt;text&gt; glyphs render from fill on symbol. Same svg canvas so id vs A scale together. */
+.topbar-tools .shape-tool.tool-id svg,
+.topbar-tools .shape-tool.tool-name svg,
+.topbar-tools .shape-tool.tool-tbd svg {
+  stroke: none;
+  fill: currentColor;
+}
+.topbar-tools .shape-tool.tool-id svg,
+.topbar-tools .shape-tool.tool-name svg {
+  width: 20px;
+  height: 20px;
+}
+.topbar-tools .shape-tool.tool-tbd svg {
+  width: 22px;
+  height: 22px;
+}
+
+.tool-popover .topbar-tools.topbar-tools--popover-rail > .shape-tool.tool-id svg,
+.tool-popover .topbar-tools.topbar-tools--popover-rail > .shape-tool.tool-name svg,
+.tool-popover .topbar-tools.topbar-tools--popover-rail > .shape-tool.tool-tbd svg {
+  stroke: none;
+  fill: currentColor;
+}
+.tool-popover .topbar-tools.topbar-tools--popover-rail > .shape-tool.tool-id svg,
+.tool-popover .topbar-tools.topbar-tools--popover-rail > .shape-tool.tool-name svg {
+  width: 20px;
+  height: 20px;
+}
+.tool-popover .topbar-tools.topbar-tools--popover-rail > .shape-tool.tool-tbd svg {
+  width: 22px;
+  height: 22px;
+}
+
+/* Points — stacked chevrons need more canvas than generic 16×16 Spine icons */
+.topbar-tools .shape-tool.tool-points svg {
+  width: 22px;
+  height: 22px;
+  stroke-width: 2.1;
+}
+
+.topbar-tools .shape-tool.tool-color svg {
+  display: block;
+  width: var(--editor-shape-tool-color-glyph-px);
+  height: var(--editor-shape-tool-color-glyph-px);
   fill: var(--color-accent-blue);
   stroke: rgba(255, 255, 255, 0.45);
   stroke-width: 1;
 }
-/* `tool-name` — letterform; cancel the fill:none / stroke base. */
-.shape-tool.tool-name svg {
-  width: 20px;
-  height: 20px;
-  stroke: none;
-  fill: currentColor;
-}
-/* `tool-points` and `tool-equations` glyphs read better as filled shapes. */
-.shape-tool.tool-points svg,
-.shape-tool.tool-equations svg {
+/* Equals bars render as compact filled rects inside the symbol. */
+.topbar-tools .shape-tool.tool-equations svg {
   fill: currentColor;
   stroke: none;
 }
@@ -287,46 +327,61 @@ body {
 
 .canvas-area {
   position: absolute;
-  top: var(--editor-topbar-height);
-  left: 0;
-  right: 0;
-  bottom: 0;
+  inset: 0;
   z-index: 1;
 }
 
-/* ───────── Bottom-left zoom controls (React Flow <Controls />) ─────────
- * Styled in app/globals.css .react-flow__controls: glass panel, 28x28
- * buttons stacked vertically, glass-border between.
+/* ───────── Bottom-left zoom pill (React Flow <Controls />) ─────────
+ * Same shape language as the top: ONE big glass pill containing four flat
+ * icons. Vertical stack (matches React Flow's native <Controls /> column).
+ * Apple-style soft-circle hover behind each icon.
  */
 
 .controls-cluster {
   position: absolute;
-  bottom: 12px;
-  left: 12px;
+  bottom: 16px;
+  left: 16px;
   z-index: 10;
-  background: var(--color-glass-panel-bg);
-  backdrop-filter: blur(var(--effect-blur));
-  -webkit-backdrop-filter: blur(var(--effect-blur));
-  border: 1px solid var(--color-glass-border);
-  border-radius: 8px;
-  overflow: hidden;
-  display: flex;
+  display: inline-flex;
   flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  border-radius: var(--size-radius-pill);
+  background: rgba(255, 255, 255, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  backdrop-filter: var(--effect-glass);
+  -webkit-backdrop-filter: var(--effect-glass);
+  box-shadow: var(--effect-shadow-pill), var(--effect-glass-inset);
 }
 .controls-cluster button {
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--size-radius-pill);
   border: none;
-  border-bottom: 1px solid var(--color-glass-border);
   background: transparent;
-  color: var(--color-text-secondary);
+  box-shadow: none;
+  color: var(--color-text-muted);
   display: grid;
   place-items: center;
   cursor: pointer;
+  padding: 0;
+  transition: background 0.15s, color 0.15s;
 }
-.controls-cluster button:last-child { border-bottom: none; }
-.controls-cluster button:hover { background: var(--color-glass-button-bg); }
-.controls-cluster svg { width: 14px; height: 14px; fill: currentColor; }
+.controls-cluster button:hover {
+  background: rgba(17, 24, 39, 0.07);
+  color: var(--color-text-primary);
+}
+.controls-cluster svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
 
 /* ───────── Star-prompt modal (StarPrompt.tsx) ───────── */
 
@@ -336,23 +391,26 @@ body {
   height: 600px;
   max-width: 100%;
   border: 1px solid var(--color-glass-border);
-  border-radius: 10px;
+  border-radius: 14px;
   overflow: hidden;
   background: var(--color-canvas-bg);
+  box-shadow: var(--effect-shadow-pill);
 }
 .modal-scrim {
   position: absolute;
   inset: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(15, 23, 42, 0.40);
+  backdrop-filter: blur(4px);
   display: grid;
   place-items: center;
 }
 .modal-body {
   width: 420px;
   padding: 32px;
-  background: var(--color-canvas-bg);
+  background: #ffffff;
   border: 1px solid var(--color-glass-border);
-  border-radius: 12px;
+  border-radius: 18px;
+  box-shadow: 0 20px 40px rgba(17, 24, 39, 0.18);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -363,8 +421,8 @@ body {
   width: 48px;
   height: 48px;
   border-radius: 50%;
-  background: rgba(var(--color-accent-rgb), 0.18);
-  border: 1px solid rgba(var(--color-accent-rgb), 0.5);
+  background: rgba(var(--color-accent-rgb), 0.10);
+  border: 1px solid rgba(var(--color-accent-rgb), 0.45);
   display: grid;
   place-items: center;
   color: var(--color-accent-blue);
@@ -379,22 +437,33 @@ body {
 }
 .modal-body .btn {
   flex: 1;
-  padding: 10px 16px;
-  border-radius: 6px;
+  height: 40px;
+  padding: 0 18px;
+  border-radius: var(--size-radius-pill);
   border: 1px solid var(--color-glass-border);
   background: var(--color-glass-button-bg);
-  color: var(--color-text-secondary);
+  color: var(--color-text-primary);
   font-family: inherit;
   font-size: 13px;
+  font-weight: 500;
   cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.modal-body .btn:hover {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: rgba(17, 24, 39, 0.18);
 }
 .modal-body .btn.is-primary {
-  background: rgba(var(--color-accent-rgb), 0.22);
-  border-color: rgba(var(--color-accent-rgb), 0.7);
-  color: var(--color-text-primary);
+  background: rgba(var(--color-accent-rgb), 0.10);
+  border-color: rgba(var(--color-accent-rgb), 0.45);
+  color: var(--color-accent-blue);
+}
+.modal-body .btn.is-primary:hover {
+  background: rgba(var(--color-accent-rgb), 0.14);
+  border-color: rgba(var(--color-accent-rgb), 0.55);
 }
 
-/* ───────── Annotations (below each scene, single column) ───────── */
+/* ───────── Annotations (below each scene, two columns) ───────── */
 
 .annotations {
   margin-top: 24px;
@@ -406,9 +475,9 @@ body {
   color: var(--color-text-muted);
 }
 .annotations .note {
-  border-left: 2px solid rgba(var(--color-accent-rgb), 0.6);
+  border-left: 2px solid rgba(var(--color-accent-rgb), 0.55);
   padding: 4px 12px;
-  background: var(--color-glass-button-bg);
+  background: rgba(255, 255, 255, 0.6);
   border-radius: 4px;
 }
 .annotations .note .pin {
@@ -429,8 +498,8 @@ body {
 
 code {
   font-family: var(--font-geist-mono);
-  color: var(--color-text-secondary);
-  background: var(--color-glass-button-bg);
+  color: var(--color-text-primary);
+  background: rgba(17, 24, 39, 0.06);
   padding: 1px 6px;
   border-radius: 4px;
   font-size: 0.92em;
@@ -438,38 +507,174 @@ code {
 
 /* ───────── Tool popovers — shape inspector + diagram-data panel ─────────
  *
- * Same `.tool-popover` shell everywhere: `.head` (caption row) + `.body` (editor).
- * Shape-tool popovers: declare `style="--tool-index: <0..7>"`; `left` resolves
- *   to `cluster-start + index × stride` via the .editor-frame vars above.
- * Diagram data (share open): override `left` inline → `right: 12px; left: auto`.
- * Head may pair `.head-title` with `.head-vis-toggle` or `.head .actions`
- *   (Export / Import).
+ * Shape-tool popovers (order 0–10, etc.): docked under `.topbar-tools`; same `--shape-pill-left` /
+ * `--shape-pill-width`. Equations (`--equations`): single Spine-width operator capsule. Transform (`--transform`)
+ * folds x·y·θ·S into one capsule.
+ * Color (`--color`) presets-only Spine rail (`.color-slot-rail`). Diagram data anchors top-right (`--diagram`).
+ * Spine-width strips (<code>.tool-popover--points</code> · <code>--order</code> · <code>--color</code> · <code>--equations</code> · <code>--kind</code>): one frosted bezel, then exactly one `.topbar-tools.topbar-tools--popover-rail` child (mirror centre Spine stacking — **no** spare `.body` wrapper).
+ * Scene&nbsp;12 weight nests `.inspector-slider-row--weight-spine` the same shallow way under its bezel.
+ * Scene 7: eleven tessera — empty … hept · two reserved middots · circle (index 10); indices 0 … 10 — share Spine-width bezel (`--shape-pill-width`).
  */
 
 .tool-popover {
   position: absolute;
-  top: 8px;
-  left: calc(var(--shape-cluster-start) + var(--tool-index, 0) * var(--shape-tool-stride));
+  top: var(--popover-top);
+  left: var(--shape-pill-left);
   z-index: 12;
-  min-width: 240px;
-  background: var(--color-glass-panel-bg);
-  backdrop-filter: blur(var(--effect-blur));
-  -webkit-backdrop-filter: blur(var(--effect-blur));
-  border: 1px solid var(--color-glass-border);
-  border-radius: 8px;
+  width: var(--shape-pill-width);
+  min-width: 0;
+  box-sizing: border-box;
+  /* Match `.topbar-tools` glass capsule */
+  background: rgba(255, 255, 255, 0.55);
+  backdrop-filter: var(--effect-glass);
+  -webkit-backdrop-filter: var(--effect-glass);
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  border-radius: var(--size-radius-pill);
+  box-shadow: var(--effect-shadow-pill), var(--effect-glass-inset);
   display: flex;
   flex-direction: column;
   overflow: hidden;
 }
 
+.tool-popover.tool-popover--diagram {
+  left: auto;
+  right: 16px;
+  width: 400px;
+  max-height: 500px;
+}
+
+/*
+ * Scene 8 — order digits reuse the same `.topbar-tools--popover-rail` chromeless row as Spine-adjacent strips.
+ */
+
+.tool-popover .topbar-tools.order-slot-rail .shape-tool.order-slot-digit {
+  font-family: var(--font-geist-mono);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1;
+}
+/* Two-digit label “10” in the same 32 × 32 cell */
+.tool-popover .topbar-tools.order-slot-rail .shape-tool.order-slot-digit--two {
+  font-size: 11px;
+}
+
+/*
+ * Scene 11 — equations: one Spine-width capsule; LaTeX-style operator glyphs via STIX Two Math (`<link>` in index.html `<head>`).
+ */
+.tool-popover.tool-popover--equations .eq-op-rail {
+  --font-eq-math: "STIX Two Math", "Cambria Math", "Latin Modern Math", STIXGeneral, serif;
+}
+.tool-popover.tool-popover--equations .eq-latex {
+  font-family: var(--font-eq-math);
+  color: inherit;
+  font-style: normal;
+  font-weight: 400;
+  line-height: 1;
+  user-select: none;
+}
+.tool-popover.tool-popover--equations .eq-latex-num {
+  font-size: 18px;
+  font-weight: 500;
+}
+.tool-popover.tool-popover--equations .eq-latex-opname {
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: -0.015em;
+}
+.tool-popover.tool-popover--equations .eq-latex-bin {
+  font-size: 17px;
+  font-weight: 400;
+}
+/* N-ary ∑ / ∏ — STIX separates these from monospace body text */
+.tool-popover.tool-popover--equations .eq-latex-bigop {
+  font-size: 15px;
+  font-weight: 400;
+}
+.tool-popover.tool-popover--equations .eq-op-rail > .shape-tool.eq-op-tile {
+  color: var(--color-text-muted);
+}
+.tool-popover.tool-popover--equations .eq-op-rail > .shape-tool.eq-op-tile:hover,
+.tool-popover.tool-popover--equations .eq-op-rail > .shape-tool.eq-op-tile:focus-visible,
+.tool-popover.tool-popover--equations .eq-op-rail > .shape-tool.eq-op-tile.is-active {
+  color: var(--color-text-primary);
+}
+.tool-popover.tool-popover--equations .eq-op-rail > .shape-tool.eq-op-tile:focus-visible {
+  outline: none;
+}
+
+/*
+ * Scene 10 — transform: one capsule, four inline columns · x · y · θ · S (uniform scale).
+ */
+.tool-popover.tool-popover--transform {
+  gap: 8px;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  overflow: visible;
+}
+.tool-popover.tool-popover--transform .body {
+  display: contents;
+  padding: 0;
+  gap: 0;
+}
+.tool-popover.tool-popover--transform .transform-pill {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 40px;
+  padding-block: 4px;
+  padding-inline: 6px 8px;
+  border-radius: var(--size-radius-pill);
+  background: rgba(255, 255, 255, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  backdrop-filter: var(--effect-glass);
+  -webkit-backdrop-filter: var(--effect-glass);
+  box-shadow: var(--effect-shadow-pill), var(--effect-glass-inset);
+}
+.tool-popover.tool-popover--transform .transform-pill-fields {
+  display: flex;
+  flex-flow: row nowrap;
+  align-items: center;
+  flex: 1;
+  gap: 6px;
+  min-width: 0;
+}
+.tool-popover.tool-popover--transform .transform-field {
+  display: flex;
+  flex-flow: row nowrap;
+  align-items: center;
+  gap: 4px;
+  flex: 1 1 0;
+  min-width: 0;
+}
+.tool-popover.tool-popover--transform .transform-field-label {
+  flex-shrink: 0;
+  width: 16px;
+  text-align: center;
+  font-family: var(--font-geist-mono);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1;
+  color: var(--color-text-muted);
+}
+.tool-popover.tool-popover--transform .transform-field .num-input.inspector-field {
+  flex: 1 1 0;
+  min-width: 0;
+  width: auto;
+}
+
 .tool-popover .head {
-  padding: 5px 12px;
-  border-bottom: 1px solid var(--color-glass-border);
+  padding: 6px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.45);
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  min-height: 30px;
+  min-height: 32px;
 }
 .tool-popover .head-title {
   font-family: var(--font-geist-mono);
@@ -481,36 +686,189 @@ code {
   flex: 1;
   min-width: 0;
 }
-/* Diagram-data strip — same `.head` chrome as visibility-dot popovers (Export / Import only). */
 .tool-popover .head .actions {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   flex-shrink: 0;
 }
 .tool-popover .head .actions button {
   background: transparent;
   border: 1px solid transparent;
-  border-radius: 6px;
+  border-radius: var(--size-radius-pill);
   color: var(--color-text-muted);
   font-family: var(--font-geist-sans);
   font-size: 11px;
-  padding: 4px 10px;
+  font-weight: 500;
+  padding: 4px 12px;
   cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
 }
 .tool-popover .head .actions button:hover {
-  background: rgba(255, 255, 255, 0.05);
-  border-color: transparent;
-  color: var(--color-text-muted);
+  background: rgba(17, 24, 39, 0.05);
+  border-color: var(--color-glass-border);
+  color: var(--color-text-primary);
 }
 
 .tool-popover .body {
-  --popover-body-pad: 12px;
-  padding: var(--popover-body-pad);
   display: flex;
   flex-direction: column;
-  gap: 10px;
   flex: 1;
   min-height: 0;
+}
+/* Shape inspectors — default padded `.body`; strips that omit `.body` carry their own inset (see Spine rails · weight row). */
+.tool-popover:not(.tool-popover--diagram):not(.tool-popover--transform)
+  .body {
+  --popover-body-pad: 4px;
+  padding: 4px;
+  gap: 2px;
+  background: transparent;
+}
+
+/* Spine-strip popovers — bezel › one `.topbar-tools.topbar-tools--popover-rail` (same stacking as Scene 1 Spine pill). */
+.tool-popover:is(.tool-popover--points, .tool-popover--order, .tool-popover--color, .tool-popover--equations, .tool-popover--kind)
+  > .topbar-tools.topbar-tools--popover-rail {
+  align-self: center;
+  box-sizing: border-box;
+  padding: var(--toolbar-pill-inner-pad);
+}
+
+.tool-popover .topbar-tools.topbar-tools--popover-rail {
+  flex-shrink: 0;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  padding: 0;
+  gap: 2px;
+}
+
+/* Points rail — chevrons 21²; centre crosshair (~26², heavier stroke + finer ring in `#pt-slot-cross`), dashed-square 23² */
+.tool-popover.tool-popover--points .topbar-tools > .shape-tool svg {
+  width: 20px;
+  height: 20px;
+}
+
+.tool-popover.tool-popover--points .topbar-tools.points-rail > .shape-tool svg {
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.65;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.tool-popover.tool-popover--points .topbar-tools.points-rail > .shape-tool.points-rail-slot--chevron svg {
+  width: 21px;
+  height: 21px;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.tool-popover.tool-popover--points .topbar-tools.points-rail > .shape-tool.points-rail-slot--plus svg {
+  width: 26px;
+  height: 26px;
+  stroke-width: 2.32;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.tool-popover.tool-popover--points .topbar-tools.points-rail > .shape-tool.points-rail-slot--dash-square svg {
+  width: 23px;
+  height: 23px;
+  stroke-linecap: butt;
+  stroke-linejoin: miter;
+  stroke-dasharray: 4.35 3.15;
+  stroke-width: 1.55;
+}
+
+.tool-popover.tool-popover--points .topbar-tools.points-rail > .shape-tool {
+  position: relative;
+  overflow: visible;
+}
+
+/* Hairlines centred in gutters after Spine slots 0 and 5 — no extra flex items (pure ::after paint). */
+.tool-popover.tool-popover--points .topbar-tools.points-rail > .shape-tool.points-rail-slot--dash-square::after,
+.tool-popover.tool-popover--points .topbar-tools.points-rail > .shape-tool:nth-child(6)::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: calc(100% + 0.5px);
+  width: 1px;
+  height: 32px;
+  transform: translateY(-50%);
+  pointer-events: none;
+  background: rgba(17, 24, 39, 0.12);
+}
+.points-rail-placeholder {
+  font-family: var(--font-geist-mono);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1;
+  color: rgba(17, 24, 39, 0.22);
+  user-select: none;
+}
+
+/* Scene 7 — kind: eleven 32×32 drag tessera · same Spine strike as order/points rails */
+.tool-popover .topbar-tools.kind-rail > .drag-tile {
+  appearance: none;
+  -webkit-appearance: none;
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  min-height: 32px;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  place-items: center;
+  border: none;
+  border-radius: var(--size-radius-pill);
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  cursor: grab;
+  color: var(--color-text-muted);
+  transition: background 0.12s ease, color 0.12s ease;
+}
+.tool-popover .topbar-tools.kind-rail > .drag-tile:hover,
+.tool-popover .topbar-tools.kind-rail > .drag-tile:focus-visible,
+.tool-popover .topbar-tools.kind-rail > .drag-tile.is-active {
+  background: rgba(17, 24, 39, 0.07);
+  color: var(--color-text-primary);
+}
+.tool-popover .topbar-tools.kind-rail > .drag-tile:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(17, 24, 39, 0.18);
+}
+.tool-popover .topbar-tools.kind-rail > .drag-tile svg {
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: miter;
+  stroke-miterlimit: 8;
+  shape-rendering: geometricPrecision;
+}
+/* Outlined tessera share one nominal stroke/fit; fills opt out below. */
+.tool-popover .topbar-tools.kind-rail > .drag-tile:not(.kind-tile--point) svg {
+  fill: none;
+}
+.tool-popover .topbar-tools.kind-rail > .drag-tile.kind-tile--point svg {
+  stroke: none;
+}
+.tool-popover .topbar-tools.kind-rail > .drag-tile.kind-rail-slot-stub {
+  cursor: default;
+}
+
+.tool-popover .topbar-tools.kind-rail > .drag-tile svg text {
+  stroke: none;
+  fill: currentColor;
+}
+
+.tool-popover.tool-popover--diagram .body {
+  padding: 12px;
+  gap: 10px;
 }
 .tool-popover .body > pre {
   margin: 0;
@@ -520,8 +878,11 @@ code {
   font-family: var(--font-geist-mono);
   font-size: 10px;
   line-height: 1.4;
-  color: var(--color-text-muted);
+  color: var(--color-text-secondary);
   white-space: pre;
+  background: rgba(17, 24, 39, 0.04);
+  border-radius: 8px;
+  padding: 8px 10px;
 }
 .tool-popover .body .body-label {
   font-size: 11px;
@@ -534,10 +895,8 @@ code {
 }
 
 /*
- * Visibility dot toggle (`.head-vis-toggle` + `.head-vis-dot`). Used in
- * popover heads and in Scene 7's per-kind column. The compact size
- * (24×24 hit target, 5 px dot, 2 px halo) goes on popover heads via
- * `.is-compact`; the base 28×28 / 6 px / 3 px halo stays on kind columns.
+ * Visibility dot toggle (`.head-vis-toggle` + `.head-vis-dot`) — reserved styling;
+ * currently unused in HTML after Kind strip simplified to drag tiles only.
  */
 .head-vis-toggle {
   display: grid;
@@ -547,141 +906,220 @@ code {
   padding: 0;
   margin: 0;
   border: none;
-  border-radius: 4px;
+  border-radius: var(--size-radius-pill);
   background: transparent;
   cursor: pointer;
   flex-shrink: 0;
   transition: background 0.12s;
 }
-.head-vis-toggle:hover { background: rgba(255, 255, 255, 0.04); }
+.head-vis-toggle:hover { background: rgba(17, 24, 39, 0.05); }
 .head-vis-dot {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  border: 1px solid rgba(255, 255, 255, 0.22);
+  border: 1px solid rgba(17, 24, 39, 0.30);
   background: transparent;
   flex-shrink: 0;
   transition: background 0.12s, border-color 0.12s, box-shadow 0.12s;
 }
 .head-vis-toggle.is-on .head-vis-dot {
-  background: rgba(var(--color-accent-rgb), 0.9);
+  background: rgba(var(--color-accent-rgb), 0.95);
   border-color: transparent;
-  box-shadow: 0 0 0 3px rgba(var(--color-accent-rgb), 0.2);
+  box-shadow: 0 0 0 3px rgba(var(--color-accent-rgb), 0.20);
 }
 .head-vis-toggle.is-compact { width: 24px; height: 24px; }
 .head-vis-toggle.is-compact .head-vis-dot { width: 5px; height: 5px; }
 .head-vis-toggle.is-compact.is-on .head-vis-dot {
-  box-shadow: 0 0 0 2px rgba(var(--color-accent-rgb), 0.2);
+  box-shadow: 0 0 0 2px rgba(var(--color-accent-rgb), 0.20);
 }
 
-/* Popover with no body (or header-only): width follows title + visibility control —
-   avoids the default 240px floor and flex:1 title stretching the head sideways. */
-.tool-popover.tool-popover--tight {
-  width: max-content;
-  min-width: 0;
+/*
+ * Inspector fields — shared chrome inside shape inspectors (toolbar-soft hover/focus;
+ * borderless, no ring). Compose with `.text-input`, `.num-input`, `.eq-row-expr`, …
+ */
+.tool-popover:not(.tool-popover--diagram) .inspector-field {
+  border: none;
+  outline: none;
+  box-shadow: none;
+  appearance: none;
+  transition: background 0.12s ease;
+  background: transparent;
 }
-.tool-popover.tool-popover--tight .head-title {
-  flex: 0 0 auto;
+.tool-popover:not(.tool-popover--diagram) .inspector-field:hover {
+  background: rgba(17, 24, 39, 0.05);
+}
+.tool-popover:not(.tool-popover--diagram) .inspector-field:focus,
+.tool-popover:not(.tool-popover--diagram) .inspector-field:focus-visible {
+  background: rgba(17, 24, 39, 0.07);
+  box-shadow: none;
+  outline: none;
 }
 
-/* Shared form controls inside the popover body */
-.tool-popover .text-input {
+.tool-popover:not(.tool-popover--diagram) .text-input {
   width: 100%;
-  height: 30px;
-  padding: 0 10px;
-  border-radius: 6px;
-  border: 1px solid var(--color-glass-border);
-  background: var(--color-glass-button-bg);
+  height: 32px;
+  padding: 0 8px;
+  border-radius: var(--size-radius-pill);
   color: var(--color-text-primary);
   font-family: var(--font-geist-sans);
   font-size: 13px;
-  outline: none;
 }
-.tool-popover .num-input {
+.tool-popover:not(.tool-popover--diagram) .num-input {
   width: 56px;
-  height: 26px;
+  height: 28px;
   padding: 0 6px;
-  border-radius: 6px;
-  border: 1px solid var(--color-glass-border);
-  background: var(--color-glass-button-bg);
+  border-radius: var(--size-radius-pill);
   color: var(--color-text-primary);
   font-family: var(--font-geist-mono);
   font-size: 12px;
   text-align: center;
-  outline: none;
 }
 
-/* Scene 8 Order — numeric field to the left of horizontal slider */
-.tool-popover .order-value-row {
+/* Inspector horizontal sliders — Scene 12 weight `.inspector-slider-row`: optional `.row-label` · elastic Fresco track · trailing `.num-input`. */
+.tool-popover .inspector-slider-row {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   width: 100%;
 }
-.tool-popover .order-value-row .num-input {
+.tool-popover .inspector-slider-row > .slider-col.slider-col--horizontal,
+.tool-popover .inspector-slider-row > .h-track {
+  flex: 1 1 0;
+  min-width: 0;
+  padding-inline-end: var(--toolbar-pill-inner-pad); /* aligns track end under top-cluster right gutter */
+}
+.tool-popover .inspector-slider-row > .num-input {
   flex: 0 0 auto;
 }
-.tool-popover .order-value-row .slider-col.slider-col--horizontal {
-  flex: 1;
+.tool-popover .inspector-slider-row > .row-label {
+  flex-shrink: 0;
+  width: 16px;
+  text-align: center;
+  font-family: var(--font-geist-mono);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--color-text-muted);
+}
+/*
+ * Scene 12 — weight: spine-aligned row — Spine column 0 = “0” reset (centred in 32²),
+ * columns 1–9 = Fresco slider host 304 px band; drawn rail inset 8 px each side (~288 px line),
+ * slightly past strict column-centre anchors 1 and 9, not flush to slot edges.
+ *
+ * Columns 0 and 10 share one numeric face (Geist mono, 12/500): same metrics as each other;
+ * default ink matches so “0” and “1.0” read as one control row.
+ */
+.tool-popover.tool-popover--weight .inspector-slider-row--weight-spine > .weight-spine-reset,
+.tool-popover.tool-popover--weight .inspector-slider-row--weight-spine .weight-spine-num.num-input {
+  font-family: var(--font-geist-mono);
+  font-size: 12px;
+  font-weight: 500;
+  font-style: normal;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: normal;
+  line-height: 1.15;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+.tool-popover.tool-popover--weight .inspector-slider-row.inspector-slider-row--weight-spine {
+  gap: 2px;
+  width: 100%;
+  justify-content: flex-start;
+  align-self: center;
+  box-sizing: border-box;
+  padding: var(--toolbar-pill-inner-pad);
+}
+.tool-popover.tool-popover--weight .inspector-slider-row--weight-spine > .weight-spine-reset {
+  flex: 0 0 32px;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  border: none;
+  border-radius: var(--size-radius-pill);
+  background: transparent;
+  color: var(--color-text-primary);
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+.tool-popover.tool-popover--weight .inspector-slider-row--weight-spine > .weight-spine-reset:hover,
+.tool-popover.tool-popover--weight .inspector-slider-row--weight-spine > .weight-spine-reset:focus-visible {
+  background: rgba(17, 24, 39, 0.07);
+  color: var(--color-text-primary);
+  outline: none;
+}
+.tool-popover.tool-popover--weight .inspector-slider-row--weight-spine > .weight-slider-spine-slot.slider-col.slider-col--horizontal {
+  flex: 0 0 calc(9 * 32px + 8 * 2px);
+  width: calc(9 * 32px + 8 * 2px);
+  max-width: calc(9 * 32px + 8 * 2px);
   min-width: 0;
-  width: auto;
+  padding-inline-end: 0;
 }
 
-/* Scene 7 — kind strip on .body (merged: no inner .kind-rows wrapper). */
-.tool-popover .body.kind-rows {
-  flex-direction: row;
-  align-items: flex-start;
-  gap: 8px;
-  flex-wrap: nowrap;
-  padding-top: 6px;
-  padding-right: var(--popover-body-pad);
-  padding-bottom: var(--popover-body-pad);
-  padding-left: var(--popover-body-pad);
+/* Slider track spans more of the Spine band — narrower gutter each side stretches rail vs prior 12 px tuck. */
+.tool-popover.tool-popover--weight .inspector-slider-row--weight-spine > .weight-slider-spine-slot .slider-stack {
+  box-sizing: border-box;
+  width: 100%;
+  padding-inline: 8px;
 }
+
+.tool-popover.tool-popover--weight .inspector-slider-row--weight-spine > .weight-slider-spine-slot .slider-track {
+  border-radius: 2px;
+}
+.tool-popover.tool-popover--weight .inspector-slider-row--weight-spine > .weight-spine-num-slot {
+  flex: 0 0 32px;
+  width: 32px;
+  display: grid;
+  place-items: center;
+  justify-items: stretch;
+}
+.tool-popover.tool-popover--weight .inspector-slider-row--weight-spine .weight-spine-num.num-input {
+  width: 100%;
+  min-width: 0;
+  height: 30px;
+  padding: 0 4px;
+  text-align: center;
+}
+
+/* Legacy stacked kind rows — wireframe Scene 7 now uses `.kind-rail` inside `.topbar-tools--popover-rail`. */
 .kind-row {
-  display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
+  gap: 0;
   width: auto;
   flex: 0 0 auto;
   box-sizing: border-box;
   padding-left: 0;
   padding-right: 0;
-  /* Column chrome: row ignores hits; drag tiles + visibility toggles receive clicks. */
   cursor: default;
   pointer-events: none;
 }
-.kind-row .drag-tile,
-.kind-row .head-vis-toggle {
-  pointer-events: auto;
-}
 .kind-row .drag-tile {
+  pointer-events: auto;
   width: 40px;
   min-height: 40px;
   flex: 0 0 auto;
   display: grid;
   place-items: center;
-  border-radius: 6px;
+  border-radius: var(--size-radius-pill);
   border: 1px solid var(--color-glass-border);
-  background: transparent;
+  background: rgba(255, 255, 255, 0.65);
   color: var(--color-text-muted);
   cursor: grab;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s;
 }
-/* Dot above tile — centered in each kind column */
-.kind-row-left {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  flex: 0 0 auto;
-  width: auto;
-  min-width: 0;
-}
+/* Hover IS the selection — kind tile `.is-active` mirrors the hover look. */
+.kind-row .drag-tile:hover,
 .kind-row.is-active .drag-tile {
-  background: rgba(var(--color-accent-rgb), 0.14);
-  border-color: rgba(var(--color-accent-rgb), 0.45);
+  background: rgba(255, 255, 255, 0.95);
+  border-color: rgba(17, 24, 39, 0.18);
   color: var(--color-text-primary);
+  box-shadow: 0 4px 12px rgba(17, 24, 39, 0.08);
 }
 .kind-row .drag-tile svg {
   width: 22px;
@@ -698,48 +1136,42 @@ code {
   align-items: flex-start;
   gap: 18px;
 }
-/* Scene 8 Order popover — track + ticks read left → right (0 … 5) */
 .slider-col.slider-col--horizontal {
   flex-direction: column;
   align-items: stretch;
   gap: 8px;
   width: 100%;
 }
-.slider-col.slider-col--horizontal .slider-stack {
-  width: 100%;
-}
+.slider-col.slider-col--horizontal .slider-stack { width: 100%; }
 .slider-col.slider-col--horizontal .slider-track {
   width: 100%;
   height: 4px;
   min-height: 4px;
+}
+.tool-popover:not(.tool-popover--diagram) .slider-col.slider-col--horizontal .slider-track {
+  background: rgba(17, 24, 39, 0.08);
 }
 .slider-col.slider-col--horizontal .slider-thumb {
   left: 40%;
   top: 50%;
   display: grid;
   place-items: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 4px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
   background: transparent;
   border: none;
+  box-shadow: none;
   box-sizing: border-box;
-  /* Match .head-vis-toggle hit area; inner dot matches .head-vis-dot.is-on */
 }
 .slider-col.slider-col--horizontal .slider-thumb-dot {
   display: block;
-  width: 10px;
-  height: 10px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
-  background: rgba(var(--color-accent-rgb), 0.9);
-  border: 1px solid transparent;
-  box-shadow: 0 0 0 3px rgba(var(--color-accent-rgb), 0.2);
-}
-.slider-col.slider-col--horizontal .slider-notches {
-  flex-direction: row;
-  justify-content: space-between;
-  width: 100%;
-  height: auto;
+  background: var(--color-text-primary);
+  border: none;
+  box-shadow: none;
 }
 .slider-col .slider-stack {
   display: flex;
@@ -751,31 +1183,19 @@ code {
   position: relative;
   width: 4px;
   height: 200px;
-  background: var(--color-glass-button-bg);
+  background: rgba(17, 24, 39, 0.10);
   border-radius: 2px;
 }
 .slider-col .slider-thumb {
   position: absolute;
   left: 50%;
-  width: 14px;
-  height: 14px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
-  background: var(--color-accent-blue);
-  border: 1px solid rgba(255, 255, 255, 0.6);
+  background: var(--color-text-primary);
+  border: none;
   transform: translate(-50%, -50%);
-}
-.slider-col .slider-notches {
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  height: 200px;
-  padding-top: 0;
-}
-.slider-col .slider-notches span {
-  font-family: var(--font-geist-mono);
-  font-size: 9px;
-  color: var(--color-text-dimmed);
-  line-height: 1;
+  box-shadow: none;
 }
 .slider-col .preview-col {
   display: flex;
@@ -786,322 +1206,48 @@ code {
 }
 .slider-col .preview-disk {
   border-radius: 50%;
-  background: rgba(var(--color-accent-rgb), 0.35);
-  border: 1px solid rgba(var(--color-accent-rgb), 0.7);
+  background: rgba(var(--color-accent-rgb), 0.30);
+  border: 1px solid rgba(var(--color-accent-rgb), 0.55);
 }
 
-/* Scene 12 — weight: numeric field above vertical track (preview column on the right) */
-.tool-popover .weight-slider-controls {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
+/* Scene 9 — colour presets: `.tool-popover--color > .topbar-tools.color-slot-rail` sits directly under the bezel like other Spine strips;
+ * each slot is a `.shape-tool` carrying a `.sw-face` disk (matches `#ic-color` fill token). */
+.tool-popover.tool-popover--color .topbar-tools.color-slot-rail {
+  /* Swatch fills — modest ring (~0.75 px equiv.) balances chroma vs edge contrast */
+  --editor-shape-tool-color-fill-px: 17px;
 }
-.tool-popover .weight-num-row {
-  display: flex;
-  justify-content: center;
-  width: 100%;
+.tool-popover.tool-popover--color .topbar-tools.color-slot-rail > .shape-tool:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(17, 24, 39, 0.18);
 }
-.tool-popover .slider-col--weight {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  align-items: center;
-  gap: 18px;
-  width: 100%;
-}
-/* Frame fills the grid cell; inner disk fixed size; ::before = maximal inscribed circle (max weight symbol) */
-.tool-popover .slider-col--weight > .preview-col.preview-col--weight-square {
-  position: relative;
-  container-type: size;
-  margin-top: 0;
-  flex: none;
+.tool-popover.tool-popover--color .topbar-tools.color-slot-rail span.sw-face {
+  display: block;
   box-sizing: border-box;
-  justify-self: stretch;
-  align-self: stretch;
-  width: 100%;
-  min-width: 0;
-  min-height: 0;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-.tool-popover .slider-col--weight > .preview-col.preview-col--weight-square::before {
-  content: "";
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  translate: -50% -50%;
-  width: 100cqmin;
-  height: 100cqmin;
-  box-sizing: border-box;
-  border-radius: 50%;
-  border: 1px solid var(--color-glass-border);
-  pointer-events: none;
-  z-index: 0;
-}
-.tool-popover .slider-col--weight > .preview-col.preview-col--weight-square .preview-disk {
-  position: relative;
-  z-index: 1;
-  width: 48px;
-  height: 48px;
-  flex-shrink: 0;
-  border-radius: 50%;
-}
-/* Weight thumb — accent dot + halo (scaled up from header visibility dot for grab affordance) */
-.tool-popover .weight-slider-controls .slider-thumb {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: rgba(var(--color-accent-rgb), 0.9);
-  border: 1px solid transparent;
-  box-shadow: 0 0 0 3px rgba(var(--color-accent-rgb), 0.2);
-  box-sizing: border-box;
-}
-
-/* Scene 9 — color picker (Fresco-like: spectral hue ring, S/V field, corner presets, opacity under wheel) */
-.tool-popover--color .body {
-  gap: 12px;
-}
-.color-wheel {
-  width: 220px;
-  height: 220px;
-  position: relative;
-  margin: 0 auto;
-}
-.color-wheel-frame {
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-}
-/* Full-spectrum ring — annulus: thin band; hole large enough that S/V square sits fully inside with gap */
-.color-hue-ring {
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  z-index: 1;
-  background: conic-gradient(
-    from 0deg,
-    hsl(0, 100%, 50%),
-    hsl(60, 100%, 50%),
-    hsl(120, 100%, 50%),
-    hsl(180, 100%, 50%),
-    hsl(240, 100%, 50%),
-    hsl(300, 100%, 50%),
-    hsl(360, 100%, 50%)
-  );
-  /* Hole ~75px radius → square ≤105px inscribed; ring 75→87 (~12px thick); fade ~88px */
-  -webkit-mask: radial-gradient(
-    circle at 50% 50%,
-    transparent 0,
-    transparent 74px,
-    #000 75px,
-    #000 87px,
-    transparent 88px
-  );
-  mask: radial-gradient(
-    circle at 50% 50%,
-    transparent 0,
-    transparent 74px,
-    #000 75px,
-    #000 87px,
-    transparent 88px
-  );
-  pointer-events: none;
-  filter: saturate(1.15) brightness(1.06);
-}
-.color-hue-thumb {
-  position: absolute;
-  z-index: 4;
-  width: 14px;
-  height: 14px;
-  margin-left: -7px;
-  margin-top: -7px;
-  border-radius: 50%;
-  border: 2px solid #fff;
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.55);
-  left: calc(50% + 81px);
-  top: 50%;
-  pointer-events: none;
-}
-.color-sv-field {
-  position: absolute;
-  z-index: 3;
-  left: 50%;
-  top: 50%;
-  width: 92px;
-  height: 92px;
-  transform: translate(-50%, -50%);
-  border-radius: 5px;
-  overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
-  background:
-    linear-gradient(to bottom, transparent, #000),
-    linear-gradient(to right, #fff, hsl(216, 76%, 52%));
-}
-.color-sv-thumb {
-  position: absolute;
-  width: 12px;
-  height: 12px;
-  margin-left: -6px;
-  margin-top: -6px;
-  border-radius: 50%;
-  border: 2px solid #fff;
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.55);
-  left: 72%;
-  top: 22%;
-  pointer-events: none;
-}
-.color-corner {
-  position: absolute;
-  z-index: 5;
-  width: 28px;
-  height: 28px;
-  padding: 0;
-  border-radius: 50%;
-  cursor: pointer;
-  display: grid;
-  place-items: center;
-  background: var(--color-glass-button-bg);
-  color: var(--color-text-secondary);
-  border: 1px solid var(--color-glass-border);
-  transition: background 0.12s, border-color 0.12s;
-}
-.color-corner:hover {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.22);
-}
-.color-corner--white {
-  top: 0;
-  left: 0;
-  background: #fff;
-  border-color: rgba(0, 0, 0, 0.28);
-}
-.color-corner--black {
-  bottom: 0;
-  left: 0;
-  background: #000;
-  border-color: rgba(255, 255, 255, 0.35);
-  color: var(--color-text-muted);
-}
-.color-corner--eyedropper {
-  top: 0;
-  right: 0;
-  background: transparent;
-  border: none;
-  border-radius: 6px;
-  color: var(--color-text-muted);
-}
-.color-corner--eyedropper:hover {
-  background: rgba(255, 255, 255, 0.05);
-  border-color: transparent;
-  border: none;
-  color: var(--color-text-muted);
-}
-.color-corner--transparent {
-  bottom: 0;
-  right: 0;
-  background-color: transparent;
-  background-image: repeating-conic-gradient(
-    rgba(255, 255, 255, 0.32) 0% 25%,
-    rgba(0, 0, 0, 0.28) 0% 50%
-  );
-  background-size: 8px 8px;
-  background-position: 50% 50%;
-  border-color: var(--color-glass-border);
-}
-.color-sliders {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.color-sliders .slider-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.color-sliders .slider-row .row-label {
-  width: 16px;
-  font-family: var(--font-geist-mono);
-  font-size: 11px;
-  font-weight: 500;
-  color: var(--color-text-muted);
-}
-.color-sliders .slider-row .h-track {
-  flex: 1;
-  height: 6px;
-  border-radius: 3px;
-  position: relative;
-}
-.color-sliders .slider-row .h-track.hue {
-  background: linear-gradient(to right, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00);
-}
-.color-sliders .slider-row .h-track.sat {
-  background: linear-gradient(to right, rgba(255,255,255,0.1), rgb(var(--color-accent-rgb)));
-}
-.color-sliders .slider-row .h-track.val {
-  background: linear-gradient(to right, #000, rgb(var(--color-accent-rgb)));
-}
-.color-sliders .slider-row .h-track.alpha {
-  background:
-    linear-gradient(to right, rgba(59,130,246,0), rgb(var(--color-accent-rgb))),
-    repeating-conic-gradient(rgba(255,255,255,0.2) 0% 25%, transparent 0% 50%) 0 0 / 8px 8px;
-}
-.color-sliders .slider-row .h-thumb {
-  position: absolute;
-  top: 50%;
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: #fff;
-  border: 1px solid rgba(0, 0, 0, 0.6);
-  transform: translate(-50%, -50%);
-}
-.swatches {
-  display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: 6px;
-}
-.swatches .sw {
+  width: var(--editor-shape-tool-color-fill-px);
+  height: var(--editor-shape-tool-color-fill-px);
+  min-width: var(--editor-shape-tool-color-fill-px);
+  min-height: var(--editor-shape-tool-color-fill-px);
+  max-width: var(--editor-shape-tool-color-fill-px);
+  max-height: var(--editor-shape-tool-color-fill-px);
   aspect-ratio: 1;
-  border-radius: 4px;
-  border: 1px solid var(--color-glass-border);
-}
-
-/* Scene 10 — transform popover: three rows (Scale / Translate / Rotate), label left, fields right */
-.tool-popover .transform-row {
-  display: grid;
-  grid-template-columns: 72px minmax(0, 1fr);
-  align-items: center;
-  gap: 12px;
-}
-.tool-popover .transform-row-name {
-  font-size: 11px;
-  font-weight: 500;
-  color: var(--color-text-muted);
-  line-height: 1.2;
-}
-.tool-popover .transform-row-fields {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px 12px;
-}
-.tool-popover .transform-field {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.tool-popover .transform-field-label {
-  width: 22px;
+  border-radius: 50%;
   flex-shrink: 0;
-  font-family: var(--font-geist-mono);
-  font-size: 11px;
-  font-weight: 500;
-  color: var(--color-text-muted);
+  /* Hairline slightly heavier than before — readability on yellow / pastel swatches without a thick bezel */
+  box-shadow: 0 0 0 0.75px rgba(17, 24, 39, 0.18);
+}
+.tool-popover.tool-popover--color .topbar-tools.color-slot-rail span.sw-face--preset-black {
+  background: #0a0a0a;
+  box-shadow: 0 0 0 0.75px rgba(255, 255, 255, 0.2);
+}
+.tool-popover.tool-popover--color .topbar-tools.color-slot-rail span.sw-face--hsv-strong {
+  /* Hue 60° yellow — bump ring contrast against near-white canvas */
+  box-shadow: 0 0 0 0.75px rgba(17, 24, 39, 0.24);
+}
+.tool-popover.tool-popover--color .topbar-tools.color-slot-rail span.sw-face--white {
+  background: #fafafa;
+  box-shadow: 0 0 0 0.75px rgba(17, 24, 39, 0.2);
 }
 
-/* Scene 11 — equations list */
 .eq-list {
   display: flex;
   flex-direction: column;
@@ -1110,44 +1256,95 @@ code {
 .eq-row {
   display: flex;
   align-items: center;
-  padding: 8px 10px;
-  background: var(--color-glass-button-bg);
+  gap: 10px;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.8);
   border: 1px solid var(--color-glass-border);
-  border-radius: 4px;
+  border-radius: var(--size-radius-pill);
   font-family: var(--font-geist-mono);
   font-size: 12px;
-  color: var(--color-text-secondary);
+  color: var(--color-text-primary);
 }
-.eq-row .delete {
-  margin-left: auto;
-  color: var(--color-text-dimmed);
-  font-size: 13px;
-  cursor: pointer;
+/* Inspectors — same continuous glass capsule as `.topbar-tools`; flat rows inside (equation operator rail excluded — `.eq-op-rail`) */
+.tool-popover:not(.tool-popover--diagram) .eq-list {
+  gap: 2px;
 }
-.tool-popover--equations .head {
-  justify-content: flex-start;
+.tool-popover:not(.tool-popover--diagram) .eq-row {
+  padding: 4px 2px;
+  background: transparent;
+  border: none;
+  border-radius: 0;
   gap: 8px;
-  min-height: 32px;
-  padding-top: 5px;
-  padding-bottom: 5px;
 }
-.tool-popover--equations .head .head-title {
+.eq-row-expr:not(input) {
   flex: 1;
   min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-/* Compact “+”: same accent treatment as active .shape-tool, not 40×40. */
-.tool-popover--equations .head .eq-popover-add.shape-tool {
-  width: 28px;
-  height: 28px;
+.eq-row-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   flex-shrink: 0;
 }
-.tool-popover--equations .head .eq-popover-add.shape-tool svg {
+/* Inline “+”: insert near this equation — flat toolbar icon, no glass pill. */
+.eq-row-add {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  margin: 0;
+  border: none;
+  border-radius: var(--size-radius-pill);
+  background: transparent;
+  color: var(--color-text-dimmed);
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+.eq-row-add:hover {
+  background: rgba(17, 24, 39, 0.07);
+  color: var(--color-text-primary);
+}
+.eq-row-add:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(var(--color-accent-rgb), 0.35);
+}
+.eq-row-add svg {
   width: 14px;
   height: 14px;
+  flex-shrink: 0;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
-/* Match default + hover chrome of .editor-topbar .shape-tool (e.g. Weight when inactive). */
-.tool-popover--equations .head .eq-popover-add:hover {
-  background: rgba(255, 255, 255, 0.05);
-  border-color: transparent;
-  color: var(--color-text-muted);
+.eq-row-remove {
+  display: grid;
+  place-items: center;
+  min-width: 26px;
+  height: 26px;
+  padding: 0;
+  margin: 0;
+  border: none;
+  border-radius: var(--size-radius-pill);
+  background: transparent;
+  color: var(--color-text-dimmed);
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+  font-family: inherit;
+  font-size: 18px;
+  font-weight: 500;
+  line-height: 1;
+}
+.eq-row-remove:hover {
+  background: rgba(17, 24, 39, 0.07);
+  color: var(--color-text-primary);
+}
+.eq-row-remove:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(var(--color-accent-rgb), 0.35);
 }
