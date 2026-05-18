@@ -1,0 +1,35 @@
+/*
+ * 04 — Prototype styles
+ *
+ * Re-uses the entire wireframe stylesheet (which itself imports tokens.css)
+ * so any visual edit there propagates here automatically. This file only
+ * adds the small set of rules the interactive layer needs:
+ *
+ *   - hide popovers by default; reveal the one matching `state.openPopover`
+ *   - the slider track is now a click / drag surface
+ *   - the name-bar input always shows a centred cursor
+ */
+
+@import url("../02-wireframe/styles.css");
+
+/* Popovers — hidden until JS adds `.is-open`. */
+.tool-popover { display: none; }
+.tool-popover.is-open { display: flex; }
+
+/* Slider track is interactive — click to set, drag to refine. */
+.tool-popover.tool-popover--bounds .slider-col.slider-col--horizontal,
+.tool-popover.tool-popover--bounds .slider-track {
+  cursor: pointer;
+}
+.tool-popover.tool-popover--bounds .slider-thumb {
+  cursor: grab;
+}
+.tool-popover.tool-popover--bounds .slider-thumb:active {
+  cursor: grabbing;
+}
+
+/* The name bar should never look like a read-only label. */
+.canvas-name-bar input:focus,
+.canvas-name-bar input:focus-visible {
+  outline: none;
+}

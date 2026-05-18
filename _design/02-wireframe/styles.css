@@ -17,14 +17,20 @@
  *   .tool-popover           — shape inspectors under rail (pill width · often one capsule;
  *                             equations (`--equations`) — Spine-width operator rail (`eq-op-rail`);
  *                             Affine x·y·θ·S (`--transform`);
- *                             colour presets (`--color`); points inspector strip (`--points`); `--diagram` is share JSON.
+ *                             colour presets (`--color`); points inspector strip (`--points`).
  *   .controls-cluster       — bottom-left zoom row (pills, no container)
- *   .modal-frame            — separate frame for the star-prompt scene
  *
  * Tokens come from ../00-design-system/tokens.css.
  */
 
 @import url("../00-design-system/tokens.css");
+
+/* `#pt-slot-cross` — Spine `.tool-points` and Scene 6 rail centre tiles must match pixel-for-pixel. */
+:root {
+  --editor-pt-slot-cross-px: 21px;
+  --editor-pt-slot-cross-stroke: 1.9;
+  --editor-pt-slot-cross-ring-stroke: 1.52;
+}
 
 * { box-sizing: border-box; }
 
@@ -68,26 +74,27 @@ body {
 
 .editor-frame {
   /*
-   * Shape-tool cluster geometry — eleven tools INSIDE one big pill
-   * container (`.topbar-tools`): ID … Weight + slot 9 (stub) + column 10 (?), Apple-style
-   * soft-circle hover per icon — columns align with order / kind / colour rails (0 … 10).
+   * Category-Spine cluster geometry — eight category buttons INSIDE one
+   * big pill container (`.topbar-tools`): Weight · Direction · Rotation ·
+   * Scale · Location · Number · Color · Shape. (Level · Class · Equations
+   * temporarily removed at positions 7-9 — reinstated later.)
    *
-   *   inner row      = 11 × 32 icon + 10 × 2 gap = 372
-   *   container      = 4 px padding + 372 + 4 px padding = 380
+   *   inner row      = 8 × 32 icon + 7 × 2 gap = 270
+   *   container      = 4 px padding + 270 + 4 px padding = 278
    *   center of frame = 1728 / 2 = 864
-   *   container left  = 864 − 380/2 = 674   → --shape-pill-left
-   *   first icon left = 674 + 4 (padding) = 678   → --shape-cluster-start
+   *   container left  = 864 − 278/2 = 725   → --shape-pill-left
+   *   first icon left = 725 + 4 (padding) = 729   → --shape-cluster-start
    *   icon stride     = 32 + 2 = 34               → --shape-tool-stride
    *
    * All `.tool-popover` inspectors share `left`/`width` with this cluster (`top: 68`);
-   * most read as one second pill under the rail; equations uses one Spine-width operator rail (eleven tiles); colour uses a presets strip.
-   * Diagram-data uses `.tool-popover--diagram` (top-right) instead.
+   * bounds sliders, rail strips, and the location xy popover all anchor here.
+   * Diagram-data overlay is intentionally omitted from this wireframe.
    */
   --pill-row-top:        16px;
   --pill-size:           40px;
-  --shape-pill-left:     674px;
-  --shape-pill-width:    380px;
-  --shape-cluster-start: 678px;
+  --shape-pill-left:     725px;
+  --shape-pill-width:    278px;
+  --shape-cluster-start: 729px;
   --shape-tool-stride:   34px;
   --popover-top:         68px;
   /* Matches `.topbar-tools` horizontal padding — reuse for inspectors that sit under the cluster. */
@@ -147,7 +154,7 @@ body {
   align-items: center;
 }
 /*
- * Glass pill containers. The top-center cluster (eleven tools), the top-right
+ * Glass pill containers. The top-center cluster (twelve tools), the top-right
  * share group (1 icon), and the bottom-left zoom column (4 icons) all
  * share the same container chrome. They're all "one pill" — same height
  * (40 px: 4 padding + 32 inner-icon + 4 padding), width follows content.
@@ -171,20 +178,21 @@ body {
  *
  * One pill per user-facing field of `Shape<K>` in
  * components/editor/types.ts (lines 116–126), in declaration order, plus wireframe-only **ID** first,
- * middot Spine column&nbsp;9 (unknown field placeholder), then **?** (<code>#ic-tbd</code>) as column&nbsp;10 —
- * so columns pair with discrete indices **0 … 10** alongside order / colour / extended kind rails:
+ * middot Spine column&nbsp;9, **?** column&nbsp;10, ellipsis stub column&nbsp;11 —
+ * so columns pair with discrete indices **0 … 11** alongside order / colour / extended kind rails:
  *
  *   id          → tool-id          — Geist lowercase <strong>id</strong> glyph (<code>#ic-id</code>)
  *   name        → tool-name        — Geist “A” label (<code>#ic-name</code>)
- *   points      → tool-points      — stacked chevron pair (<code>#ic-points</code>)
- *   kind        → tool-kind        — triangle (<code>#ic-kind</code>)
- *   order       → tool-order       — three ascending bars (<code>#ic-order</code>)
- *   color       → tool-color       — disk swatch (<code>#ic-color</code>)
+ *   points      → tool-points      — selected subtree slot glyph (<code>#pt-slot-cross</code> when centred; mirrors Scene&nbsp;6)
+ *   kind        → tool-kind        — active <code>ShapeKind</code> tessera (<code>#kind-*</code>; wireframe mock uses <code>#kind-triangle</code>)
+ *   order       → tool-order       — monospace digit for current draw-order (mirrors Scene&nbsp;8 rail; mock shape uses <strong>4</strong>)
+ *   color       → tool-color       — disk swatch (<code>#ic-color</code>); <code>fill</code> from <code>--editor-spine-tool-color-disk</code> (fallback <code>--color-accent-blue</code>)
  *   transform   → tool-transform   — 4-way move (<code>#ic-transform</code>)
  *   equations   → tool-equations   — equals bars (<code>#ic-equations</code>)
  *   weight      → tool-weight      — kettlebell (<code>#ic-weight</code>)
- *   (stub 9)    → tool-slot-9      — muted middot (<code>.</code> semantics TBD — aligns rail slot <strong>9</strong>)
- *   (stub 10)   → tool-tbd         — <strong>?</strong>, column&nbsp;10 (<code>#ic-tbd</code>, semantics TBD)
+ *   (stub 9)    → tool-slot-9      — muted middot (rail column <strong>9</strong>)
+ *   (stub 10)   → tool-tbd         — <strong>?</strong> (<code>#ic-tbd</code>)
+ *   (stub 11)   → tool-spine-11    — <strong>⋯</strong> (<code>#ic-ellipsis</code>, semantics TBD)
  *
  * Internal-only diagram <code>id</code> (<code>types.ts:29</code>) gains a Spine slot here only;
  * production may omit or treat as read-only/copy.
@@ -230,7 +238,7 @@ body {
 }
 
 /* ───── Pill-container override: flat icon w/ Apple-style soft-circle hover ───
- * Applies inside the top cluster (.topbar-tools, eleven icons) AND inside the
+ * Applies inside the top cluster (.topbar-tools, twelve icons) AND inside the
  * share group (.topbar-actions, 1 icon). The share thus reads as its own
  * pill — same height as the cluster pill, just narrower — with the icon
  * sitting in its own smaller hover circle exactly like the tools do.
@@ -269,10 +277,25 @@ body {
   stroke-linecap: round;
   stroke-linejoin: round;
 }
+/* Spine icons match the popover-rail icon size (22×22) so the active Spine
+ * glyph reads as the same artifact as the selected rail cell. */
+.topbar-tools .shape-tool svg {
+  width: 22px;
+  height: 22px;
+}
+/* Spine for category sliders / xy use the same stroke idiom; line widths
+ * are slightly thinner to balance against the 22×22 footprint. */
+.topbar-tools .shape-tool.tool-weight svg,
+.topbar-tools .shape-tool.tool-rotation svg,
+.topbar-tools .shape-tool.tool-scale svg,
+.topbar-tools .shape-tool.tool-location svg {
+  stroke-width: 1.7;
+}
 /* Letterforms — stroke:none so &lt;text&gt; glyphs render from fill on symbol. Same svg canvas so id vs A scale together. */
 .topbar-tools .shape-tool.tool-id svg,
 .topbar-tools .shape-tool.tool-name svg,
-.topbar-tools .shape-tool.tool-tbd svg {
+.topbar-tools .shape-tool.tool-tbd svg,
+.topbar-tools .shape-tool.tool-spine-11 svg {
   stroke: none;
   fill: currentColor;
 }
@@ -281,14 +304,29 @@ body {
   width: 20px;
   height: 20px;
 }
-.topbar-tools .shape-tool.tool-tbd svg {
+.topbar-tools .shape-tool.tool-tbd svg,
+.topbar-tools .shape-tool.tool-spine-11 svg {
   width: 22px;
   height: 22px;
+}
+/* Level — Hasse-diagram lattice; mixed stroke (covering edges) + fill (nodes) via per-element attrs. */
+.topbar-tools .shape-tool.tool-level svg {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+}
+/* Class — tilde S-curve, stroked path. */
+.topbar-tools .shape-tool.tool-class svg {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
 }
 
 .tool-popover .topbar-tools.topbar-tools--popover-rail > .shape-tool.tool-id svg,
 .tool-popover .topbar-tools.topbar-tools--popover-rail > .shape-tool.tool-name svg,
-.tool-popover .topbar-tools.topbar-tools--popover-rail > .shape-tool.tool-tbd svg {
+.tool-popover .topbar-tools.topbar-tools--popover-rail > .shape-tool.tool-tbd svg,
+.tool-popover .topbar-tools.topbar-tools--popover-rail > .shape-tool.tool-spine-11 svg {
   stroke: none;
   fill: currentColor;
 }
@@ -297,30 +335,116 @@ body {
   width: 20px;
   height: 20px;
 }
-.tool-popover .topbar-tools.topbar-tools--popover-rail > .shape-tool.tool-tbd svg {
+.tool-popover .topbar-tools.topbar-tools--popover-rail > .shape-tool.tool-tbd svg,
+.tool-popover .topbar-tools.topbar-tools--popover-rail > .shape-tool.tool-spine-11 svg {
   width: 22px;
   height: 22px;
 }
 
-/* Points — stacked chevrons need more canvas than generic 16×16 Spine icons */
+/* Order — discrete value (typography matches Scene 8 digit rail). */
+.topbar-tools .shape-tool.tool-order {
+  font-family: var(--font-geist-mono);
+  font-variant-numeric: tabular-nums;
+}
+.topbar-tools .shape-tool.tool-order .tool-order-num {
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1;
+}
+
+/* Kind — same stroke/fit idiom as `.kind-rail` tiles, scaled to Spine. */
+.topbar-tools .shape-tool.tool-kind svg {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  stroke: currentColor;
+  stroke-width: 1.74;
+  stroke-linecap: round;
+  stroke-linejoin: miter;
+  stroke-miterlimit: 8;
+  fill: none;
+  shape-rendering: geometricPrecision;
+}
+
+/* Points — centre crosshair; shares `--editor-pt-slot-cross-*` with points popover centre slots. */
 .topbar-tools .shape-tool.tool-points svg {
-  width: 22px;
-  height: 22px;
-  stroke-width: 2.1;
+  width: var(--editor-pt-slot-cross-px);
+  height: var(--editor-pt-slot-cross-px);
+  fill: none;
+  stroke: currentColor;
+  stroke-width: var(--editor-pt-slot-cross-stroke);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.topbar-tools .shape-tool.tool-points svg circle {
+  stroke-width: var(--editor-pt-slot-cross-ring-stroke);
 }
 
-.topbar-tools .shape-tool.tool-color svg {
-  display: block;
-  width: var(--editor-shape-tool-color-glyph-px);
-  height: var(--editor-shape-tool-color-glyph-px);
-  fill: var(--color-accent-blue);
-  stroke: rgba(255, 255, 255, 0.45);
-  stroke-width: 1;
-}
 /* Equals bars render as compact filled rects inside the symbol. */
 .topbar-tools .shape-tool.tool-equations svg {
   fill: currentColor;
   stroke: none;
+}
+/* Direction Spine glyph — exact same render as the points-rail chevron cells. */
+.topbar-tools .shape-tool.tool-direction svg {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.85;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+/* Shape Spine glyph — exact same render as the kind-rail drag-tiles. */
+.topbar-tools .shape-tool.tool-shape svg {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.74;
+  stroke-linecap: round;
+  stroke-linejoin: miter;
+  stroke-miterlimit: 8;
+  shape-rendering: geometricPrecision;
+}
+/* Filled kind tiles in either context (`#kind-point` is the only filled one).
+ * Spine `tool-shape` falls under the same rule when its glyph is the point. */
+.topbar-tools .shape-tool.tool-shape.tool-shape--point svg {
+  fill: currentColor;
+  stroke: none;
+}
+/* Color — one rendering path. The Spine `.tool-color` and every Color rail
+ * cell both wrap a `<span class="sw-face">` (no SVG). One disk size, one ring. */
+.topbar-tools .shape-tool .sw-face,
+.tool-popover.tool-popover--color .topbar-tools.color-slot-rail .sw-face {
+  display: block;
+  box-sizing: border-box;
+  width: 17px;
+  height: 17px;
+  min-width: 17px;
+  min-height: 17px;
+  max-width: 17px;
+  max-height: 17px;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  flex-shrink: 0;
+  box-shadow: 0 0 0 0.75px rgba(17, 24, 39, 0.18);
+}
+.topbar-tools .shape-tool.tool-color .sw-face {
+  background: var(--editor-spine-tool-color-disk, var(--color-accent-blue));
+}
+/* Number — one rendering path. The Spine `.tool-number` and every Number rail
+ * cell render a plain digit in mono. Slightly bigger than before. */
+.topbar-tools .shape-tool.tool-number,
+.tool-popover .topbar-tools.order-slot-rail .shape-tool.order-slot-digit {
+  font-family: var(--font-geist-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1;
+}
+.tool-popover .topbar-tools.order-slot-rail .shape-tool.order-slot-digit--two {
+  font-size: 13px;
 }
 
 /* ───────── Canvas area ───────── */
@@ -329,6 +453,115 @@ body {
   position: absolute;
   inset: 0;
   z-index: 1;
+}
+
+/* ───────── Canvas forms (one demo form per scene) ─────────
+ *
+ * Each scene draws a form on the dot-grid that reacts to the active Spine
+ * category — weight controls fill, rotation rotates, scale scales,
+ * location translates, etc. Default form: white-filled hexagon with a
+ * black hairline. Variations are driven by CSS custom properties so the
+ * scene HTML only sets the relevant `--shape-*` inline.
+ */
+
+.canvas-stage {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+.canvas-shape {
+  position: relative;
+  width: 160px;
+  height: 160px;
+  display: grid;
+  place-items: center;
+  transform: var(--shape-transform, none);
+  transform-origin: center;
+}
+.canvas-shape .cnv-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.canvas-shape .cnv-poly {
+  fill: var(--shape-color, #ffffff);
+  fill-opacity: var(--shape-fill-opacity, 1);
+  stroke: #111827;
+  stroke-width: 2.2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.canvas-shape .cnv-label {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-family: "STIX Two Math", "Cambria Math", "Latin Modern Math", STIXGeneral, serif;
+  font-size: 34px;
+  font-weight: 400;
+  font-style: italic;
+  color: #111827;
+  line-height: 1;
+  user-select: none;
+}
+.canvas-shape .cnv-num-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: #111827;
+  color: #ffffff;
+  font-family: var(--font-geist-mono);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 22px;
+  text-align: center;
+  box-shadow: 0 1px 3px rgba(17, 24, 39, 0.25);
+}
+
+/* ───────── Bottom name bar ─────────
+ *
+ * Same horizontal footprint, same glass chrome as the Spine pill — just
+ * docked at the bottom of the canvas. Plain text input inside; the user
+ * types here to rename the selected form (LaTeX supported, à la Quiver).
+ */
+
+.canvas-name-bar {
+  position: absolute;
+  bottom: 16px;
+  left: var(--shape-pill-left);
+  width: var(--shape-pill-width);
+  height: 40px;
+  z-index: 11;
+  display: flex;
+  align-items: center;
+  padding: 4px 14px;
+  border-radius: var(--size-radius-pill);
+  background: rgba(255, 255, 255, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  backdrop-filter: var(--effect-glass);
+  -webkit-backdrop-filter: var(--effect-glass);
+  box-shadow: var(--effect-shadow-pill), var(--effect-glass-inset);
+}
+.canvas-name-bar input {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--color-text-primary);
+  font-family: var(--font-geist-mono);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  text-align: center;
 }
 
 /* ───────── Bottom-left zoom pill (React Flow <Controls />) ─────────
@@ -383,86 +616,6 @@ body {
   stroke-linejoin: round;
 }
 
-/* ───────── Star-prompt modal (StarPrompt.tsx) ───────── */
-
-.modal-frame {
-  position: relative;
-  width: 1728px;
-  height: 600px;
-  max-width: 100%;
-  border: 1px solid var(--color-glass-border);
-  border-radius: 14px;
-  overflow: hidden;
-  background: var(--color-canvas-bg);
-  box-shadow: var(--effect-shadow-pill);
-}
-.modal-scrim {
-  position: absolute;
-  inset: 0;
-  background: rgba(15, 23, 42, 0.40);
-  backdrop-filter: blur(4px);
-  display: grid;
-  place-items: center;
-}
-.modal-body {
-  width: 420px;
-  padding: 32px;
-  background: #ffffff;
-  border: 1px solid var(--color-glass-border);
-  border-radius: 18px;
-  box-shadow: 0 20px 40px rgba(17, 24, 39, 0.18);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 14px;
-  text-align: center;
-}
-.modal-body .star {
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  background: rgba(var(--color-accent-rgb), 0.10);
-  border: 1px solid rgba(var(--color-accent-rgb), 0.45);
-  display: grid;
-  place-items: center;
-  color: var(--color-accent-blue);
-  font-size: 22px;
-}
-.modal-body .btn-row {
-  display: flex;
-  gap: 10px;
-  width: 100%;
-  justify-content: center;
-  margin-top: 8px;
-}
-.modal-body .btn {
-  flex: 1;
-  height: 40px;
-  padding: 0 18px;
-  border-radius: var(--size-radius-pill);
-  border: 1px solid var(--color-glass-border);
-  background: var(--color-glass-button-bg);
-  color: var(--color-text-primary);
-  font-family: inherit;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 0.15s, border-color 0.15s, color 0.15s;
-}
-.modal-body .btn:hover {
-  background: rgba(255, 255, 255, 0.95);
-  border-color: rgba(17, 24, 39, 0.18);
-}
-.modal-body .btn.is-primary {
-  background: rgba(var(--color-accent-rgb), 0.10);
-  border-color: rgba(var(--color-accent-rgb), 0.45);
-  color: var(--color-accent-blue);
-}
-.modal-body .btn.is-primary:hover {
-  background: rgba(var(--color-accent-rgb), 0.14);
-  border-color: rgba(var(--color-accent-rgb), 0.55);
-}
-
 /* ───────── Annotations (below each scene, two columns) ───────── */
 
 .annotations {
@@ -505,15 +658,13 @@ code {
   font-size: 0.92em;
 }
 
-/* ───────── Tool popovers — shape inspector + diagram-data panel ─────────
+/* ───────── Tool popovers — category inspectors ─────────
  *
- * Shape-tool popovers (order 0–10, etc.): docked under `.topbar-tools`; same `--shape-pill-left` /
- * `--shape-pill-width`. Equations (`--equations`): single Spine-width operator capsule. Transform (`--transform`)
- * folds x·y·θ·S into one capsule.
- * Color (`--color`) presets-only Spine rail (`.color-slot-rail`). Diagram data anchors top-right (`--diagram`).
- * Spine-width strips (<code>.tool-popover--points</code> · <code>--order</code> · <code>--color</code> · <code>--equations</code> · <code>--kind</code>): one frosted bezel, then exactly one `.topbar-tools.topbar-tools--popover-rail` child (mirror centre Spine stacking — **no** spare `.body` wrapper).
- * Scene&nbsp;12 weight nests `.inspector-slider-row--weight-spine` the same shallow way under its bezel.
- * Scene 7: eleven tessera — empty … hept · two reserved middots · circle (index 10); indices 0 … 10 — share Spine-width bezel (`--shape-pill-width`).
+ * Popovers dock under `.topbar-tools`; same `--shape-pill-left` /
+ * `--shape-pill-width` where applicable. Equations (`--equations`): single Spine-width operator capsule.
+ * Transform (`--transform`) folds x·y·θ·S into one capsule when present.
+ * Color (`--color`) presets-only Spine rail (`.color-slot-rail`).
+ * Spine-width strips: one frosted bezel, then exactly one `.topbar-tools.topbar-tools--popover-rail` child.
  */
 
 .tool-popover {
@@ -536,27 +687,11 @@ code {
   overflow: hidden;
 }
 
-.tool-popover.tool-popover--diagram {
-  left: auto;
-  right: 16px;
-  width: 400px;
-  max-height: 500px;
-}
 
 /*
- * Scene 8 — order digits reuse the same `.topbar-tools--popover-rail` chromeless row as Spine-adjacent strips.
+ * Number rail font lives in the unified Spine+rail rule above
+ * (`.tool-number, .order-slot-digit`). No separate rules here.
  */
-
-.tool-popover .topbar-tools.order-slot-rail .shape-tool.order-slot-digit {
-  font-family: var(--font-geist-mono);
-  font-size: 12px;
-  font-weight: 500;
-  line-height: 1;
-}
-/* Two-digit label “10” in the same 32 × 32 cell */
-.tool-popover .topbar-tools.order-slot-rail .shape-tool.order-slot-digit--two {
-  font-size: 11px;
-}
 
 /*
  * Scene 11 — equations: one Spine-width capsule; LaTeX-style operator glyphs via STIX Two Math (`<link>` in index.html `<head>`).
@@ -667,65 +802,73 @@ code {
   width: auto;
 }
 
-.tool-popover .head {
-  padding: 6px 14px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.45);
+/*
+ * Location — xy extras: spine-aligned row with "0" reset (column 0) + X
+ * input (columns 1–5) + Y input (columns 6–10). Shares the same bezel
+ * skeleton as bounds sliders so it docks flush with the Spine pill.
+ */
+.tool-popover.tool-popover--xy .inspector-xy-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  min-height: 32px;
+  gap: 2px;
+  width: 100%;
+  align-self: center;
+  box-sizing: border-box;
+  padding: var(--toolbar-pill-inner-pad);
 }
-.tool-popover .head-title {
+.tool-popover.tool-popover--xy .inspector-xy-row > .xy-reset {
+  flex: 0 0 32px;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  border: none;
+  border-radius: var(--size-radius-pill);
+  background: transparent;
+  color: var(--color-text-primary);
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+  font-family: var(--font-geist-mono);
+  font-size: 12px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+.tool-popover.tool-popover--xy .inspector-xy-row > .xy-reset:hover,
+.tool-popover.tool-popover--xy .inspector-xy-row > .xy-reset:focus-visible {
+  background: rgba(17, 24, 39, 0.07);
+  outline: none;
+}
+.tool-popover.tool-popover--xy .inspector-xy-row > .xy-field {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding-inline: 6px;
+}
+.tool-popover.tool-popover--xy .inspector-xy-row > .xy-field > .xy-label {
+  flex-shrink: 0;
+  width: 12px;
+  text-align: center;
   font-family: var(--font-geist-mono);
   font-size: 11px;
-  font-weight: 600;
-  color: var(--color-text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  flex: 1;
-  min-width: 0;
-}
-.tool-popover .head .actions {
-  display: flex;
-  gap: 6px;
-  flex-shrink: 0;
-}
-.tool-popover .head .actions button {
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: var(--size-radius-pill);
-  color: var(--color-text-muted);
-  font-family: var(--font-geist-sans);
-  font-size: 11px;
   font-weight: 500;
-  padding: 4px 12px;
-  cursor: pointer;
-  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  color: var(--color-text-muted);
 }
-.tool-popover .head .actions button:hover {
-  background: rgba(17, 24, 39, 0.05);
-  border-color: var(--color-glass-border);
-  color: var(--color-text-primary);
+.tool-popover.tool-popover--xy .inspector-xy-row > .xy-field > .num-input.inspector-field {
+  flex: 1 1 0;
+  min-width: 0;
+  width: auto;
 }
 
-.tool-popover .body {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  min-height: 0;
-}
-/* Shape inspectors — default padded `.body`; strips that omit `.body` carry their own inset (see Spine rails · weight row). */
-.tool-popover:not(.tool-popover--diagram):not(.tool-popover--transform)
-  .body {
-  --popover-body-pad: 4px;
-  padding: 4px;
-  gap: 2px;
-  background: transparent;
-}
-
-/* Spine-strip popovers — bezel › one `.topbar-tools.topbar-tools--popover-rail` (same stacking as Scene 1 Spine pill). */
-.tool-popover:is(.tool-popover--points, .tool-popover--order, .tool-popover--color, .tool-popover--equations, .tool-popover--kind)
+/* Spine-strip popovers — bezel › one `.topbar-tools.topbar-tools--popover-rail` (same stacking as Scene 0 Spine pill). */
+.tool-popover:is(.tool-popover--direction, .tool-popover--number, .tool-popover--color, .tool-popover--shape)
   > .topbar-tools.topbar-tools--popover-rail {
   align-self: center;
   box-sizing: border-box;
@@ -743,60 +886,58 @@ code {
   gap: 2px;
 }
 
-/* Points rail — chevrons 21²; centre crosshair (~26², heavier stroke + finer ring in `#pt-slot-cross`), dashed-square 23² */
-.tool-popover.tool-popover--points .topbar-tools > .shape-tool svg {
+/* Rail divider — thin vertical hairline that takes one slot's worth of width
+ * (so the rail's column rhythm stays predictable). Used in the Direction
+ * rail between the up/down (S, N) and left/right (W, E) axis groups. */
+.tool-popover .topbar-tools.topbar-tools--popover-rail > .rail-divider {
+  flex: 0 0 32px;
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+.tool-popover .topbar-tools.topbar-tools--popover-rail > .rail-divider::before {
+  content: "";
+  display: block;
+  width: 1px;
+  height: 20px;
+  background: rgba(17, 24, 39, 0.18);
+  border-radius: 0.5px;
+}
+
+/* Direction rail — double chevrons ~22²; centre crosshair (`#pt-slot-cross`) shares Spine metrics via `--editor-pt-slot-cross-*`. */
+.tool-popover.tool-popover--direction .topbar-tools > .shape-tool svg {
   width: 20px;
   height: 20px;
 }
 
-.tool-popover.tool-popover--points .topbar-tools.points-rail > .shape-tool svg {
+.tool-popover.tool-popover--direction .topbar-tools.points-rail > .shape-tool svg {
   stroke: currentColor;
   fill: none;
   stroke-width: 1.65;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
-.tool-popover.tool-popover--points .topbar-tools.points-rail > .shape-tool.points-rail-slot--chevron svg {
-  width: 21px;
-  height: 21px;
-  stroke-width: 2;
+.tool-popover.tool-popover--direction .topbar-tools.points-rail > .shape-tool.points-rail-slot--chevron svg {
+  width: 22px;
+  height: 22px;
+  stroke-width: 1.85;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
-.tool-popover.tool-popover--points .topbar-tools.points-rail > .shape-tool.points-rail-slot--plus svg {
-  width: 26px;
-  height: 26px;
-  stroke-width: 2.32;
+.tool-popover.tool-popover--direction .topbar-tools.points-rail > .shape-tool.points-rail-slot--plus svg {
+  width: var(--editor-pt-slot-cross-px);
+  height: var(--editor-pt-slot-cross-px);
+  stroke-width: var(--editor-pt-slot-cross-stroke);
   stroke-linecap: round;
   stroke-linejoin: round;
 }
-.tool-popover.tool-popover--points .topbar-tools.points-rail > .shape-tool.points-rail-slot--dash-square svg {
-  width: 23px;
-  height: 23px;
-  stroke-linecap: butt;
-  stroke-linejoin: miter;
-  stroke-dasharray: 4.35 3.15;
-  stroke-width: 1.55;
+.tool-popover.tool-popover--direction .topbar-tools.points-rail > .shape-tool.points-rail-slot--plus svg circle {
+  stroke-width: var(--editor-pt-slot-cross-ring-stroke);
 }
 
-.tool-popover.tool-popover--points .topbar-tools.points-rail > .shape-tool {
-  position: relative;
-  overflow: visible;
-}
-
-/* Hairlines centred in gutters after Spine slots 0 and 5 — no extra flex items (pure ::after paint). */
-.tool-popover.tool-popover--points .topbar-tools.points-rail > .shape-tool.points-rail-slot--dash-square::after,
-.tool-popover.tool-popover--points .topbar-tools.points-rail > .shape-tool:nth-child(6)::after {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: calc(100% + 0.5px);
-  width: 1px;
-  height: 32px;
-  transform: translateY(-50%);
-  pointer-events: none;
-  background: rgba(17, 24, 39, 0.12);
-}
 .points-rail-placeholder {
   font-family: var(--font-geist-mono);
   font-size: 14px;
@@ -806,7 +947,7 @@ code {
   user-select: none;
 }
 
-/* Scene 7 — kind: eleven 32×32 drag tessera · same Spine strike as order/points rails */
+/* Scene 7 — kind: twelve 32×32 hit cells; glyphs deliberately smaller/thinner inside the footprint */
 .tool-popover .topbar-tools.kind-rail > .drag-tile {
   appearance: none;
   -webkit-appearance: none;
@@ -840,11 +981,11 @@ code {
   box-shadow: 0 0 0 2px rgba(17, 24, 39, 0.18);
 }
 .tool-popover .topbar-tools.kind-rail > .drag-tile svg {
-  width: 26px;
-  height: 26px;
+  width: 22px;
+  height: 22px;
   flex-shrink: 0;
   stroke: currentColor;
-  stroke-width: 2.2;
+  stroke-width: 1.74;
   stroke-linecap: round;
   stroke-linejoin: miter;
   stroke-miterlimit: 8;
@@ -864,34 +1005,6 @@ code {
 .tool-popover .topbar-tools.kind-rail > .drag-tile svg text {
   stroke: none;
   fill: currentColor;
-}
-
-.tool-popover.tool-popover--diagram .body {
-  padding: 12px;
-  gap: 10px;
-}
-.tool-popover .body > pre {
-  margin: 0;
-  flex: 1;
-  min-height: 0;
-  overflow: auto;
-  font-family: var(--font-geist-mono);
-  font-size: 10px;
-  line-height: 1.4;
-  color: var(--color-text-secondary);
-  white-space: pre;
-  background: rgba(17, 24, 39, 0.04);
-  border-radius: 8px;
-  padding: 8px 10px;
-}
-.tool-popover .body .body-label {
-  font-size: 11px;
-  color: var(--color-text-muted);
-}
-.tool-popover .body .hint {
-  font-size: 11px;
-  color: var(--color-text-dimmed);
-  line-height: 1.4;
 }
 
 /*
@@ -937,7 +1050,7 @@ code {
  * Inspector fields — shared chrome inside shape inspectors (toolbar-soft hover/focus;
  * borderless, no ring). Compose with `.text-input`, `.num-input`, `.eq-row-expr`, …
  */
-.tool-popover:not(.tool-popover--diagram) .inspector-field {
+.tool-popover .inspector-field {
   border: none;
   outline: none;
   box-shadow: none;
@@ -945,17 +1058,17 @@ code {
   transition: background 0.12s ease;
   background: transparent;
 }
-.tool-popover:not(.tool-popover--diagram) .inspector-field:hover {
+.tool-popover .inspector-field:hover {
   background: rgba(17, 24, 39, 0.05);
 }
-.tool-popover:not(.tool-popover--diagram) .inspector-field:focus,
-.tool-popover:not(.tool-popover--diagram) .inspector-field:focus-visible {
+.tool-popover .inspector-field:focus,
+.tool-popover .inspector-field:focus-visible {
   background: rgba(17, 24, 39, 0.07);
   box-shadow: none;
   outline: none;
 }
 
-.tool-popover:not(.tool-popover--diagram) .text-input {
+.tool-popover .text-input {
   width: 100%;
   height: 32px;
   padding: 0 8px;
@@ -964,7 +1077,7 @@ code {
   font-family: var(--font-geist-sans);
   font-size: 13px;
 }
-.tool-popover:not(.tool-popover--diagram) .num-input {
+.tool-popover .num-input {
   width: 56px;
   height: 28px;
   padding: 0 6px;
@@ -975,7 +1088,7 @@ code {
   text-align: center;
 }
 
-/* Inspector horizontal sliders — Scene 12 weight `.inspector-slider-row`: optional `.row-label` · elastic Fresco track · trailing `.num-input`. */
+/* Inspector horizontal sliders — bounds-slider rows (Weight, Rotation, …): `.inspector-slider-row` · `.row-label` · Fresco track · `.num-input`. */
 .tool-popover .inspector-slider-row {
   display: flex;
   align-items: center;
@@ -1001,15 +1114,15 @@ code {
   color: var(--color-text-muted);
 }
 /*
- * Scene 12 — weight: spine-aligned row — Spine column 0 = “0” reset (centred in 32²),
+ * Bounds-slider weight row — Spine column 0 = “0” reset (centred in 32²),
  * columns 1–9 = Fresco slider host 304 px band; drawn rail inset 8 px each side (~288 px line),
  * slightly past strict column-centre anchors 1 and 9, not flush to slot edges.
  *
  * Columns 0 and 10 share one numeric face (Geist mono, 12/500): same metrics as each other;
  * default ink matches so “0” and “1.0” read as one control row.
  */
-.tool-popover.tool-popover--weight .inspector-slider-row--weight-spine > .weight-spine-reset,
-.tool-popover.tool-popover--weight .inspector-slider-row--weight-spine .weight-spine-num.num-input {
+.tool-popover.tool-popover--bounds .inspector-slider-row--weight-spine > .weight-spine-reset,
+.tool-popover.tool-popover--bounds .inspector-slider-row--weight-spine .weight-spine-num.num-input {
   font-family: var(--font-geist-mono);
   font-size: 12px;
   font-weight: 500;
@@ -1020,7 +1133,7 @@ code {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
-.tool-popover.tool-popover--weight .inspector-slider-row.inspector-slider-row--weight-spine {
+.tool-popover.tool-popover--bounds .inspector-slider-row.inspector-slider-row--weight-spine {
   gap: 2px;
   width: 100%;
   justify-content: flex-start;
@@ -1028,7 +1141,7 @@ code {
   box-sizing: border-box;
   padding: var(--toolbar-pill-inner-pad);
 }
-.tool-popover.tool-popover--weight .inspector-slider-row--weight-spine > .weight-spine-reset {
+.tool-popover.tool-popover--bounds .inspector-slider-row--weight-spine > .weight-spine-reset {
   flex: 0 0 32px;
   width: 32px;
   height: 32px;
@@ -1047,38 +1160,40 @@ code {
   cursor: pointer;
   transition: background 0.12s ease, color 0.12s ease;
 }
-.tool-popover.tool-popover--weight .inspector-slider-row--weight-spine > .weight-spine-reset:hover,
-.tool-popover.tool-popover--weight .inspector-slider-row--weight-spine > .weight-spine-reset:focus-visible {
+.tool-popover.tool-popover--bounds .inspector-slider-row--weight-spine > .weight-spine-reset:hover,
+.tool-popover.tool-popover--bounds .inspector-slider-row--weight-spine > .weight-spine-reset:focus-visible {
   background: rgba(17, 24, 39, 0.07);
   color: var(--color-text-primary);
   outline: none;
 }
-.tool-popover.tool-popover--weight .inspector-slider-row--weight-spine > .weight-slider-spine-slot.slider-col.slider-col--horizontal {
-  flex: 0 0 calc(9 * 32px + 8 * 2px);
-  width: calc(9 * 32px + 8 * 2px);
-  max-width: calc(9 * 32px + 8 * 2px);
+/* Slider host shrunk by 16 px to make room for a 48 px value slot on the
+ * right (was 32 px). Lets a 4-char value like `0.25` fit without clipping. */
+.tool-popover.tool-popover--bounds .inspector-slider-row--weight-spine > .weight-slider-spine-slot.slider-col.slider-col--horizontal {
+  flex: 0 0 calc(6 * 32px + 5 * 2px - 16px);
+  width: calc(6 * 32px + 5 * 2px - 16px);
+  max-width: calc(6 * 32px + 5 * 2px - 16px);
   min-width: 0;
   padding-inline-end: 0;
 }
 
 /* Slider track spans more of the Spine band — narrower gutter each side stretches rail vs prior 12 px tuck. */
-.tool-popover.tool-popover--weight .inspector-slider-row--weight-spine > .weight-slider-spine-slot .slider-stack {
+.tool-popover.tool-popover--bounds .inspector-slider-row--weight-spine > .weight-slider-spine-slot .slider-stack {
   box-sizing: border-box;
   width: 100%;
   padding-inline: 8px;
 }
 
-.tool-popover.tool-popover--weight .inspector-slider-row--weight-spine > .weight-slider-spine-slot .slider-track {
+.tool-popover.tool-popover--bounds .inspector-slider-row--weight-spine > .weight-slider-spine-slot .slider-track {
   border-radius: 2px;
 }
-.tool-popover.tool-popover--weight .inspector-slider-row--weight-spine > .weight-spine-num-slot {
-  flex: 0 0 32px;
-  width: 32px;
+.tool-popover.tool-popover--bounds .inspector-slider-row--weight-spine > .weight-spine-num-slot {
+  flex: 0 0 48px;
+  width: 48px;
   display: grid;
   place-items: center;
   justify-items: stretch;
 }
-.tool-popover.tool-popover--weight .inspector-slider-row--weight-spine .weight-spine-num.num-input {
+.tool-popover.tool-popover--bounds .inspector-slider-row--weight-spine .weight-spine-num.num-input {
   width: 100%;
   min-width: 0;
   height: 30px;
@@ -1130,7 +1245,7 @@ code {
   stroke-linejoin: round;
 }
 
-/* Scene 8 — horizontal tick bar; Scene 12 — vertical (Fresco "Tamaño" style) */
+/* Horizontal tick marks on horizontal sliders; bounds sliders use horizontal column stack (Fresco-style vertical tick column). */
 .slider-col {
   display: flex;
   align-items: flex-start;
@@ -1148,7 +1263,7 @@ code {
   height: 4px;
   min-height: 4px;
 }
-.tool-popover:not(.tool-popover--diagram) .slider-col.slider-col--horizontal .slider-track {
+.tool-popover .slider-col.slider-col--horizontal .slider-track {
   background: rgba(17, 24, 39, 0.08);
 }
 .slider-col.slider-col--horizontal .slider-thumb {
@@ -1266,10 +1381,10 @@ code {
   color: var(--color-text-primary);
 }
 /* Inspectors — same continuous glass capsule as `.topbar-tools`; flat rows inside (equation operator rail excluded — `.eq-op-rail`) */
-.tool-popover:not(.tool-popover--diagram) .eq-list {
+.tool-popover .eq-list {
   gap: 2px;
 }
-.tool-popover:not(.tool-popover--diagram) .eq-row {
+.tool-popover .eq-row {
   padding: 4px 2px;
   background: transparent;
   border: none;
