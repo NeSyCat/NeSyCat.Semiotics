@@ -224,29 +224,18 @@ function walkToPath(top: AnyShape, path: { slot: Slot; subslot?: Subslot; index:
 // identities; renaming one must not propagate to the others. Same rule for
 // every kind, no carrier exception.
 //
-// Cross-component invariant: two points in DIFFERENT referent components
-// can't share a name (otherwise "same name = same referent" is broken in the
-// global namespace). If `newName` is already used by some point outside this
-// point's component, the rename is rejected (no-op) rather than silently
-// merging two distinct referents under one label.
+// Naming is unconstrained across DISCONNECTED components: two points in
+// different referent components may freely carry the same name (the name is a
+// label; identity is the connection structure). The "same name = same
+// referent" guarantee is restored at connect time — every line-creating
+// mutation runs `unifyComponentName`, so joining two points still merges their
+// names into one.
 export function renamePoint(d: Diagram, id: string, newName: string): Diagram {
   if (!newName.trim()) return d
   const component = referentComponent(d, id)
-  if (pointNameTakenOutside(d, newName, component)) return d
   let nd = d
   for (const sid of component) nd = renameShape(nd, sid, newName)
   return nd
-}
-
-// True iff some point shape OUTSIDE `component` already carries `name`.
-function pointNameTakenOutside(d: Diagram, name: string, component: Set<string>): boolean {
-  for (const top of d.nodes) {
-    for (const s of walkShape(top)) {
-      if (component.has(s.id)) continue
-      if (s.name === name) return true
-    }
-  }
-  return false
 }
 
 function referentComponent(d: Diagram, startId: string): Set<string> {
