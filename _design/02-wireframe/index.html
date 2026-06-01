@@ -2,10 +2,718 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>02 — Wireframe</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>02 — Wireframe · Editor chrome (16″ MBP)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@500;600&display=swap" />
+  <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=STIX+Two+Math:ital@0&display=swap" />
+  <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
-  <h1>02 — Wireframe</h1>
-  <p>Placeholder. Replace with structural HTML+CSS.</p>
+
+<!-- SVG defs — icons as inline sprites. -->
+<svg width="0" height="0" style="position: absolute" aria-hidden="true">
+  <defs>
+    <symbol id="ic-plus" viewBox="0 0 24 24">
+      <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" fill="none" />
+    </symbol>
+    <symbol id="ic-minus" viewBox="0 0 24 24">
+      <path d="M5 12h14" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" fill="none" />
+    </symbol>
+    <symbol id="ic-fit" viewBox="0 0 24 24">
+      <path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"
+            stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round" fill="none" />
+    </symbol>
+    <symbol id="ic-lock" viewBox="0 0 24 24">
+      <rect x="5" y="11" width="14" height="9" rx="1.5"
+            stroke="currentColor" stroke-width="2" fill="none" />
+      <path d="M8 11V7a4 4 0 1 1 8 0v4"
+            stroke="currentColor" stroke-width="2" fill="none" />
+    </symbol>
+    <symbol id="ic-share" viewBox="0 0 24 24">
+      <path d="M12 4v10M8 8l4-4 4 4" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M5 14v5a2 2 0 002 2h10a2 2 0 002-2v-5" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round"/>
+    </symbol>
+
+    <symbol id="ic-weight" viewBox="0 0 24 24">
+      <path d="M9 7a3 3 0 1 1 6 0" />
+      <path d="M7 9h10l1.6 11H5.4z" />
+    </symbol>
+    <symbol id="ic-direction" viewBox="0 0 24 24" fill="none">
+      <path d="M12 3v3.5M12 17.5V21M3 12h3.5M17.5 12H21" stroke="currentColor"
+            stroke-width="2" stroke-linecap="round" />
+      <circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none" />
+    </symbol>
+    <symbol id="ic-rotation" viewBox="0 0 24 24" fill="none">
+      <path d="M19 12a7 7 0 1 1-2.05-4.95" stroke="currentColor"
+            stroke-width="2" stroke-linecap="round" />
+      <path d="M19 4v4h-4" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round" />
+    </symbol>
+    <symbol id="ic-scale" viewBox="0 0 24 24" fill="none">
+      <path d="M9 4H4v5M15 20h5v-5M4 4l6 6M20 20l-6-6" stroke="currentColor"
+            stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+    </symbol>
+    <symbol id="ic-location" viewBox="0 0 24 24">
+      <path d="M12 3v18M3 12h18" />
+      <path d="M12 3l-2 2.5M12 3l2 2.5" />
+      <path d="M12 21l-2-2.5M12 21l2-2.5" />
+      <path d="M3 12l2.5-2M3 12l2.5 2" />
+      <path d="M21 12l-2.5-2M21 12l-2.5 2" />
+    </symbol>
+    <symbol id="ic-shape" viewBox="0 0 24 24" fill="none">
+      <rect x="4" y="4" width="16" height="16" rx="0" stroke="currentColor"
+            stroke-width="2" stroke-linejoin="miter" />
+    </symbol>
+
+    <symbol id="ic-direction-in" viewBox="0 0 24 24" fill="none">
+      <path d="M4 4l4 4M20 4l-4 4M4 20l4-4M20 20l-4-4" stroke="currentColor"
+            stroke-width="2" stroke-linecap="round" />
+      <path d="M8 5V8h-3M16 5V8h3M8 19V16h-3M16 19V16h3" stroke="currentColor"
+            stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+    </symbol>
+    <symbol id="ic-direction-center" viewBox="0 0 24 24" fill="none">
+      <circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="1.7" />
+      <circle cx="12" cy="12" r="2.4" fill="currentColor" stroke="none" />
+    </symbol>
+    <symbol id="ic-direction-out" viewBox="0 0 24 24" fill="none">
+      <path d="M4 4l4 4M20 4l-4 4M4 20l4-4M20 20l-4-4" stroke="currentColor"
+            stroke-width="2" stroke-linecap="round" />
+      <path d="M4 7V4h3M17 4h3v3M7 20H4v-3M20 17v3h-3" stroke="currentColor"
+            stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+    </symbol>
+    <symbol id="ic-chevron-double-down" viewBox="0 0 24 24" fill="none">
+      <g transform="translate(0 -3.25)"><path d="m6 9 6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></g>
+      <g transform="translate(0 3.25)"><path d="m6 9 6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></g>
+    </symbol>
+    <symbol id="ic-chevron-double-up" viewBox="0 0 24 24" fill="none">
+      <g transform="translate(0 -3.25)"><path d="m18 15-6-6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></g>
+      <g transform="translate(0 3.25)"><path d="m18 15-6-6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></g>
+    </symbol>
+    <symbol id="ic-chevron-double-left" viewBox="0 0 24 24" fill="none">
+      <g transform="translate(-3.25 0)"><path d="m15 18-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></g>
+      <g transform="translate(3.25 0)"><path d="m15 18-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></g>
+    </symbol>
+    <symbol id="ic-chevron-double-right" viewBox="0 0 24 24" fill="none">
+      <g transform="translate(-3.25 0)"><path d="m9 6 6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></g>
+      <g transform="translate(3.25 0)"><path d="m9 6 6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></g>
+    </symbol>
+
+    <symbol id="kind-point" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="3.15" fill="currentColor"/>
+    </symbol>
+    <symbol id="kind-line" viewBox="0 0 24 24">
+      <path d="M2.75 12L21.25 12" fill="none" stroke="currentColor" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="kind-triangle" viewBox="0 0 24 24">
+      <path d="M12 2.75L20.011 16.625L3.989 16.625Z"/>
+    </symbol>
+    <symbol id="kind-rhombus" viewBox="0 0 24 24">
+      <path d="M12 2.75L21.25 12L12 21.25L2.75 12Z"/>
+    </symbol>
+    <symbol id="kind-rectangle" viewBox="0 0 24 24">
+      <rect x="2.75" y="2.75" width="18.5" height="18.5" rx="0" ry="0"/>
+    </symbol>
+    <symbol id="kind-pentagon" viewBox="0 0 24 24">
+      <path d="M12 2.75 L20.797 9.142 L17.437 19.483 L6.563 19.483 L3.203 9.142 Z"/>
+    </symbol>
+    <symbol id="kind-hexagon" viewBox="0 0 24 24">
+      <path d="M12 2.75 L20.011 7.375 L20.011 16.625 L12 21.25 L3.989 16.625 L3.989 7.375 Z"/>
+    </symbol>
+    <symbol id="kind-circle" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="9.25"/>
+    </symbol>
+  </defs>
+</svg>
+
+<header class="page-header">
+  <div class="t-caption">NeSyCat · Wireframe · v0.10 · 1728×1080 (16″ MBP scaled)</div>
+  <h1 class="t-h1">Editor chrome — eight categories, one form per scene.</h1>
+  <p>
+    Each scene draws a form on the canvas that reacts to the currently
+    edited Spine category — weight controls fill density, rotation rotates,
+    scale scales, location translates, number labels, color fills, shape
+    chooses the polygon. A black-on-glass <strong>name bar</strong> docks at
+    the bottom of the canvas at the same x / width as the Spine; the user
+    types here to edit the selected form's name (LaTeX supported, à la
+    <code>\mathbb{R}</code>). Level / Class / Equations remain temporarily
+    parked at positions 7–9.
+  </p>
+</header>
+
+<!-- ═══════ Scene 0: nothing selected ═══════ -->
+
+<section class="wireframe-section">
+  <h2 class="t-h1">Scene 0 — nothing selected</h2>
+  <p class="lead">
+    Default state. A single white hexagon sits at canvas centre with a black
+    hairline border and the form's name <code>X</code> rendered in STIX Two
+    Math. No Spine tool is active, no popover is open. The bottom name bar is
+    visible because a form is selected — type to rename.
+  </p>
+
+  <div class="editor-frame">
+    <div class="canvas-bg"></div>
+    <header class="editor-topbar">
+      <div class="topbar-center">
+        <div class="topbar-tools" role="toolbar" aria-label="Category editor">
+          <button class="shape-tool tool-weight"    type="button" aria-label="Weight"    title="Weight"><svg aria-hidden="true"><use href="#ic-weight"/></svg></button>
+          <button class="shape-tool tool-direction" type="button" aria-label="Direction" title="Direction"><svg aria-hidden="true"><use href="#ic-direction-center"/></svg></button>
+          <button class="shape-tool tool-rotation"  type="button" aria-label="Rotation"  title="Rotation"><svg aria-hidden="true"><use href="#ic-rotation"/></svg></button>
+          <button class="shape-tool tool-scale"     type="button" aria-label="Scale"     title="Scale"><svg aria-hidden="true"><use href="#ic-scale"/></svg></button>
+          <button class="shape-tool tool-location"  type="button" aria-label="Location"  title="Location"><svg aria-hidden="true"><use href="#ic-location"/></svg></button>
+          <button class="shape-tool tool-number"    type="button" aria-label="Number"    title="Number">5</button>
+          <button class="shape-tool tool-color"     type="button" aria-label="Color"     title="Color"><span class="sw-face" style="background:#0080ff" aria-hidden="true"></span></button>
+          <button class="shape-tool tool-shape"     type="button" aria-label="Shape"     title="Shape"><svg aria-hidden="true"><use href="#kind-hexagon"/></svg></button>
+        </div>
+      </div>
+    </header>
+    <div class="canvas-area">
+      <div class="canvas-stage">
+        <div class="canvas-shape">
+          <svg class="cnv-svg" viewBox="0 0 100 100" aria-hidden="true">
+            <polygon class="cnv-poly" points="50,5 91,28 91,72 50,95 9,72 9,28" />
+          </svg>
+          <span class="cnv-label">X</span>
+        </div>
+      </div>
+      <div class="canvas-name-bar">
+        <input type="text" value="X" aria-label="Form name (LaTeX)" />
+      </div>
+      <div class="controls-cluster" aria-label="Zoom controls">
+        <button type="button" title="Zoom in"><svg aria-hidden="true"><use href="#ic-plus"/></svg></button>
+        <button type="button" title="Zoom out"><svg aria-hidden="true"><use href="#ic-minus"/></svg></button>
+        <button type="button" title="Fit view"><svg aria-hidden="true"><use href="#ic-fit"/></svg></button>
+        <button type="button" title="Lock"><svg aria-hidden="true"><use href="#ic-lock"/></svg></button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════ Scene 1: Weight (bounds slider) ═══════ -->
+
+<section class="wireframe-section">
+  <h2 class="t-h1">Scene 1 — Weight</h2>
+  <p class="lead">
+    Weight = <strong>0.36</strong>. A solid-Azure hexagon sits at the centre
+    of the outer outline, scaled to 36 % of the full size. The fill keeps
+    the form's shape — it grows outward from the centre toward the border
+    as the weight increases. No opacity, no fades — same solid blue as the
+    Color pill.
+  </p>
+
+  <div class="editor-frame">
+    <div class="canvas-bg"></div>
+    <header class="editor-topbar">
+      <div class="topbar-center">
+        <div class="topbar-tools" role="toolbar" aria-label="Category editor">
+          <button class="shape-tool tool-weight is-active" type="button" title="Weight"><svg aria-hidden="true"><use href="#ic-weight"/></svg></button>
+          <button class="shape-tool tool-direction"        type="button" title="Direction"><svg aria-hidden="true"><use href="#ic-direction-center"/></svg></button>
+          <button class="shape-tool tool-rotation"         type="button" title="Rotation"><svg aria-hidden="true"><use href="#ic-rotation"/></svg></button>
+          <button class="shape-tool tool-scale"            type="button" title="Scale"><svg aria-hidden="true"><use href="#ic-scale"/></svg></button>
+          <button class="shape-tool tool-location"         type="button" title="Location"><svg aria-hidden="true"><use href="#ic-location"/></svg></button>
+          <button class="shape-tool tool-number"           type="button" title="Number">5</button>
+          <button class="shape-tool tool-color"            type="button" title="Color"><span class="sw-face" style="background:#0080ff" aria-hidden="true"></span></button>
+          <button class="shape-tool tool-shape"            type="button" title="Shape"><svg aria-hidden="true"><use href="#kind-hexagon"/></svg></button>
+        </div>
+      </div>
+    </header>
+    <div class="canvas-area">
+      <div class="canvas-stage">
+        <div class="canvas-shape">
+          <svg class="cnv-svg" viewBox="0 0 100 100" aria-hidden="true">
+            <!-- Inner hexagon scaled 0.36 from the centre — same shape as the
+                 outer outline, grows / shrinks with the weight value. Solid
+                 Azure, no opacity tricks. -->
+            <g transform="translate(50 50) scale(0.36) translate(-50 -50)">
+              <polygon points="50,5 91,28 91,72 50,95 9,72 9,28" fill="#0080ff" stroke="none" />
+            </g>
+            <!-- Outer hexagon outline (transparent fill so the inner shows through). -->
+            <polygon class="cnv-poly" points="50,5 91,28 91,72 50,95 9,72 9,28" style="fill: none" />
+          </svg>
+          <span class="cnv-label">X</span>
+        </div>
+      </div>
+      <div class="canvas-name-bar">
+        <input type="text" value="X" aria-label="Form name (LaTeX)" />
+      </div>
+      <div class="controls-cluster">
+        <button type="button"><svg aria-hidden="true"><use href="#ic-plus"/></svg></button>
+        <button type="button"><svg aria-hidden="true"><use href="#ic-minus"/></svg></button>
+        <button type="button"><svg aria-hidden="true"><use href="#ic-fit"/></svg></button>
+        <button type="button"><svg aria-hidden="true"><use href="#ic-lock"/></svg></button>
+      </div>
+      <div class="tool-popover tool-popover--bounds">
+        <div class="inspector-slider-row inspector-slider-row--weight-spine">
+          <button type="button" class="weight-spine-reset" title="Reset to 0" aria-label="Set to zero">0</button>
+          <div class="slider-col slider-col--horizontal weight-slider-spine-slot">
+            <div class="slider-stack">
+              <div class="slider-track">
+                <div class="slider-thumb" aria-hidden="true" style="left: 36%">
+                  <span class="slider-thumb-dot"></span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="weight-spine-num-slot">
+            <input class="num-input inspector-field weight-spine-num" type="text" inputmode="numeric" value="0.36" aria-label="Weight value" />
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════ Scene 2: Direction (8-cell rail) ═══════ -->
+
+<section class="wireframe-section">
+  <h2 class="t-h1">Scene 2 — Direction</h2>
+  <p class="lead">
+    Direction = <strong>Center</strong>. The form sits dead-centre on the
+    canvas. (Inside/Outside collapse the form inward/outward; the four
+    cardinal directions offset the form along that axis — future
+    iterations.)
+  </p>
+
+  <div class="editor-frame">
+    <div class="canvas-bg"></div>
+    <header class="editor-topbar">
+      <div class="topbar-center">
+        <div class="topbar-tools" role="toolbar" aria-label="Category editor">
+          <button class="shape-tool tool-weight"               type="button" title="Weight"><svg aria-hidden="true"><use href="#ic-weight"/></svg></button>
+          <button class="shape-tool tool-direction is-active"  type="button" title="Direction"><svg aria-hidden="true"><use href="#ic-direction-center"/></svg></button>
+          <button class="shape-tool tool-rotation"             type="button" title="Rotation"><svg aria-hidden="true"><use href="#ic-rotation"/></svg></button>
+          <button class="shape-tool tool-scale"                type="button" title="Scale"><svg aria-hidden="true"><use href="#ic-scale"/></svg></button>
+          <button class="shape-tool tool-location"             type="button" title="Location"><svg aria-hidden="true"><use href="#ic-location"/></svg></button>
+          <button class="shape-tool tool-number"               type="button" title="Number">5</button>
+          <button class="shape-tool tool-color"                type="button" title="Color"><span class="sw-face" style="background:#0080ff" aria-hidden="true"></span></button>
+          <button class="shape-tool tool-shape"                type="button" title="Shape"><svg aria-hidden="true"><use href="#kind-hexagon"/></svg></button>
+        </div>
+      </div>
+    </header>
+    <div class="canvas-area">
+      <div class="canvas-stage">
+        <div class="canvas-shape">
+          <svg class="cnv-svg" viewBox="0 0 100 100" aria-hidden="true">
+            <polygon class="cnv-poly" points="50,5 91,28 91,72 50,95 9,72 9,28" />
+          </svg>
+          <span class="cnv-label">X</span>
+        </div>
+      </div>
+      <div class="canvas-name-bar">
+        <input type="text" value="X" aria-label="Form name (LaTeX)" />
+      </div>
+      <div class="controls-cluster">
+        <button type="button"><svg aria-hidden="true"><use href="#ic-plus"/></svg></button>
+        <button type="button"><svg aria-hidden="true"><use href="#ic-minus"/></svg></button>
+        <button type="button"><svg aria-hidden="true"><use href="#ic-fit"/></svg></button>
+        <button type="button"><svg aria-hidden="true"><use href="#ic-lock"/></svg></button>
+      </div>
+      <div class="tool-popover tool-popover--direction">
+        <div class="topbar-tools topbar-tools--popover-rail points-rail" role="group" aria-label="Direction values">
+          <button type="button" class="shape-tool points-rail-slot points-rail-slot--chevron" aria-label="Inside" title="Inside"><svg aria-hidden="true"><use href="#ic-direction-in"/></svg></button>
+          <button type="button" class="shape-tool points-rail-slot points-rail-slot--chevron" aria-label="Outside" title="Outside"><svg aria-hidden="true"><use href="#ic-direction-out"/></svg></button>
+          <span class="rail-divider" aria-hidden="true"></span>
+          <button type="button" class="shape-tool points-rail-slot points-rail-slot--chevron is-active" aria-label="Center" title="Center"><svg aria-hidden="true"><use href="#ic-direction-center"/></svg></button>
+          <button type="button" class="shape-tool points-rail-slot points-rail-slot--chevron" aria-label="South" title="South"><svg aria-hidden="true"><use href="#ic-chevron-double-down"/></svg></button>
+          <button type="button" class="shape-tool points-rail-slot points-rail-slot--chevron" aria-label="North" title="North"><svg aria-hidden="true"><use href="#ic-chevron-double-up"/></svg></button>
+          <button type="button" class="shape-tool points-rail-slot points-rail-slot--chevron" aria-label="Left" title="Left (West)"><svg aria-hidden="true"><use href="#ic-chevron-double-left"/></svg></button>
+          <button type="button" class="shape-tool points-rail-slot points-rail-slot--chevron" aria-label="Right" title="Right (East)"><svg aria-hidden="true"><use href="#ic-chevron-double-right"/></svg></button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════ Scene 3: Rotation (bounds slider) ═══════ -->
+
+<section class="wireframe-section">
+  <h2 class="t-h1">Scene 3 — Rotation</h2>
+  <p class="lead">
+    Rotation = <strong>0.25</strong> (= 90°). The hexagon is rotated a
+    quarter-turn around its centre.
+  </p>
+
+  <div class="editor-frame">
+    <div class="canvas-bg"></div>
+    <header class="editor-topbar">
+      <div class="topbar-center">
+        <div class="topbar-tools" role="toolbar" aria-label="Category editor">
+          <button class="shape-tool tool-weight"              type="button" title="Weight"><svg aria-hidden="true"><use href="#ic-weight"/></svg></button>
+          <button class="shape-tool tool-direction"           type="button" title="Direction"><svg aria-hidden="true"><use href="#ic-direction-center"/></svg></button>
+          <button class="shape-tool tool-rotation is-active"  type="button" title="Rotation"><svg aria-hidden="true"><use href="#ic-rotation"/></svg></button>
+          <button class="shape-tool tool-scale"               type="button" title="Scale"><svg aria-hidden="true"><use href="#ic-scale"/></svg></button>
+          <button class="shape-tool tool-location"            type="button" title="Location"><svg aria-hidden="true"><use href="#ic-location"/></svg></button>
+          <button class="shape-tool tool-number"              type="button" title="Number">5</button>
+          <button class="shape-tool tool-color"               type="button" title="Color"><span class="sw-face" style="background:#0080ff" aria-hidden="true"></span></button>
+          <button class="shape-tool tool-shape"               type="button" title="Shape"><svg aria-hidden="true"><use href="#kind-hexagon"/></svg></button>
+        </div>
+      </div>
+    </header>
+    <div class="canvas-area">
+      <div class="canvas-stage">
+        <div class="canvas-shape" style="--shape-transform: rotate(90deg);">
+          <svg class="cnv-svg" viewBox="0 0 100 100" aria-hidden="true">
+            <polygon class="cnv-poly" points="50,5 91,28 91,72 50,95 9,72 9,28" />
+          </svg>
+          <span class="cnv-label" style="transform: translate(-50%, -50%) rotate(-90deg);">X</span>
+        </div>
+      </div>
+      <div class="canvas-name-bar">
+        <input type="text" value="X" aria-label="Form name (LaTeX)" />
+      </div>
+      <div class="controls-cluster">
+        <button type="button"><svg aria-hidden="true"><use href="#ic-plus"/></svg></button>
+        <button type="button"><svg aria-hidden="true"><use href="#ic-minus"/></svg></button>
+        <button type="button"><svg aria-hidden="true"><use href="#ic-fit"/></svg></button>
+        <button type="button"><svg aria-hidden="true"><use href="#ic-lock"/></svg></button>
+      </div>
+      <div class="tool-popover tool-popover--bounds">
+        <div class="inspector-slider-row inspector-slider-row--weight-spine">
+          <button type="button" class="weight-spine-reset" title="Reset to 0" aria-label="Set to zero">0</button>
+          <div class="slider-col slider-col--horizontal weight-slider-spine-slot">
+            <div class="slider-stack">
+              <div class="slider-track">
+                <div class="slider-thumb" aria-hidden="true" style="left: 25%">
+                  <span class="slider-thumb-dot"></span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="weight-spine-num-slot">
+            <input class="num-input inspector-field weight-spine-num" type="text" inputmode="numeric" value="0.25" aria-label="Rotation value" />
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════ Scene 4: Scale (bounds slider) ═══════ -->
+
+<section class="wireframe-section">
+  <h2 class="t-h1">Scene 4 — Scale</h2>
+  <p class="lead">
+    Scale = <strong>0.50</strong>. The hexagon is rendered at half its base
+    footprint.
+  </p>
+
+  <div class="editor-frame">
+    <div class="canvas-bg"></div>
+    <header class="editor-topbar">
+      <div class="topbar-center">
+        <div class="topbar-tools" role="toolbar" aria-label="Category editor">
+          <button class="shape-tool tool-weight"            type="button" title="Weight"><svg aria-hidden="true"><use href="#ic-weight"/></svg></button>
+          <button class="shape-tool tool-direction"         type="button" title="Direction"><svg aria-hidden="true"><use href="#ic-direction-center"/></svg></button>
+          <button class="shape-tool tool-rotation"          type="button" title="Rotation"><svg aria-hidden="true"><use href="#ic-rotation"/></svg></button>
+          <button class="shape-tool tool-scale is-active"   type="button" title="Scale"><svg aria-hidden="true"><use href="#ic-scale"/></svg></button>
+          <button class="shape-tool tool-location"          type="button" title="Location"><svg aria-hidden="true"><use href="#ic-location"/></svg></button>
+          <button class="shape-tool tool-number"            type="button" title="Number">5</button>
+          <button class="shape-tool tool-color"             type="button" title="Color"><span class="sw-face" style="background:#0080ff" aria-hidden="true"></span></button>
+          <button class="shape-tool tool-shape"             type="button" title="Shape"><svg aria-hidden="true"><use href="#kind-hexagon"/></svg></button>
+        </div>
+      </div>
+    </header>
+    <div class="canvas-area">
+      <div class="canvas-stage">
+        <div class="canvas-shape" style="--shape-transform: scale(0.5);">
+          <svg class="cnv-svg" viewBox="0 0 100 100" aria-hidden="true">
+            <polygon class="cnv-poly" points="50,5 91,28 91,72 50,95 9,72 9,28" />
+          </svg>
+          <span class="cnv-label">X</span>
+        </div>
+      </div>
+      <div class="canvas-name-bar">
+        <input type="text" value="X" aria-label="Form name (LaTeX)" />
+      </div>
+      <div class="controls-cluster">
+        <button type="button"><svg aria-hidden="true"><use href="#ic-plus"/></svg></button>
+        <button type="button"><svg aria-hidden="true"><use href="#ic-minus"/></svg></button>
+        <button type="button"><svg aria-hidden="true"><use href="#ic-fit"/></svg></button>
+        <button type="button"><svg aria-hidden="true"><use href="#ic-lock"/></svg></button>
+      </div>
+      <div class="tool-popover tool-popover--bounds">
+        <div class="inspector-slider-row inspector-slider-row--weight-spine">
+          <button type="button" class="weight-spine-reset" title="Reset to 0" aria-label="Set to zero">0</button>
+          <div class="slider-col slider-col--horizontal weight-slider-spine-slot">
+            <div class="slider-stack">
+              <div class="slider-track">
+                <div class="slider-thumb" aria-hidden="true" style="left: 50%">
+                  <span class="slider-thumb-dot"></span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="weight-spine-num-slot">
+            <input class="num-input inspector-field weight-spine-num" type="text" inputmode="numeric" value="0.50" aria-label="Scale value" />
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════ Scene 5: Location (xy extras) ═══════ -->
+
+<section class="wireframe-section">
+  <h2 class="t-h1">Scene 5 — Location</h2>
+  <p class="lead">
+    Location = <strong>(120, −40)</strong>. The form is translated +120 px on
+    x and −40 px on y from its anchor.
+  </p>
+
+  <div class="editor-frame">
+    <div class="canvas-bg"></div>
+    <header class="editor-topbar">
+      <div class="topbar-center">
+        <div class="topbar-tools" role="toolbar" aria-label="Category editor">
+          <button class="shape-tool tool-weight"              type="button" title="Weight"><svg aria-hidden="true"><use href="#ic-weight"/></svg></button>
+          <button class="shape-tool tool-direction"           type="button" title="Direction"><svg aria-hidden="true"><use href="#ic-direction-center"/></svg></button>
+          <button class="shape-tool tool-rotation"            type="button" title="Rotation"><svg aria-hidden="true"><use href="#ic-rotation"/></svg></button>
+          <button class="shape-tool tool-scale"               type="button" title="Scale"><svg aria-hidden="true"><use href="#ic-scale"/></svg></button>
+          <button class="shape-tool tool-location is-active"  type="button" title="Location"><svg aria-hidden="true"><use href="#ic-location"/></svg></button>
+          <button class="shape-tool tool-number"              type="button" title="Number">5</button>
+          <button class="shape-tool tool-color"               type="button" title="Color"><span class="sw-face" style="background:#0080ff" aria-hidden="true"></span></button>
+          <button class="shape-tool tool-shape"               type="button" title="Shape"><svg aria-hidden="true"><use href="#kind-hexagon"/></svg></button>
+        </div>
+      </div>
+    </header>
+    <div class="canvas-area">
+      <div class="canvas-stage">
+        <div class="canvas-shape" style="--shape-transform: translate(120px, -40px);">
+          <svg class="cnv-svg" viewBox="0 0 100 100" aria-hidden="true">
+            <polygon class="cnv-poly" points="50,5 91,28 91,72 50,95 9,72 9,28" />
+          </svg>
+          <span class="cnv-label">X</span>
+        </div>
+      </div>
+      <div class="canvas-name-bar">
+        <input type="text" value="X" aria-label="Form name (LaTeX)" />
+      </div>
+      <div class="controls-cluster">
+        <button type="button"><svg aria-hidden="true"><use href="#ic-plus"/></svg></button>
+        <button type="button"><svg aria-hidden="true"><use href="#ic-minus"/></svg></button>
+        <button type="button"><svg aria-hidden="true"><use href="#ic-fit"/></svg></button>
+        <button type="button"><svg aria-hidden="true"><use href="#ic-lock"/></svg></button>
+      </div>
+      <div class="tool-popover tool-popover--xy">
+        <div class="inspector-xy-row" role="group" aria-label="Location coordinates">
+          <button type="button" class="xy-reset" title="Reset to (0, 0)" aria-label="Set location to zero">0</button>
+          <div class="xy-field">
+            <span class="xy-label">x</span>
+            <input class="num-input inspector-field" type="text" inputmode="numeric" value="120" aria-label="Location x" />
+          </div>
+          <div class="xy-field">
+            <span class="xy-label">y</span>
+            <input class="num-input inspector-field" type="text" inputmode="numeric" value="-40" aria-label="Location y" />
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════ Scene 6: Number (8-cell rail) ═══════ -->
+
+<section class="wireframe-section">
+  <h2 class="t-h1">Scene 6 — Number</h2>
+  <p class="lead">
+    Number = <strong>5</strong>. The form carries a numeric badge next to
+    the name — the assigned discrete index for this form.
+  </p>
+
+  <div class="editor-frame">
+    <div class="canvas-bg"></div>
+    <header class="editor-topbar">
+      <div class="topbar-center">
+        <div class="topbar-tools" role="toolbar" aria-label="Category editor">
+          <button class="shape-tool tool-weight"            type="button" title="Weight"><svg aria-hidden="true"><use href="#ic-weight"/></svg></button>
+          <button class="shape-tool tool-direction"         type="button" title="Direction"><svg aria-hidden="true"><use href="#ic-direction-center"/></svg></button>
+          <button class="shape-tool tool-rotation"          type="button" title="Rotation"><svg aria-hidden="true"><use href="#ic-rotation"/></svg></button>
+          <button class="shape-tool tool-scale"             type="button" title="Scale"><svg aria-hidden="true"><use href="#ic-scale"/></svg></button>
+          <button class="shape-tool tool-location"          type="button" title="Location"><svg aria-hidden="true"><use href="#ic-location"/></svg></button>
+          <button class="shape-tool tool-number is-active"  type="button" title="Number">5</button>
+          <button class="shape-tool tool-color"             type="button" title="Color"><span class="sw-face" style="background:#0080ff" aria-hidden="true"></span></button>
+          <button class="shape-tool tool-shape"             type="button" title="Shape"><svg aria-hidden="true"><use href="#kind-hexagon"/></svg></button>
+        </div>
+      </div>
+    </header>
+    <div class="canvas-area">
+      <div class="canvas-stage">
+        <div class="canvas-shape">
+          <svg class="cnv-svg" viewBox="0 0 100 100" aria-hidden="true">
+            <polygon class="cnv-poly" points="50,5 91,28 91,72 50,95 9,72 9,28" />
+          </svg>
+          <span class="cnv-label">X</span>
+          <span class="cnv-num-badge" aria-hidden="true">5</span>
+        </div>
+      </div>
+      <div class="canvas-name-bar">
+        <input type="text" value="X" aria-label="Form name (LaTeX)" />
+      </div>
+      <div class="controls-cluster">
+        <button type="button"><svg aria-hidden="true"><use href="#ic-plus"/></svg></button>
+        <button type="button"><svg aria-hidden="true"><use href="#ic-minus"/></svg></button>
+        <button type="button"><svg aria-hidden="true"><use href="#ic-fit"/></svg></button>
+        <button type="button"><svg aria-hidden="true"><use href="#ic-lock"/></svg></button>
+      </div>
+      <div class="tool-popover tool-popover--number">
+        <div class="topbar-tools topbar-tools--popover-rail order-slot-rail" role="group" aria-label="Number value">
+          <button type="button" class="shape-tool order-slot-digit" aria-label="0">0</button>
+          <button type="button" class="shape-tool order-slot-digit" aria-label="1">1</button>
+          <button type="button" class="shape-tool order-slot-digit" aria-label="2">2</button>
+          <button type="button" class="shape-tool order-slot-digit" aria-label="3">3</button>
+          <button type="button" class="shape-tool order-slot-digit" aria-label="4">4</button>
+          <button type="button" class="shape-tool order-slot-digit is-active" aria-label="5">5</button>
+          <button type="button" class="shape-tool order-slot-digit" aria-label="6">6</button>
+          <button type="button" class="shape-tool order-slot-digit order-slot-digit--two" aria-label="10">10</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════ Scene 7: Color (8-cell rail) ═══════ -->
+
+<section class="wireframe-section">
+  <h2 class="t-h1">Scene 7 — Color</h2>
+  <p class="lead">
+    Color = <strong>Azure</strong>. The form is filled with the selected hue
+    (same <code>#0080ff</code> as the Color pill and the rail's active
+    swatch). Same fill idiom as Weight — just at full scale here. The
+    name <code>X</code> stays dark like every other scene.
+  </p>
+
+  <div class="editor-frame">
+    <div class="canvas-bg"></div>
+    <header class="editor-topbar">
+      <div class="topbar-center">
+        <div class="topbar-tools" role="toolbar" aria-label="Category editor">
+          <button class="shape-tool tool-weight"            type="button" title="Weight"><svg aria-hidden="true"><use href="#ic-weight"/></svg></button>
+          <button class="shape-tool tool-direction"         type="button" title="Direction"><svg aria-hidden="true"><use href="#ic-direction-center"/></svg></button>
+          <button class="shape-tool tool-rotation"          type="button" title="Rotation"><svg aria-hidden="true"><use href="#ic-rotation"/></svg></button>
+          <button class="shape-tool tool-scale"             type="button" title="Scale"><svg aria-hidden="true"><use href="#ic-scale"/></svg></button>
+          <button class="shape-tool tool-location"          type="button" title="Location"><svg aria-hidden="true"><use href="#ic-location"/></svg></button>
+          <button class="shape-tool tool-number"            type="button" title="Number">5</button>
+          <button class="shape-tool tool-color is-active"   type="button" title="Color"><span class="sw-face" style="background:#0080ff" aria-hidden="true"></span></button>
+          <button class="shape-tool tool-shape"             type="button" title="Shape"><svg aria-hidden="true"><use href="#kind-hexagon"/></svg></button>
+        </div>
+      </div>
+    </header>
+    <div class="canvas-area">
+      <div class="canvas-stage">
+        <div class="canvas-shape">
+          <svg class="cnv-svg" viewBox="0 0 100 100" aria-hidden="true">
+            <!-- Solid Azure fill (same hex as the Color pill), inner polygon
+                 same shape as the outline — consistent with the Weight
+                 scene's inner-hexagon idiom, just at full scale. -->
+            <polygon points="50,5 91,28 91,72 50,95 9,72 9,28" fill="#0080ff" stroke="none" />
+            <polygon class="cnv-poly" points="50,5 91,28 91,72 50,95 9,72 9,28" style="fill: none" />
+          </svg>
+          <span class="cnv-label">X</span>
+        </div>
+      </div>
+      <div class="canvas-name-bar">
+        <input type="text" value="X" aria-label="Form name (LaTeX)" />
+      </div>
+      <div class="controls-cluster">
+        <button type="button"><svg aria-hidden="true"><use href="#ic-plus"/></svg></button>
+        <button type="button"><svg aria-hidden="true"><use href="#ic-minus"/></svg></button>
+        <button type="button"><svg aria-hidden="true"><use href="#ic-fit"/></svg></button>
+        <button type="button"><svg aria-hidden="true"><use href="#ic-lock"/></svg></button>
+      </div>
+      <div class="tool-popover tool-popover--color">
+        <div class="topbar-tools topbar-tools--popover-rail color-slot-rail" role="group" aria-label="Color presets Black to White">
+          <button type="button" class="shape-tool" title="Black"><span class="sw-face sw-face--preset-black"></span></button>
+          <button type="button" class="shape-tool" title="Red"><span class="sw-face" style="background:#ff0000"></span></button>
+          <button type="button" class="shape-tool" title="Orange"><span class="sw-face" style="background:#ff8000"></span></button>
+          <button type="button" class="shape-tool" title="Yellow"><span class="sw-face sw-face--hsv-strong" style="background:#ffff00"></span></button>
+          <button type="button" class="shape-tool" title="Green"><span class="sw-face" style="background:#00ff00"></span></button>
+          <button type="button" class="shape-tool" title="Cyan"><span class="sw-face" style="background:#00ffff"></span></button>
+          <button type="button" class="shape-tool is-active" title="Azure"><span class="sw-face" style="background:#0080ff"></span></button>
+          <button type="button" class="shape-tool" title="White"><span class="sw-face sw-face--white"></span></button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════ Scene 8: Shape (8-cell rail) ═══════ -->
+
+<section class="wireframe-section">
+  <h2 class="t-h1">Scene 8 — Shape</h2>
+  <p class="lead">
+    Shape = <strong>Hexagon</strong>. The form's outline matches the
+    selected kind tile in the rail; switching cells swaps the polygon.
+  </p>
+
+  <div class="editor-frame">
+    <div class="canvas-bg"></div>
+    <header class="editor-topbar">
+      <div class="topbar-center">
+        <div class="topbar-tools" role="toolbar" aria-label="Category editor">
+          <button class="shape-tool tool-weight"          type="button" title="Weight"><svg aria-hidden="true"><use href="#ic-weight"/></svg></button>
+          <button class="shape-tool tool-direction"       type="button" title="Direction"><svg aria-hidden="true"><use href="#ic-direction-center"/></svg></button>
+          <button class="shape-tool tool-rotation"        type="button" title="Rotation"><svg aria-hidden="true"><use href="#ic-rotation"/></svg></button>
+          <button class="shape-tool tool-scale"           type="button" title="Scale"><svg aria-hidden="true"><use href="#ic-scale"/></svg></button>
+          <button class="shape-tool tool-location"        type="button" title="Location"><svg aria-hidden="true"><use href="#ic-location"/></svg></button>
+          <button class="shape-tool tool-number"          type="button" title="Number">5</button>
+          <button class="shape-tool tool-color"           type="button" title="Color"><span class="sw-face" style="background:#0080ff" aria-hidden="true"></span></button>
+          <button class="shape-tool tool-shape is-active" type="button" title="Shape"><svg aria-hidden="true"><use href="#kind-hexagon"/></svg></button>
+        </div>
+      </div>
+    </header>
+    <div class="canvas-area">
+      <div class="canvas-stage">
+        <div class="canvas-shape">
+          <svg class="cnv-svg" viewBox="0 0 100 100" aria-hidden="true">
+            <polygon class="cnv-poly" points="50,5 91,28 91,72 50,95 9,72 9,28" />
+          </svg>
+          <span class="cnv-label">X</span>
+        </div>
+      </div>
+      <div class="canvas-name-bar">
+        <input type="text" value="X" aria-label="Form name (LaTeX)" />
+      </div>
+      <div class="controls-cluster">
+        <button type="button"><svg aria-hidden="true"><use href="#ic-plus"/></svg></button>
+        <button type="button"><svg aria-hidden="true"><use href="#ic-minus"/></svg></button>
+        <button type="button"><svg aria-hidden="true"><use href="#ic-fit"/></svg></button>
+        <button type="button"><svg aria-hidden="true"><use href="#ic-lock"/></svg></button>
+      </div>
+      <div class="tool-popover tool-popover--shape">
+        <div class="topbar-tools topbar-tools--popover-rail kind-rail" role="group" aria-label="Shape values Circle to Square">
+          <button class="drag-tile" type="button" title="0 — Circle"><svg aria-hidden="true"><use href="#kind-circle"/></svg></button>
+          <button class="drag-tile kind-tile--point" type="button" title="1 — Point"><svg aria-hidden="true"><use href="#kind-point"/></svg></button>
+          <button class="drag-tile" type="button" title="2 — Line"><svg aria-hidden="true"><use href="#kind-line"/></svg></button>
+          <button class="drag-tile" type="button" title="3 — Triangle"><svg aria-hidden="true"><use href="#kind-triangle"/></svg></button>
+          <button class="drag-tile" type="button" title="4 — Rhombus"><svg aria-hidden="true"><use href="#kind-rhombus"/></svg></button>
+          <button class="drag-tile" type="button" title="5 — Pentagon"><svg aria-hidden="true"><use href="#kind-pentagon"/></svg></button>
+          <button class="drag-tile is-active" type="button" title="6 — Hexagon"><svg aria-hidden="true"><use href="#kind-hexagon"/></svg></button>
+          <button class="drag-tile" type="button" title="10 — Square"><svg aria-hidden="true"><use href="#kind-rectangle"/></svg></button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer class="wireframe-section" style="border-bottom: none">
+  <p class="t-small" style="color: var(--color-text-dimmed)">
+    Each scene draws ONE form on the canvas — a hexagon at canvas centre,
+    with a black hairline border, the form's name rendered as a STIX Two
+    Math glyph inside, and a numeric badge for the assigned index. The
+    bottom name bar (same x / width as the Spine, Quiver-style) is the
+    primary input — type to rename, LaTeX → glyph round-trip. Level,
+    Class, Equations and rail slots 7–9 remain parked for a future pass.
+  </p>
+</footer>
 </body>
 </html>

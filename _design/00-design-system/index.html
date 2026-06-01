@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>00 — Design System</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@500;600&display=swap" />
+  <link rel="stylesheet" href="./tokens.css" />
+  <style>
+    body {
+      margin: 0;
+      padding: 48px 56px;
+      background: var(--color-canvas-bg);
+      color: var(--color-text-secondary);
+      font-family: var(--font-geist-sans);
+      min-height: 100vh;
+    }
+    .page-header {
+      max-width: 920px;
+      margin: 0 auto 48px;
+    }
+    .page-header p {
+      max-width: 640px;
+      color: var(--color-text-muted);
+    }
+    section {
+      max-width: 920px;
+      margin: 0 auto 56px;
+      padding: 28px;
+      border: 1px solid var(--color-glass-border);
+      border-radius: var(--size-radius-md);
+      background: var(--color-glass-panel-bg);
+      backdrop-filter: blur(var(--effect-blur));
+      -webkit-backdrop-filter: blur(var(--effect-blur));
+    }
+    section > h2 {
+      margin: 0 0 24px;
+    }
+    .grid {
+      display: grid;
+      gap: 16px;
+    }
+    .grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .grid-cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .grid-cols-6 { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+
+    /* Colour swatch */
+    .swatch {
+      border-radius: var(--size-radius-md);
+      overflow: hidden;
+      border: 1px solid var(--color-glass-border);
+      background: var(--color-glass-button-bg);
+    }
+    .swatch .chip {
+      height: 64px;
+      background-image:
+        linear-gradient(45deg, rgba(255,255,255,0.04) 25%, transparent 25%),
+        linear-gradient(-45deg, rgba(255,255,255,0.04) 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, rgba(255,255,255,0.04) 75%),
+        linear-gradient(-45deg, transparent 75%, rgba(255,255,255,0.04) 75%);
+      background-size: 12px 12px;
+      background-position: 0 0, 0 6px, 6px -6px, -6px 0;
+    }
+    .swatch .chip > div {
+      width: 100%;
+      height: 100%;
+    }
+    .swatch .meta {
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .swatch .meta .name { color: var(--color-text-primary); font-size: 13px; font-weight: 600; }
+    .swatch .meta .value { font-family: var(--font-geist-mono); font-size: 11px; color: var(--color-text-muted); }
+
+    /* Typography rows */
+    .type-row {
+      display: flex;
+      align-items: baseline;
+      gap: 24px;
+      padding: 14px 0;
+      border-bottom: 1px solid var(--color-glass-border);
+    }
+    .type-row:last-child { border-bottom: none; }
+    .type-row .name {
+      width: 100px;
+      font-family: var(--font-geist-mono);
+      font-size: 11px;
+      color: var(--color-text-muted);
+      flex-shrink: 0;
+    }
+    .type-row .specimen { flex: 1; }
+
+    /* Effects */
+    .effect-card {
+      padding: 20px;
+      border-radius: var(--size-radius-md);
+      border: 1px solid var(--color-glass-border);
+      background: var(--color-glass-panel-bg);
+      backdrop-filter: blur(var(--effect-blur));
+      -webkit-backdrop-filter: blur(var(--effect-blur));
+    }
+    .effect-card .label {
+      font-family: var(--font-geist-mono);
+      font-size: 11px;
+      color: var(--color-text-muted);
+      margin-bottom: 8px;
+    }
+    .effect-card .value {
+      color: var(--color-text-primary);
+      font-size: 14px;
+    }
+
+    /* Shape palette tiers */
+    .shape-tier {
+      height: 60px;
+      border-radius: 6px;
+      border: 1px solid rgba(var(--shape-default-rgb), var(--shape-border-opacity));
+      background: rgba(var(--shape-default-rgb), var(--shape-fill-opacity));
+    }
+    .shape-tier.selected {
+      border-color: rgba(var(--shape-default-rgb), var(--shape-selected-border));
+      background: rgba(var(--shape-default-rgb), var(--shape-selected-fill));
+    }
+    .canvas-sample {
+      height: 120px;
+      border-radius: var(--size-radius-md);
+      background-color: var(--color-canvas-bg);
+      background-image: radial-gradient(var(--canvas-grid-color) 1px, transparent 1px);
+      background-size: 12px 12px;
+      border: 1px solid var(--color-glass-border);
+    }
+
+    footer {
+      max-width: 920px;
+      margin: 0 auto;
+      padding: 24px 0;
+      color: var(--color-text-dimmed);
+      font-family: var(--font-geist-mono);
+      font-size: 11px;
+      line-height: 1.6;
+      border-top: 1px solid var(--color-glass-border);
+    }
+    code {
+      font-family: var(--font-geist-mono);
+      color: var(--color-text-secondary);
+      background: var(--color-glass-button-bg);
+      padding: 1px 6px;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="page-header">
+  <div class="t-caption">NeSyCat · Design system · v0</div>
+  <h1 class="t-display">Tokens, typography, palette.</h1>
+  <p class="t-body">
+    The visual primitives the editor is built from. Every token below is
+    sourced from <code>app/globals.css</code>, <code>components/editor/style/theme.ts</code>,
+    and <code>components/editor/color.ts</code>. This page is a static reference;
+    later phases (<code>02-wireframe/</code>, <code>03-mockup/</code>,
+    <code>04-prototype/</code>) consume the same <code>tokens.css</code>.
+  </p>
+</div>
+
+<section>
+  <h2 class="t-h1">Colours</h2>
+
+  <h3 class="t-caption" style="margin: 20px 0 12px">Canvas + glass</h3>
+  <div class="grid grid-cols-4">
+    <div class="swatch">
+      <div class="chip"><div style="background: var(--color-canvas-bg)"></div></div>
+      <div class="meta"><span class="name">canvas-bg</span><span class="value">#0f0f14</span></div>
+    </div>
+    <div class="swatch">
+      <div class="chip"><div style="background: var(--color-glass-panel-bg)"></div></div>
+      <div class="meta"><span class="name">glass-panel-bg</span><span class="value">rgba(15,15,20,0.4)</span></div>
+    </div>
+    <div class="swatch">
+      <div class="chip"><div style="background: var(--color-glass-button-bg)"></div></div>
+      <div class="meta"><span class="name">glass-button-bg</span><span class="value">rgba(255,255,255,0.06)</span></div>
+    </div>
+    <div class="swatch">
+      <div class="chip"><div style="background: var(--color-glass-border)"></div></div>
+      <div class="meta"><span class="name">glass-border</span><span class="value">rgba(255,255,255,0.08)</span></div>
+    </div>
+  </div>
+
+  <h3 class="t-caption" style="margin: 28px 0 12px">Text</h3>
+  <div class="grid grid-cols-4">
+    <div class="swatch">
+      <div class="chip"><div style="background: var(--color-text-primary)"></div></div>
+      <div class="meta"><span class="name">text-primary</span><span class="value">#ffffff</span></div>
+    </div>
+    <div class="swatch">
+      <div class="chip"><div style="background: var(--color-text-secondary)"></div></div>
+      <div class="meta"><span class="name">text-secondary</span><span class="value">rgba(255,255,255,0.8)</span></div>
+    </div>
+    <div class="swatch">
+      <div class="chip"><div style="background: var(--color-text-muted)"></div></div>
+      <div class="meta"><span class="name">text-muted</span><span class="value">rgba(255,255,255,0.55)</span></div>
+    </div>
+    <div class="swatch">
+      <div class="chip"><div style="background: var(--color-text-dimmed)"></div></div>
+      <div class="meta"><span class="name">text-dimmed</span><span class="value">rgba(255,255,255,0.35)</span></div>
+    </div>
+  </div>
+
+  <h3 class="t-caption" style="margin: 28px 0 12px">Accent</h3>
+  <div class="grid grid-cols-3">
+    <div class="swatch">
+      <div class="chip"><div style="background: var(--color-accent-blue)"></div></div>
+      <div class="meta"><span class="name">accent-blue</span><span class="value">rgb(59,130,246) · tailwind blue-500</span></div>
+    </div>
+    <div class="swatch">
+      <div class="chip"><div style="background: rgba(var(--color-accent-rgb), 0.4)"></div></div>
+      <div class="meta"><span class="name">accent / 40%</span><span class="value">rgba(59,130,246,0.4)</span></div>
+    </div>
+    <div class="swatch">
+      <div class="chip"><div style="background: rgba(var(--color-accent-rgb), 0.18)"></div></div>
+      <div class="meta"><span class="name">accent / 18%</span><span class="value">rgba(59,130,246,0.18)</span></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2 class="t-h1">Typography</h2>
+  <p class="t-small" style="margin-top: -8px">
+    All seven utilities below mirror <code>app/globals.css</code>'s <code>@layer components</code> block.
+  </p>
+  <div style="margin-top: 16px">
+    <div class="type-row">
+      <span class="name">.t-display</span>
+      <span class="specimen t-display">Draw string diagrams.</span>
+    </div>
+    <div class="type-row">
+      <span class="name">.t-h1</span>
+      <span class="specimen t-h1">Heading one — section title</span>
+    </div>
+    <div class="type-row">
+      <span class="name">.t-h2</span>
+      <span class="specimen t-h2">Heading two — panel title</span>
+    </div>
+    <div class="type-row">
+      <span class="name">.t-body</span>
+      <span class="specimen t-body">Body copy. Compose shapes, wire their points, round-trip JSON.</span>
+    </div>
+    <div class="type-row">
+      <span class="name">.t-small</span>
+      <span class="specimen t-small">Smaller body. Used for inline hints and supporting copy.</span>
+    </div>
+    <div class="type-row">
+      <span class="name">.t-caption</span>
+      <span class="specimen t-caption">SECTION CAPTION · 11PX UPPERCASE MONO</span>
+    </div>
+    <div class="type-row">
+      <span class="name">.t-mono</span>
+      <span class="specimen t-mono">v0.x · 2026 · JSON-in / JSON-out</span>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2 class="t-h1">Effects + sizing</h2>
+  <div class="grid grid-cols-3">
+    <div class="effect-card">
+      <div class="label">size-radius-md</div>
+      <div class="value">8px</div>
+    </div>
+    <div class="effect-card">
+      <div class="label">effect-blur</div>
+      <div class="value">3px backdrop blur (this card)</div>
+    </div>
+    <div class="effect-card">
+      <div class="label">text-shadow</div>
+      <div class="value" style="text-shadow: var(--text-shadow)">Drop-shadowed text</div>
+    </div>
+  </div>
+
+  <h3 class="t-caption" style="margin: 28px 0 12px">Canvas surface (grid)</h3>
+  <div class="canvas-sample"></div>
+</section>
+
+<section>
+  <h2 class="t-h1">Shape palette</h2>
+  <p class="t-small" style="margin-top: -8px">
+    Each shape in a diagram tints its body and border from the accent colour.
+    Fill / border opacities are constants in <code>components/editor/style/theme.ts</code>
+    (also exposed here as CSS vars for static reuse).
+  </p>
+  <div class="grid grid-cols-4" style="margin-top: 16px">
+    <div>
+      <div class="t-caption" style="margin-bottom: 8px">default</div>
+      <div class="shape-tier"></div>
+      <div class="t-mono" style="margin-top: 6px; color: var(--color-text-muted)">fill 18% · border 35%</div>
+    </div>
+    <div>
+      <div class="t-caption" style="margin-bottom: 8px">selected</div>
+      <div class="shape-tier selected"></div>
+      <div class="t-mono" style="margin-top: 6px; color: var(--color-text-muted)">fill 35% · border 70%</div>
+    </div>
+    <div>
+      <div class="t-caption" style="margin-bottom: 8px">accent / 40%</div>
+      <div style="height: 60px; border-radius: 6px; background: rgba(var(--shape-default-rgb), 0.4); border: 1px solid rgba(var(--shape-default-rgb), 0.7);"></div>
+      <div class="t-mono" style="margin-top: 6px; color: var(--color-text-muted)">point-dot at rest</div>
+    </div>
+    <div>
+      <div class="t-caption" style="margin-bottom: 8px">accent / 100%</div>
+      <div style="height: 60px; border-radius: 6px; background: rgb(var(--shape-default-rgb)); border: 1px solid rgb(var(--shape-default-rgb));"></div>
+      <div class="t-mono" style="margin-top: 6px; color: var(--color-text-muted)">point-dot selected</div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  Source of truth: <code>app/globals.css</code> · <code>components/editor/style/theme.ts</code> · <code>components/editor/color.ts</code> · <code>app/layout.tsx</code> (fonts).
+  <br />
+  Update them when the redesign is applied; resync <code>tokens.css</code> after.
+</footer>
+
+</body>
+</html>
