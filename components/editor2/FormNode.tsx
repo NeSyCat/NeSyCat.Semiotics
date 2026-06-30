@@ -86,10 +86,13 @@ function FormNode({ data, selected }: NodeProps) {
       const isSel = selectedPoints.includes(pid)
       const fill = isSel ? `rgb(${accent})` : `rgba(${accent}, 0.85)`
       const hid = encodeHandle(edgeKey, index)
-      const handleHit: React.CSSProperties = {
+      // Handles are 1px AT the glyph centre, so a line anchors dead-centre on the
+      // point (RF pins a handle to its position-edge — a large handle offsets the
+      // line). The source carries an ~18px transparent grab pad; its pointer
+      // events bubble up to the handle, so the point is still easy to grab/drag.
+      const dotStyle: React.CSSProperties = {
         position: 'absolute', top: anchor.y, left: anchor.x, transform: 'translate(-50%, -50%)',
-        width: POINT_HIT, height: POINT_HIT, minWidth: POINT_HIT, minHeight: POINT_HIT,
-        borderRadius: '50%', background: 'transparent', border: 'none', padding: 0, cursor: 'crosshair', zIndex: 5,
+        width: 1, height: 1, minWidth: 1, minHeight: 1, background: 'transparent', border: 'none', padding: 0, zIndex: 5,
       }
       pointVisuals.push(
         <span key={`pt-${pid}`}>
@@ -103,19 +106,21 @@ function FormNode({ data, selected }: NodeProps) {
           >
             <PointGlyph shape={pt.shape} fill={fill} stroke={`rgb(${accent})`} />
           </div>
-          {/* drag from here to draw a line; click to select */}
-          <Handle type="target" position={anchor.position} id={hid} style={handleHit} />
+          <Handle type="target" position={anchor.position} id={hid} style={dotStyle} />
           <Handle
             type="source"
             position={anchor.position}
             id={hid}
-            style={handleHit}
+            style={dotStyle}
             onClick={(e) => {
               e.stopPropagation()
               if (e.metaKey || e.ctrlKey) toggleSelectedPoint(pid)
               else setSelectedPoints([pid])
             }}
-          />
+          >
+            {/* grab pad — easy to grab; events bubble to the handle above */}
+            <span style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%, -50%)', width: POINT_HIT, height: POINT_HIT, borderRadius: '50%', cursor: 'crosshair', display: 'block' }} />
+          </Handle>
         </span>,
       )
     })
