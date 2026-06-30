@@ -27,6 +27,7 @@ interface State {
   moveForm: (id: string, position: { x: number; y: number }) => void
   moveForms: (updates: Array<{ id: string; position: { x: number; y: number } }>) => void
   renameForm: (id: string, name: string) => void
+  setFormsKind: (ids: string[], kind: FormKind) => void
 
   addPoint: (formId: string, edgeKey: string, shape?: PointShape) => string
   removePoint: (id: string) => void
@@ -89,6 +90,7 @@ export const useStore = create<State>((set, get) => {
     moveForm: (id, position) => setCur(M.moveForm(get().diagram, id, position)),
     moveForms: (updates) => { if (updates.length) setCur(M.moveForms(get().diagram, updates)) },
     renameForm: (id, name) => setCur(M.renameForm(get().diagram, id, name)),
+    setFormsKind: (ids, kind) => { if (ids.length) setCur(M.setFormsKind(get().diagram, ids, kind)) },
 
     addPoint: (formId, edgeKey, shape) => {
       const [d, id] = M.addPoint(get().diagram, formId, edgeKey, shape)

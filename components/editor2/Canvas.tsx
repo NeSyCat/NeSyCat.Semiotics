@@ -4,7 +4,6 @@ import { useState, useMemo, useCallback, useRef, useEffect, useLayoutEffect } fr
 import {
   ReactFlow,
   ReactFlowProvider,
-  Controls,
   Background,
   BackgroundVariant,
   useNodesState,
@@ -23,7 +22,7 @@ import { useStore, initStore } from './store'
 import { useAutosave } from './save'
 import { geometryFor } from './forms'
 import { encodeHandle, decodeHandle } from './handles'
-import theme, { panelStyle } from './theme'
+import theme from './theme'
 import type { Diagram, FormKind } from './types'
 
 const nodeTypes: NodeTypes = { form: FormNode }
@@ -50,15 +49,86 @@ function handleToPointId(d: Diagram, nodeId: string, handleId: string): string |
   return (form.edges[edgeKey] ?? [])[index]
 }
 
+// SVG sprite — copied verbatim from _design/04-prototype (the mockup). The DS
+// `.pill .btn svg` rule paints these fill:none / stroke:currentColor.
+function ToolbarSprite() {
+  return (
+    <svg width="0" height="0" style={{ position: 'absolute' }} aria-hidden="true">
+      <defs>
+        <symbol id="ic-direction-center" viewBox="0 0 24 24" fill="none">
+          <circle cx="12" cy="12" r="8" stroke="currentColor" strokeWidth="1.7" />
+          <circle cx="12" cy="12" r="2.4" fill="currentColor" stroke="none" />
+        </symbol>
+        <symbol id="ic-weight" viewBox="0 0 24 24">
+          <path d="M9 7a3 3 0 1 1 6 0" />
+          <path d="M7 9h10l1.6 11H5.4z" />
+        </symbol>
+        <symbol id="ic-scale" viewBox="0 0 24 24" fill="none">
+          <path d="M9 4H4v5M15 20h5v-5M4 4l6 6M20 20l-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        </symbol>
+        <symbol id="ic-rotation" viewBox="0 0 24 24" fill="none">
+          <path d="M19 12a7 7 0 1 1-2.05-4.95" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+          <path d="M19 4v4h-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        </symbol>
+        <symbol id="ic-location" viewBox="0 0 24 24">
+          <path d="M12 3v18M3 12h18" />
+          <path d="M12 3l-2 2.5M12 3l2 2.5" />
+          <path d="M12 21l-2-2.5M12 21l2-2.5" />
+          <path d="M3 12l2.5-2M3 12l2.5 2" />
+          <path d="M21 12l-2.5-2M21 12l-2.5 2" />
+        </symbol>
+        <symbol id="kind-empty" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="9.25" fill="none" stroke="currentColor" strokeWidth="1.4" strokeDasharray="2.4 2.6" />
+        </symbol>
+        <symbol id="kind-point" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.15" fill="currentColor" /></symbol>
+        <symbol id="kind-line" viewBox="0 0 24 24"><path d="M2.75 12L21.25 12" fill="none" stroke="currentColor" strokeLinecap="round" /></symbol>
+        <symbol id="kind-triangle" viewBox="0 0 24 24"><path d="M12 2.75L20.011 16.625L3.989 16.625Z" /></symbol>
+        <symbol id="kind-rhombus" viewBox="0 0 24 24"><path d="M12 2.75L21.25 12L12 21.25L2.75 12Z" /></symbol>
+        <symbol id="kind-pentagon" viewBox="0 0 24 24"><path d="M12 2.75 L20.797 9.142 L17.437 19.483 L6.563 19.483 L3.203 9.142 Z" /></symbol>
+        <symbol id="kind-hexagon" viewBox="0 0 24 24"><path d="M12 2.75 L20.011 7.375 L20.011 16.625 L12 21.25 L3.989 16.625 L3.989 7.375 Z" /></symbol>
+        <symbol id="kind-circle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9.25" /></symbol>
+        <symbol id="kind-rectangle" viewBox="0 0 24 24"><rect x="2.75" y="2.75" width="18.5" height="18.5" rx="0" ry="0" /></symbol>
+      </defs>
+    </svg>
+  )
+}
+
+// Top Spine pill — the mockup's 9 categories (exact symbols / value glyphs).
+// Only "shape" opens a working second toolbar; the rest are placeholders.
+const CATEGORIES: Array<{ key: string; label: string; content: React.ReactNode }> = [
+  { key: 'direction', label: 'Direction', content: <svg aria-hidden="true"><use href="#ic-direction-center" /></svg> },
+  { key: 'weight', label: 'Weight', content: <svg aria-hidden="true"><use href="#ic-weight" /></svg> },
+  { key: 'scale', label: 'Scale', content: <svg aria-hidden="true"><use href="#ic-scale" /></svg> },
+  { key: 'rotation', label: 'Rotation', content: <svg aria-hidden="true"><use href="#ic-rotation" /></svg> },
+  { key: 'location', label: 'Location', content: <svg aria-hidden="true"><use href="#ic-location" /></svg> },
+  { key: 'order', label: 'Order', content: <span style={{ fontWeight: 600, fontSize: 14 }}>5</span> },
+  { key: 'color', label: 'Color', content: <span style={{ width: 18, height: 18, borderRadius: '50%', background: '#0080ff', display: 'block' }} /> },
+  { key: 'shape', label: 'Shape', content: <svg aria-hidden="true"><use href="#kind-hexagon" /></svg> },
+  { key: 'name', label: 'Name', content: <span style={{ fontWeight: 600, fontSize: 14 }}>X</span> },
+]
+
+// Second toolbar — the Shape rail. SAME 9 slots as the Spine (equal length);
+// only triangle/circle/square create a form for now (the rest are placeholders).
+const SHAPE_RAIL: Array<{ label: string; symbol: string; kind?: FormKind }> = [
+  { label: 'Empty', symbol: 'kind-empty' },
+  { label: 'Point', symbol: 'kind-point' },
+  { label: 'Line', symbol: 'kind-line' },
+  { label: 'Triangle', symbol: 'kind-triangle', kind: 'triangle' },
+  { label: 'Rhombus', symbol: 'kind-rhombus' },
+  { label: 'Pentagon', symbol: 'kind-pentagon' },
+  { label: 'Hexagon', symbol: 'kind-hexagon' },
+  { label: 'Circle', symbol: 'kind-circle', kind: 'circle' },
+  { label: 'Square', symbol: 'kind-rectangle', kind: 'square' },
+]
+
 function Canvas() {
   const diagram = useStore((s) => s.diagram)
-  const edgePath = useStore((s) => s.edgePath)
-  const toggleEdgePath = useStore((s) => s.toggleEdgePath)
   const clearSelection = useStore((s) => s.clearSelection)
   const renameLine = useStore((s) => s.renameLine)
   const { screenToFlowPosition, getNodes } = useReactFlow()
 
   const [activeKind, setActiveKind] = useState<FormKind>('triangle')
+  const [activeCategory, setActiveCategory] = useState<string>('shape')
 
   // ── Build RF nodes from forms ──────────────────────────────────────
   const builtNodes: Node[] = useMemo(() => {
@@ -128,12 +198,30 @@ function Canvas() {
     [],
   )
 
-  const createAtCenter = useCallback(
+  // Click a Shape-rail tile: make it the active kind, and TRANSFORM any selected
+  // forms to it. With nothing selected, this only sets the tool — no form is
+  // created (creation happens via double-click pane or drag-drop).
+  const onPickShape = useCallback(
     (kind: FormKind) => {
-      const flow = screenToFlowPosition({ x: window.innerWidth / 2, y: window.innerHeight / 2 })
-      // nudge so successive creates don't perfectly overlap
-      const jitter = useStore.getState().diagram.forms.length * 24
-      createForm(kind, { x: flow.x - 100 + jitter, y: flow.y - 100 + jitter })
+      setActiveKind(kind)
+      const ids = getNodes().filter((n) => n.selected).map((n) => n.id)
+      if (ids.length > 0) useStore.getState().setFormsKind(ids, kind)
+    },
+    [getNodes],
+  )
+
+  // Drag a Shape-rail tile onto the canvas → create a form at the drop point.
+  const onDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'copy'
+  }, [])
+  const onDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault()
+      const kind = e.dataTransfer.getData('application/form-kind') as FormKind
+      if (!kind) return
+      const flow = screenToFlowPosition({ x: e.clientX, y: e.clientY })
+      createForm(kind, { x: flow.x - 100, y: flow.y - 100 })
     },
     [screenToFlowPosition, createForm],
   )
@@ -275,7 +363,7 @@ function Canvas() {
   }, [])
 
   return (
-    <>
+    <div style={{ width: '100%', height: '100%', position: 'relative' }} onDrop={onDrop} onDragOver={onDragOver}>
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -299,36 +387,54 @@ function Canvas() {
         proOptions={{ hideAttribution: true }}
         style={{ background: theme.canvas.background }}
       >
-        <Controls />
         <Background variant={BackgroundVariant.Dots} color={theme.canvas.gridColor} gap={20} size={1} />
       </ReactFlow>
 
-      {/* Create toolbar (top-left). Click to drop a form; double-click the pane
-          creates the last-picked kind at the cursor. */}
-      <div style={{ position: 'absolute', top: 12, left: 'calc(12px + var(--sidebar-offset, 0px))', zIndex: 10, display: 'flex', gap: 8, transition: 'left 200ms' }}>
-        {(['triangle', 'square', 'circle'] as FormKind[]).map((kind) => (
-          <button
-            key={kind}
-            onClick={() => createAtCenter(kind)}
-            title={`Add ${kind}`}
-            style={{
-              ...panelStyle(), borderRadius: 8, padding: '6px 14px', fontSize: 12, fontWeight: 600,
-              color: kind === activeKind ? `rgb(${theme.node.accentBlue})` : theme.text.secondary,
-              cursor: 'pointer', fontFamily: 'inherit', textTransform: 'capitalize',
-            }}
-          >
-            {kind}
-          </button>
-        ))}
-        <button
-          onClick={toggleEdgePath}
-          title={`Edge path: ${edgePath} — click to switch`}
-          style={{ ...panelStyle(), borderRadius: 8, padding: '6px 14px', fontSize: 12, fontWeight: 600, color: theme.text.secondary, cursor: 'pointer', fontFamily: 'inherit' }}
-        >
-          {edgePath === 'straight' ? 'Straight' : 'Smooth'}
-        </button>
+      <ToolbarSprite />
+
+      {/* General toolbar — the mockup's category Spine (DS .pill, scaled up),
+          centred over the canvas. Most categories are placeholders; clicking
+          "Shape" opens the forms toolbar directly below it. */}
+      <div style={{ position: 'absolute', top: 16, left: 'calc(50% + (var(--sidebar-offset, 0px) / 2))', transform: 'translateX(-50%)', zIndex: 10, transition: 'left 200ms' }}>
+        <div className="pill editor-pill" role="toolbar" aria-label="Categories">
+          {CATEGORIES.map((cat) => (
+            <button
+              key={cat.key}
+              className={`btn btn-icon${cat.key === activeCategory ? ' is-active' : ''}`}
+              title={cat.label}
+              onClick={() => setActiveCategory((c) => (c === cat.key ? '' : cat.key))}
+            >
+              {cat.content}
+            </button>
+          ))}
+        </div>
       </div>
-    </>
+
+      {/* Second toolbar — the Shape rail. SAME 9 slots as the Spine, so both
+          pills are always the same length. Only triangle/circle/square work. */}
+      {activeCategory === 'shape' && (
+        <div style={{ position: 'absolute', top: 70, left: 'calc(50% + (var(--sidebar-offset, 0px) / 2))', transform: 'translateX(-50%)', zIndex: 10, transition: 'left 200ms' }}>
+          <div className="pill editor-pill" role="group" aria-label="Shape">
+            {SHAPE_RAIL.map((s) => (
+              <button
+                key={s.label}
+                className={`btn btn-icon${s.kind && s.kind === activeKind ? ' is-active' : ''}`}
+                title={s.kind ? `${s.label} — click to apply to selection, drag onto canvas to create` : s.label}
+                draggable={!!s.kind}
+                onDragStart={(e) => {
+                  if (!s.kind) { e.preventDefault(); return }
+                  e.dataTransfer.setData('application/form-kind', s.kind)
+                  e.dataTransfer.effectAllowed = 'copy'
+                }}
+                onClick={() => s.kind && onPickShape(s.kind)}
+              >
+                <svg aria-hidden="true"><use href={`#${s.symbol}`} /></svg>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
   )
 }
 

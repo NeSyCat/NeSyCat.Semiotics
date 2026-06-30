@@ -39,6 +39,27 @@ export function renameForm(d: Diagram, id: string, name: string): Diagram {
   return { ...d, forms: d.forms.map((f) => (f.id === id ? { ...f, name } : f)) }
 }
 
+// Transform a form to a new kind. Edge keys differ per kind, so the form's
+// points can't be carried over — they (and lines touching them) are dropped.
+export function setFormKind(d: Diagram, id: string, kind: FormKind): Diagram {
+  const form = d.forms.find((f) => f.id === id)
+  if (!form || form.kind === kind) return d
+  const ptIds = new Set<string>()
+  for (const k of Object.keys(form.edges)) for (const pid of form.edges[k]) ptIds.add(pid)
+  const points = { ...d.points }
+  for (const pid of ptIds) delete points[pid]
+  const edges: Record<EdgeKey, string[]> = {}
+  for (const k of geometryFor(kind).edgeKeys) edges[k] = []
+  const forms = d.forms.map((f) => (f.id === id ? { ...f, kind, edges } : f))
+  return { ...d, forms, points, lines: pruneLines(d.lines, ptIds) }
+}
+
+export function setFormsKind(d: Diagram, ids: string[], kind: FormKind): Diagram {
+  let out = d
+  for (const id of ids) out = setFormKind(out, id, kind)
+  return out
+}
+
 // ── Points ───────────────────────────────────────────────────────────
 export function addPoint(d: Diagram, formId: string, edgeKey: EdgeKey, shape: PointShape = 'dot'): [Diagram, string] {
   const form = d.forms.find((f) => f.id === formId)

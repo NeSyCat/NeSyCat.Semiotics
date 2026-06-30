@@ -222,3 +222,11 @@ input[type="search"]::-webkit-search-results-decoration {
 /* Embed (landing iframes) — hide editor chrome. */
 .embed-canvas .react-flow__controls,
 .embed-canvas .react-flow__panel { display: none !important; }
+
+/* Editor toolbar pills — the Admination DS .pill scaled up for the canvas
+   (the 28px default reads small full-screen). USES the DS .pill/.btn; only the
+   size is overridden, nothing else. */
+.editor-pill.pill { gap: 3px; padding: 5px; }
+.editor-pill.pill .btn { height: 36px; }
+.editor-pill.pill .btn.btn-icon { width: 36px; }
+.editor-pill.pill .btn svg { width: 21px; height: 21px; }
