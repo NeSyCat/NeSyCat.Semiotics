@@ -82,16 +82,22 @@ function nearestCorner(rx: number, ry: number, corners: Readonly<Record<EdgeKey,
   return best
 }
 
-// ── TRIANGLE (apex up; sides a/b/c, corners v0=apex, v1=base-right, v2=base-left) ─
+// ── TRIANGLE — apex points RIGHT (the standard orientation). Sides:
+//   a = top slant (top-left → apex), b = bottom slant (bottom-left → apex),
+//   c = left side (top-left → bottom-left, vertical).
+//   Corners v0 = apex (right), v1 = bottom-left, v2 = top-left.
 const SQRT3_4 = Math.sqrt(3) / 4
-const TRI_TOP = 0.5 - SQRT3_4
-const TRI_BOT = 0.5 + SQRT3_4
-const TRI_CORNERS = { v0: [0.5, TRI_TOP], v1: [1, TRI_BOT], v2: [0, TRI_BOT] } as const
+const TRI_APEX_X = 0.5 + SQRT3_4 // ≈ 0.933 (rightmost point)
+const TRI_BASE_X = 0.5 - SQRT3_4 // ≈ 0.067 (the left, vertical base)
+const TRI_CORNERS = { v0: [TRI_APEX_X, 0.5], v1: [TRI_BASE_X, 1], v2: [TRI_BASE_X, 0] } as const
 const TRI_EDGES = ['a', 'b', 'c', 'v0', 'v1', 'v2'] as const
 
+// A point along slant 'a' (from the top-left base vertex) or 'b' (bottom-left),
+// running to the apex on the right.
 function triSlant(side: 'a' | 'b', t: number, n: number): [number, number] {
-  const baseX = side === 'a' ? 0 : n
-  return [baseX + (n / 2 - baseX) * t, TRI_BOT * n + (TRI_TOP * n - TRI_BOT * n) * t]
+  const by = (side === 'a' ? 0 : 1) * n
+  const bx = TRI_BASE_X * n
+  return [bx + (TRI_APEX_X * n - bx) * t, by + (0.5 * n - by) * t]
 }
 
 const triangleGeometry: FormGeometry = {
@@ -99,22 +105,22 @@ const triangleGeometry: FormGeometry = {
   displayName: 'Triangle',
   edgeKeys: TRI_EDGES,
   corners: TRI_CORNERS,
-  body: { type: 'polygon', pointsFrac: [[0.5, TRI_TOP], [1, TRI_BOT], [0, TRI_BOT]] },
+  body: { type: 'polygon', pointsFrac: [[TRI_APEX_X, 0.5], [TRI_BASE_X, 1], [TRI_BASE_X, 0]] },
   bodyOpacity: 1,
   nodeSize: sizeFor(TRI_EDGES),
   pointAnchor: (edgeKey, index, count, n) => {
     if (edgeKey in TRI_CORNERS) return cornerAnchor(TRI_CORNERS[edgeKey as keyof typeof TRI_CORNERS], index, n)
     const t = (index + 1) / (count + 1)
-    if (edgeKey === 'a') { const [x, y] = triSlant('a', t, n); return { x, y, position: Position.Left } }
-    if (edgeKey === 'b') { const [x, y] = triSlant('b', t, n); return { x, y, position: Position.Right } }
-    return { x: t * n, y: TRI_BOT * n, position: Position.Bottom }
+    if (edgeKey === 'a') { const [x, y] = triSlant('a', t, n); return { x, y, position: Position.Top } }
+    if (edgeKey === 'b') { const [x, y] = triSlant('b', t, n); return { x, y, position: Position.Bottom } }
+    return { x: TRI_BASE_X * n, y: t * n, position: Position.Left } // c = left vertical side
   },
   edgeAt: (rx, ry) => {
     const nc = nearestCorner(rx, ry, TRI_CORNERS)
     if (nc && nc.dist < CORNER_R) return nc.key
-    const da = distToSeg(rx, ry, 0, TRI_BOT, 0.5, TRI_TOP) // a = left slant
-    const db = distToSeg(rx, ry, 1, TRI_BOT, 0.5, TRI_TOP) // b = right slant
-    const dc = distToSeg(rx, ry, 0, TRI_BOT, 1, TRI_BOT) // c = base
+    const da = distToSeg(rx, ry, TRI_BASE_X, 0, TRI_APEX_X, 0.5) // a = top slant
+    const db = distToSeg(rx, ry, TRI_BASE_X, 1, TRI_APEX_X, 0.5) // b = bottom slant
+    const dc = distToSeg(rx, ry, TRI_BASE_X, 0, TRI_BASE_X, 1) // c = left side
     if (da <= db && da <= dc) return 'a'
     if (db <= dc) return 'b'
     return 'c'

@@ -83,7 +83,7 @@ function ToolbarSprite() {
         </symbol>
         <symbol id="kind-point" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.15" fill="currentColor" /></symbol>
         <symbol id="kind-line" viewBox="0 0 24 24"><path d="M2.75 12L21.25 12" fill="none" stroke="currentColor" strokeLinecap="round" /></symbol>
-        <symbol id="kind-triangle" viewBox="0 0 24 24"><path d="M12 2.75L20.011 16.625L3.989 16.625Z" /></symbol>
+        <symbol id="kind-triangle" viewBox="0 0 24 24"><path d="M21.25 12L7.375 20.011L7.375 3.989Z" /></symbol>
         <symbol id="kind-rhombus" viewBox="0 0 24 24"><path d="M12 2.75L21.25 12L12 21.25L2.75 12Z" /></symbol>
         <symbol id="kind-pentagon" viewBox="0 0 24 24"><path d="M12 2.75 L20.797 9.142 L17.437 19.483 L6.563 19.483 L3.203 9.142 Z" /></symbol>
         <symbol id="kind-hexagon" viewBox="0 0 24 24"><path d="M12 2.75 L20.011 7.375 L20.011 16.625 L12 21.25 L3.989 16.625 L3.989 7.375 Z" /></symbol>
