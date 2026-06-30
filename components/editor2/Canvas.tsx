@@ -6,6 +6,7 @@ import {
   ReactFlowProvider,
   Background,
   BackgroundVariant,
+  ConnectionMode,
   useNodesState,
   useEdgesState,
   useReactFlow,
@@ -374,6 +375,7 @@ function Canvas() {
         onConnect={onConnect}
         onConnectEnd={onConnectEnd}
         isValidConnection={isValidConnection}
+        connectionMode={ConnectionMode.Loose}
         onNodeDragStop={onNodeDragStop}
         onNodeDoubleClick={onNodeDoubleClick}
         onPaneClick={onPaneClick}
