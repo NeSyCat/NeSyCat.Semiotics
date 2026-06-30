@@ -39,6 +39,13 @@ export function renameForm(d: Diagram, id: string, name: string): Diagram {
   return { ...d, forms: d.forms.map((f) => (f.id === id ? { ...f, name } : f)) }
 }
 
+// Multi-target rename (empty string clears the name → display falls back to id).
+export function renameForms(d: Diagram, ids: string[], name: string): Diagram {
+  const set = new Set(ids)
+  const nm = name === '' ? undefined : name
+  return { ...d, forms: d.forms.map((f) => (set.has(f.id) ? { ...f, name: nm } : f)) }
+}
+
 // Transform a form to a new kind. Edge keys differ per kind, so the form's
 // points can't be carried over — they (and lines touching them) are dropped.
 export function setFormKind(d: Diagram, id: string, kind: FormKind): Diagram {
@@ -90,6 +97,13 @@ export function renamePoint(d: Diagram, id: string, name: string): Diagram {
   return { ...d, points: { ...d.points, [id]: { ...pt, name } } }
 }
 
+export function renamePoints(d: Diagram, ids: string[], name: string): Diagram {
+  const nm = name === '' ? undefined : name
+  const points = { ...d.points }
+  for (const id of ids) if (points[id]) points[id] = { ...points[id], name: nm }
+  return { ...d, points }
+}
+
 export function setPointShape(d: Diagram, id: string, shape: PointShape): Diagram {
   const pt = d.points[id]
   if (!pt) return d
@@ -137,6 +151,12 @@ export function deleteLineTarget(d: Diagram, lineId: string, idx: number): Diagr
 
 export function renameLine(d: Diagram, id: string, name: string): Diagram {
   return { ...d, lines: d.lines.map((l) => (l.id === id ? { ...l, name } : l)) }
+}
+
+export function renameLines(d: Diagram, ids: string[], name: string): Diagram {
+  const set = new Set(ids)
+  const nm = name === '' ? undefined : name
+  return { ...d, lines: d.lines.map((l) => (set.has(l.id) ? { ...l, name: nm } : l)) }
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────

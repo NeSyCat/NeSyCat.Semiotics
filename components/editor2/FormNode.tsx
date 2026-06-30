@@ -91,6 +91,11 @@ function FormNode({ data, selected }: NodeProps) {
       const isSel = selectedPoints.includes(pid)
       const fill = isSel ? `rgb(${accent})` : `rgba(${accent}, 0.85)`
       const hid = encodeHandle(edgeKey, index)
+      // the name label sits just outside the glyph, away from the form's centre
+      const ocx = anchor.x - n / 2, ocy = anchor.y - n / 2
+      const olen = Math.hypot(ocx, ocy) || 1
+      const lblX = anchor.x + (ocx / olen) * 15
+      const lblY = anchor.y + (ocy / olen) * 15
       // Handles are 1px AT the glyph centre, so a line anchors dead-centre on the
       // point (RF pins a handle to its position-edge — a large handle offsets the
       // line). The source carries an ~18px transparent grab pad; its pointer
@@ -129,6 +134,15 @@ function FormNode({ data, selected }: NodeProps) {
             {/* grab pad — easy to grab; events bubble to the handle above */}
             <span style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%, -50%)', width: POINT_HIT, height: POINT_HIT, borderRadius: '50%', cursor: 'crosshair', display: 'block' }} />
           </Handle>
+          {(pt.name || isSel) && (
+            <div style={{
+              position: 'absolute', top: lblY, left: lblX, transform: 'translate(-50%, -50%)',
+              zIndex: 4, pointerEvents: 'none', fontSize: 9, lineHeight: 1, whiteSpace: 'nowrap',
+              color: theme.text.secondary, fontFamily: 'var(--font-sans, system-ui, sans-serif)',
+            }}>
+              {pt.name ?? pid}
+            </div>
+          )}
         </span>,
       )
     })
@@ -137,6 +151,17 @@ function FormNode({ data, selected }: NodeProps) {
   return (
     <div style={{ position: 'relative', width: n, height: n, cursor: 'pointer' }}>
       <BodyView body={geom.body} n={n} accent={accent} selected={!!selected} bodyOpacity={geom.bodyOpacity} />
+      {geom.bodyOpacity > 0 && (
+        <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', pointerEvents: 'none', zIndex: 3 }}>
+          <span style={{
+            fontSize: 12, lineHeight: 1.1, textAlign: 'center', maxWidth: n * 0.66,
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            color: theme.text.secondary, fontFamily: 'var(--font-sans, system-ui, sans-serif)',
+          }}>
+            {form.name ?? form.id}
+          </span>
+        </div>
+      )}
       {pointVisuals}
     </div>
   )

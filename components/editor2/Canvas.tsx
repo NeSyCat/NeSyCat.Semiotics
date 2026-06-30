@@ -124,10 +124,40 @@ const SHAPE_RAIL: Array<{ label: string; symbol: string; pshape: PointShape; kin
   { label: 'Square', symbol: 'kind-rectangle', pshape: 'square', kind: 'square' },
 ]
 
+// The Name category's second pill — the whole pill is a text input that renames
+// the current selection live (one undo step, via the store's coalescing). `sig`
+// changes when the selection changes, re-seeding the field.
+function NameField({ sig, initial, placeholder, disabled, onChange }: {
+  sig: string; initial: string; placeholder: string; disabled: boolean; onChange: (v: string) => void
+}) {
+  const [val, setVal] = useState(initial)
+  useEffect(() => { setVal(initial) }, [sig]) // eslint-disable-line react-hooks/exhaustive-deps
+  return (
+    <input
+      type="text"
+      autoFocus
+      disabled={disabled}
+      value={disabled ? '' : val}
+      placeholder={placeholder}
+      onChange={(e) => { setVal(e.target.value); onChange(e.target.value) }}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === 'Escape') (e.target as HTMLInputElement).blur() }}
+      style={{
+        width: '100%', height: 36, boxSizing: 'border-box',
+        background: 'transparent', border: 'none', outline: 'none',
+        fontSize: 14, padding: '0 12px', color: 'var(--color-foreground)',
+        fontFamily: 'var(--font-sans, system-ui, sans-serif)',
+      }}
+    />
+  )
+}
+
 function Canvas() {
   const diagram = useStore((s) => s.diagram)
   const clearSelection = useStore((s) => s.clearSelection)
   const renameLine = useStore((s) => s.renameLine)
+  const renameForms = useStore((s) => s.renameForms)
+  const renamePoints = useStore((s) => s.renamePoints)
+  const renameLines = useStore((s) => s.renameLines)
   const selectedPoints = useStore((s) => s.selectedPoints)
   const { screenToFlowPosition, getNodes } = useReactFlow()
 
@@ -199,6 +229,37 @@ function Canvas() {
       })
     })
   }, [builtEdges, setEdges])
+
+  // ── Name field target: the current selection (points > forms > lines) ──
+  const nameTarget = useMemo(() => {
+    const formIds = nodes.filter((n) => n.selected).map((n) => n.id)
+    const lineIds = [...new Set(edges.filter((e) => e.selected).map((e) => String(e.id).split('#')[0]))]
+    if (selectedPoints.length) return { kind: 'points' as const, ids: selectedPoints }
+    if (formIds.length) return { kind: 'forms' as const, ids: formIds }
+    if (lineIds.length) return { kind: 'lines' as const, ids: lineIds }
+    return null
+  }, [nodes, edges, selectedPoints])
+
+  const nameInfo = useMemo(() => {
+    if (!nameTarget) return { value: '', placeholder: 'Select a form, point, or line', sig: '' }
+    const id0 = nameTarget.ids[0]
+    const single = nameTarget.ids.length === 1
+    const name = nameTarget.kind === 'points' ? diagram.points[id0]?.name
+      : nameTarget.kind === 'forms' ? diagram.forms.find((f) => f.id === id0)?.name
+        : diagram.lines.find((l) => l.id === id0)?.name
+    return {
+      value: single ? (name ?? '') : '',
+      placeholder: single ? id0 : `${nameTarget.ids.length} ${nameTarget.kind}`,
+      sig: nameTarget.kind + ':' + nameTarget.ids.join(','),
+    }
+  }, [nameTarget, diagram])
+
+  const onName = useCallback((value: string) => {
+    if (!nameTarget) return
+    if (nameTarget.kind === 'points') renamePoints(nameTarget.ids, value)
+    else if (nameTarget.kind === 'forms') renameForms(nameTarget.ids, value)
+    else renameLines(nameTarget.ids, value)
+  }, [nameTarget, renamePoints, renameForms, renameLines])
 
   // ── Create forms ───────────────────────────────────────────────────
   const createForm = useCallback(
@@ -465,6 +526,16 @@ function Canvas() {
                 </button>
               )
             })}
+          </div>
+        </div>
+      )}
+
+      {/* Name field — the whole pill is a text input renaming the current
+          selection (points > forms > lines). Same width as the Shape rail. */}
+      {activeCategory === 'name' && (
+        <div style={{ position: 'absolute', top: 70, left: 'calc(50% + (var(--sidebar-offset, 0px) / 2))', transform: 'translateX(-50%)', zIndex: 10, transition: 'left 200ms' }}>
+          <div className="pill editor-pill" style={{ width: 360, padding: '0 4px' }}>
+            <NameField sig={nameInfo.sig} initial={nameInfo.value} placeholder={nameInfo.placeholder} disabled={!nameTarget} onChange={onName} />
           </div>
         </div>
       )}
