@@ -23,13 +23,14 @@ const theme = {
   text: {
     primary: 'var(--color-text-primary)',
     secondary: 'var(--color-text-secondary)',
+    ink: '#111111', // solid near-black for canvas labels (the DS text is gray-800)
     muted: 'var(--color-muted-foreground)',
     dimmed: 'var(--color-muted-foreground)',
     shadow: 'none',
     shadowLight: 'none',
   },
   canvas: {
-    background: 'var(--color-background)',
+    background: '#ffffff', // pure white canvas (not the DS off-white --color-background)
     gridColor: 'rgba(0,0,0,0.06)',
   },
 } as const

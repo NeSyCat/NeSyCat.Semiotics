@@ -230,3 +230,11 @@ input[type="search"]::-webkit-search-results-decoration {
 .editor-pill.pill .btn { height: 36px; }
 .editor-pill.pill .btn.btn-icon { width: 36px; }
 .editor-pill.pill .btn svg { width: 21px; height: 21px; }
+
+/* KaTeX reuses class names that collide with the DS — notably `.text`, which is
+   the DS's input field (border + height + background). Neutralise that inside
+   rendered math so labels never get a box (e.g. on invalid LaTeX). */
+.katex .text {
+  width: auto; height: auto; padding: 0;
+  border: none; background: none; box-shadow: none;
+}

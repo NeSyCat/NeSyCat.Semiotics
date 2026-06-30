@@ -1,7 +1,7 @@
 'use client'
 
 import { memo } from 'react'
-import { Handle, useReactFlow, type NodeProps } from '@xyflow/react'
+import { Handle, Position, useReactFlow, type NodeProps } from '@xyflow/react'
 import theme from './theme'
 import { geometryFor, type Body } from './forms'
 import { encodeHandle } from './handles'
@@ -105,6 +105,14 @@ function FormNode({ data, selected }: NodeProps) {
       const isSel = selectedPoints.includes(pid)
       const fill = isSel ? `rgb(${accent})` : `rgba(${accent}, 0.85)`
       const hid = encodeHandle(edgeKey, index)
+      // The name label sits OUTSIDE the point, in its edge's outward direction
+      // (apex point → right, left-edge point → left, etc.).
+      const GAP = 11
+      const lblPos: React.CSSProperties =
+        anchor.position === Position.Left ? { left: anchor.x - GAP, top: anchor.y, transform: 'translate(-100%, -50%)' }
+          : anchor.position === Position.Right ? { left: anchor.x + GAP, top: anchor.y, transform: 'translate(0, -50%)' }
+            : anchor.position === Position.Top ? { left: anchor.x, top: anchor.y - GAP, transform: 'translate(-50%, -100%)' }
+              : { left: anchor.x, top: anchor.y + GAP, transform: 'translate(-50%, 0)' }
       // Handles are 1px AT the glyph centre, so a line anchors dead-centre on the
       // point (RF pins a handle to its position-edge — a large handle offsets the
       // line). The source carries an ~18px transparent grab pad; its pointer
@@ -143,12 +151,9 @@ function FormNode({ data, selected }: NodeProps) {
             {/* grab pad — easy to grab; events bubble to the handle above */}
             <span style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%, -50%)', width: POINT_HIT, height: POINT_HIT, borderRadius: '50%', cursor: 'crosshair', display: 'block' }} />
           </Handle>
-          {/* always-visible point name, centred just below the point */}
-          <div style={{
-            position: 'absolute', top: anchor.y + 14, left: anchor.x, transform: 'translate(-50%, -50%)',
-            zIndex: 4, pointerEvents: 'none',
-          }}>
-            <Tex fontSize={POINT_NAME_SIZE} color={theme.text.secondary}>{pt.name ?? pid}</Tex>
+          {/* always-visible point name, placed just outside the point */}
+          <div style={{ position: 'absolute', ...lblPos, zIndex: 4, pointerEvents: 'none' }}>
+            <Tex fontSize={POINT_NAME_SIZE} color={theme.text.ink}>{pt.name ?? pid}</Tex>
           </div>
         </span>,
       )
@@ -163,7 +168,7 @@ function FormNode({ data, selected }: NodeProps) {
           position: 'absolute', left: centroid[0] * n, top: centroid[1] * n,
           transform: 'translate(-50%, -50%)', pointerEvents: 'none', zIndex: 3,
         }}>
-          <Tex fontSize={FORM_NAME_SIZE} color={theme.text.secondary}>{form.name ?? form.id}</Tex>
+          <Tex fontSize={FORM_NAME_SIZE} color={theme.text.ink}>{form.name ?? form.id}</Tex>
         </div>
       )}
       {pointVisuals}

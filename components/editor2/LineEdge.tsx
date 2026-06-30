@@ -60,7 +60,7 @@ function LineEdge({
             padding: '0 5px',
           }}
         >
-          <Tex fontSize={16} color={selected ? theme.text.primary : theme.text.secondary}>{d.label}</Tex>
+          <Tex fontSize={16} color={theme.text.ink}>{d.label}</Tex>
         </div>
       </EdgeLabelRenderer>
     </>
