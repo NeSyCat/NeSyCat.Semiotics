@@ -95,6 +95,15 @@ function FormNode({ data, selected }: NodeProps) {
   const toggleSelectedPoint = useStore((s) => s.toggleSelectedPoint)
   const { setNodes } = useReactFlow()
 
+  // Select a point (from its glyph/grab handle OR its name): exclusive with form
+  // selection; Cmd/Ctrl+click accumulates, plain click single-selects.
+  const selectPoint = (e: React.MouseEvent, pid: string) => {
+    e.stopPropagation()
+    setNodes((nds) => (nds.some((nd) => nd.selected) ? nds.map((nd) => (nd.selected ? { ...nd, selected: false } : nd)) : nds))
+    if (e.metaKey || e.ctrlKey) toggleSelectedPoint(pid)
+    else setSelectedPoints([pid])
+  }
+
   const pointVisuals: React.ReactNode[] = []
   for (const edgeKey of geom.edgeKeys) {
     const ids = form.edges[edgeKey] ?? []
@@ -123,36 +132,28 @@ function FormNode({ data, selected }: NodeProps) {
       }
       pointVisuals.push(
         <span key={`pt-${pid}`}>
-          {/* glyph: visual only, behind the handles */}
-          <div
-            style={{
+          {/* selection ring — a consistent circle for ALL points (incl. empty) */}
+          {isSel && (
+            <div style={{
               position: 'absolute', top: anchor.y, left: anchor.x, transform: 'translate(-50%, -50%)',
-              zIndex: 4, pointerEvents: 'none', lineHeight: 0, borderRadius: '50%',
-              boxShadow: isSel ? `0 0 0 2px rgba(${accent}, 0.45)` : 'none',
-            }}
-          >
+              width: 15, height: 15, borderRadius: '50%', zIndex: 3, pointerEvents: 'none',
+              boxShadow: `0 0 0 2px rgba(${accent}, 0.45)`,
+            }} />
+          )}
+          {/* glyph: visual only, behind the handles */}
+          <div style={{
+            position: 'absolute', top: anchor.y, left: anchor.x, transform: 'translate(-50%, -50%)',
+            zIndex: 4, pointerEvents: 'none', lineHeight: 0,
+          }}>
             <PointGlyph shape={pt.shape} color={fill} />
           </div>
           <Handle type="target" position={anchor.position} id={hid} style={dotStyle} />
-          <Handle
-            type="source"
-            position={anchor.position}
-            id={hid}
-            style={dotStyle}
-            onClick={(e) => {
-              e.stopPropagation()
-              // exclusive: selecting a point clears any selected form
-              setNodes((nds) => (nds.some((nd) => nd.selected) ? nds.map((nd) => (nd.selected ? { ...nd, selected: false } : nd)) : nds))
-              // Cmd/Ctrl+click accumulates points; plain click single-selects
-              if (e.metaKey || e.ctrlKey) toggleSelectedPoint(pid)
-              else setSelectedPoints([pid])
-            }}
-          >
+          <Handle type="source" position={anchor.position} id={hid} style={dotStyle} onClick={(e) => selectPoint(e, pid)}>
             {/* grab pad — easy to grab; events bubble to the handle above */}
             <span style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%, -50%)', width: POINT_HIT, height: POINT_HIT, borderRadius: '50%', cursor: 'crosshair', display: 'block' }} />
           </Handle>
-          {/* always-visible point name, placed just outside the point */}
-          <div style={{ position: 'absolute', ...lblPos, zIndex: 4, pointerEvents: 'none' }}>
+          {/* always-visible point name — click it to select the point too */}
+          <div onClick={(e) => selectPoint(e, pid)} style={{ position: 'absolute', ...lblPos, zIndex: 4, cursor: 'pointer' }}>
             <Tex fontSize={POINT_NAME_SIZE} color={theme.text.ink}>{pt.name ?? pid}</Tex>
           </div>
         </span>,
