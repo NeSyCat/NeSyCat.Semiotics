@@ -33,11 +33,22 @@ export interface Form {
 }
 
 // ── Points (leaves; distinct from forms) ─────────────────────────────
-export type PointShape = 'dot' | 'triangle' | 'square' | 'circle'
+// A point's shape is drawn from the SAME vocabulary as the Spine's Shape rail,
+// just rendered small. 'point' (a filled dot) is the default.
+export type PointShape =
+  | 'empty'
+  | 'point'
+  | 'line'
+  | 'triangle'
+  | 'rhombus'
+  | 'pentagon'
+  | 'hexagon'
+  | 'circle'
+  | 'square'
 
 export interface Point {
   id: string
-  shape: PointShape // the point's own (small) shape; default 'dot'
+  shape: PointShape // the point's own (small) shape; default 'point'
   name?: string
   color: Color
   formId: string // the Form this point sits on

@@ -31,7 +31,7 @@ function canonForm(f: Record<string, unknown>): Form {
 function canonPoint(p: Record<string, unknown>): Point {
   return {
     id: String(p.id),
-    shape: (p.shape as PointShape) ?? 'dot',
+    shape: p.shape == null || p.shape === 'dot' ? 'point' : (p.shape as PointShape),
     ...(p.name !== undefined ? { name: String(p.name) } : {}),
     color: asColor(p.color),
     formId: String(p.formId),

@@ -61,7 +61,7 @@ export function setFormsKind(d: Diagram, ids: string[], kind: FormKind): Diagram
 }
 
 // ── Points ───────────────────────────────────────────────────────────
-export function addPoint(d: Diagram, formId: string, edgeKey: EdgeKey, shape: PointShape = 'dot'): [Diagram, string] {
+export function addPoint(d: Diagram, formId: string, edgeKey: EdgeKey, shape: PointShape = 'point'): [Diagram, string] {
   const form = d.forms.find((f) => f.id === formId)
   if (!form) return [d, '']
   const id = newPointId(d)
@@ -94,6 +94,16 @@ export function setPointShape(d: Diagram, id: string, shape: PointShape): Diagra
   const pt = d.points[id]
   if (!pt) return d
   return { ...d, points: { ...d.points, [id]: { ...pt, shape } } }
+}
+
+export function setPointsShape(d: Diagram, ids: string[], shape: PointShape): Diagram {
+  const points = { ...d.points }
+  let changed = false
+  for (const id of ids) {
+    const pt = points[id]
+    if (pt && pt.shape !== shape) { points[id] = { ...pt, shape }; changed = true }
+  }
+  return changed ? { ...d, points } : d
 }
 
 // ── Lines ────────────────────────────────────────────────────────────

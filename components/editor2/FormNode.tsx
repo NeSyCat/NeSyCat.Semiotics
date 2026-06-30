@@ -14,19 +14,22 @@ export interface FormNodeData {
   points: Record<string, Point>
 }
 
-// A point's own small glyph. 'dot' is a filled disc; the rest are 12px shapes.
-function PointGlyph({ shape, fill, stroke }: { shape: PointShape; fill: string; stroke: string }) {
-  if (shape === 'dot') {
-    return <div style={{ width: 10, height: 10, borderRadius: '50%', background: fill }} />
-  }
-  const common = { width: 11, height: 11, display: 'block' } as const
-  if (shape === 'circle') {
-    return <svg viewBox="0 0 12 12" style={common}><circle cx="6" cy="6" r="5" fill={fill} stroke={stroke} strokeWidth="1" /></svg>
-  }
-  if (shape === 'square') {
-    return <svg viewBox="0 0 12 12" style={common}><rect x="1" y="1" width="10" height="10" fill={fill} stroke={stroke} strokeWidth="1" /></svg>
-  }
-  return <svg viewBox="0 0 12 12" style={common}><polygon points="6,1 11,11 1,11" fill={fill} stroke={stroke} strokeWidth="1" /></svg>
+const POINT_GLYPH = 15
+// A point's glyph is drawn from the SAME sprite as the toolbar (see Canvas's
+// ToolbarSprite), rendered small and filled in the point's colour — so a point
+// shares the form/Shape-rail shape vocabulary. 'square' uses kind-rectangle.
+function PointGlyph({ shape, color }: { shape: PointShape; color: string }) {
+  const sym = shape === 'square' ? 'kind-rectangle' : `kind-${shape}`
+  return (
+    <svg
+      width={POINT_GLYPH}
+      height={POINT_GLYPH}
+      viewBox="0 0 24 24"
+      style={{ display: 'block', color, fill: color, stroke: color, strokeWidth: 1.6, strokeLinejoin: 'round', strokeLinecap: 'round' }}
+    >
+      <use href={`#${sym}`} />
+    </svg>
+  )
 }
 
 // A point's hit area doubles as its connection handle — ~18px so it's easy to
@@ -104,7 +107,7 @@ function FormNode({ data, selected }: NodeProps) {
               boxShadow: isSel ? `0 0 0 2px rgba(${accent}, 0.45)` : 'none',
             }}
           >
-            <PointGlyph shape={pt.shape} fill={fill} stroke={`rgb(${accent})`} />
+            <PointGlyph shape={pt.shape} color={fill} />
           </div>
           <Handle type="target" position={anchor.position} id={hid} style={dotStyle} />
           <Handle

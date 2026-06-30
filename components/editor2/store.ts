@@ -33,6 +33,7 @@ interface State {
   removePoint: (id: string) => void
   renamePoint: (id: string, name: string) => void
   setPointShape: (id: string, shape: PointShape) => void
+  setPointsShape: (ids: string[], shape: PointShape) => void
 
   addLine: (sourcePtId: string, targetPtId: string) => string
   addLineTarget: (lineId: string, targetPtId: string) => void
@@ -100,6 +101,7 @@ export const useStore = create<State>((set, get) => {
     removePoint: (id) => setCur(M.removePoint(get().diagram, id)),
     renamePoint: (id, name) => setCur(M.renamePoint(get().diagram, id, name)),
     setPointShape: (id, shape) => setCur(M.setPointShape(get().diagram, id, shape)),
+    setPointsShape: (ids, shape) => { if (ids.length) setCur(M.setPointsShape(get().diagram, ids, shape)) },
 
     addLine: (src, tgt) => {
       const [d, id] = M.addLine(get().diagram, src, tgt)

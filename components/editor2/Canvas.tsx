@@ -24,7 +24,7 @@ import { useAutosave } from './save'
 import { geometryFor } from './forms'
 import { encodeHandle, decodeHandle } from './handles'
 import theme from './theme'
-import type { Diagram, FormKind } from './types'
+import type { Diagram, FormKind, PointShape } from './types'
 
 const nodeTypes: NodeTypes = { form: FormNode }
 const edgeTypes: EdgeTypes = { line: LineEdge }
@@ -108,28 +108,38 @@ const CATEGORIES: Array<{ key: string; label: string; content: React.ReactNode }
   { key: 'name', label: 'Name', content: <span style={{ fontWeight: 600, fontSize: 14 }}>X</span> },
 ]
 
-// Second toolbar — the Shape rail. SAME 9 slots as the Spine (equal length);
-// only triangle/circle/square create a form for now (the rest are placeholders).
-const SHAPE_RAIL: Array<{ label: string; symbol: string; kind?: FormKind }> = [
-  { label: 'Empty', symbol: 'kind-empty' },
-  { label: 'Point', symbol: 'kind-point' },
-  { label: 'Line', symbol: 'kind-line' },
-  { label: 'Triangle', symbol: 'kind-triangle', kind: 'triangle' },
-  { label: 'Rhombus', symbol: 'kind-rhombus' },
-  { label: 'Pentagon', symbol: 'kind-pentagon' },
-  { label: 'Hexagon', symbol: 'kind-hexagon' },
-  { label: 'Circle', symbol: 'kind-circle', kind: 'circle' },
-  { label: 'Square', symbol: 'kind-rectangle', kind: 'square' },
+// Second toolbar — the Shape rail. SAME 9 slots as the Spine (equal length).
+// Every tile sets the shape of the SELECTED POINT(S). For FORMS, only the three
+// with a `kind` (triangle/circle/square) are functional; the rest are form
+// placeholders (but all 9 are valid point shapes).
+const SHAPE_RAIL: Array<{ label: string; symbol: string; pshape: PointShape; kind?: FormKind }> = [
+  { label: 'Empty', symbol: 'kind-empty', pshape: 'empty' },
+  { label: 'Point', symbol: 'kind-point', pshape: 'point' },
+  { label: 'Line', symbol: 'kind-line', pshape: 'line' },
+  { label: 'Triangle', symbol: 'kind-triangle', pshape: 'triangle', kind: 'triangle' },
+  { label: 'Rhombus', symbol: 'kind-rhombus', pshape: 'rhombus' },
+  { label: 'Pentagon', symbol: 'kind-pentagon', pshape: 'pentagon' },
+  { label: 'Hexagon', symbol: 'kind-hexagon', pshape: 'hexagon' },
+  { label: 'Circle', symbol: 'kind-circle', pshape: 'circle', kind: 'circle' },
+  { label: 'Square', symbol: 'kind-rectangle', pshape: 'square', kind: 'square' },
 ]
 
 function Canvas() {
   const diagram = useStore((s) => s.diagram)
   const clearSelection = useStore((s) => s.clearSelection)
   const renameLine = useStore((s) => s.renameLine)
+  const selectedPoints = useStore((s) => s.selectedPoints)
   const { screenToFlowPosition, getNodes } = useReactFlow()
 
   const [activeKind, setActiveKind] = useState<FormKind>('triangle')
   const [activeCategory, setActiveCategory] = useState<string>('shape')
+
+  // The shape shared by all selected points (for the rail highlight), if any.
+  const selectedPointShape = useMemo<PointShape | undefined>(() => {
+    if (selectedPoints.length === 0) return undefined
+    const shapes = new Set(selectedPoints.map((id) => diagram.points[id]?.shape).filter(Boolean))
+    return shapes.size === 1 ? ([...shapes][0] as PointShape) : undefined
+  }, [selectedPoints, diagram.points])
 
   // ── Build RF nodes from forms ──────────────────────────────────────
   const builtNodes: Node[] = useMemo(() => {
@@ -199,14 +209,22 @@ function Canvas() {
     [],
   )
 
-  // Click a Shape-rail tile: make it the active kind, and TRANSFORM any selected
-  // forms to it. With nothing selected, this only sets the tool — no form is
-  // created (creation happens via double-click pane or drag-drop).
+  // Click a Shape-rail tile. The SAME rail picks both point shapes and form
+  // shapes, applied to the current selection:
+  //   • point(s) selected → set their shape (any of the 9);
+  //   • else form(s) selected (and the tile is a form kind) → transform them;
+  //   • else just set the active form tool (used by double-click / drag-create).
   const onPickShape = useCallback(
-    (kind: FormKind) => {
-      setActiveKind(kind)
+    (entry: { kind?: FormKind; pshape: PointShape }) => {
+      const pts = useStore.getState().selectedPoints
+      if (pts.length > 0) {
+        useStore.getState().setPointsShape(pts, entry.pshape)
+        return
+      }
+      if (!entry.kind) return
+      setActiveKind(entry.kind)
       const ids = getNodes().filter((n) => n.selected).map((n) => n.id)
-      if (ids.length > 0) useStore.getState().setFormsKind(ids, kind)
+      if (ids.length > 0) useStore.getState().setFormsKind(ids, entry.kind)
     },
     [getNodes],
   )
@@ -417,22 +435,27 @@ function Canvas() {
       {activeCategory === 'shape' && (
         <div style={{ position: 'absolute', top: 70, left: 'calc(50% + (var(--sidebar-offset, 0px) / 2))', transform: 'translateX(-50%)', zIndex: 10, transition: 'left 200ms' }}>
           <div className="pill editor-pill" role="group" aria-label="Shape">
-            {SHAPE_RAIL.map((s) => (
-              <button
-                key={s.label}
-                className={`btn btn-icon${s.kind && s.kind === activeKind ? ' is-active' : ''}`}
-                title={s.kind ? `${s.label} — click to apply to selection, drag onto canvas to create` : s.label}
-                draggable={!!s.kind}
-                onDragStart={(e) => {
-                  if (!s.kind) { e.preventDefault(); return }
-                  e.dataTransfer.setData('application/form-kind', s.kind)
-                  e.dataTransfer.effectAllowed = 'copy'
-                }}
-                onClick={() => s.kind && onPickShape(s.kind)}
-              >
-                <svg aria-hidden="true"><use href={`#${s.symbol}`} /></svg>
-              </button>
-            ))}
+            {SHAPE_RAIL.map((s) => {
+              const active = selectedPoints.length > 0 ? s.pshape === selectedPointShape : s.kind === activeKind
+              return (
+                <button
+                  key={s.label}
+                  className={`btn btn-icon${active ? ' is-active' : ''}`}
+                  title={selectedPoints.length > 0
+                    ? `${s.label} point`
+                    : s.kind ? `${s.label} — apply to selected form, or drag onto canvas to create` : s.label}
+                  draggable={!!s.kind}
+                  onDragStart={(e) => {
+                    if (!s.kind) { e.preventDefault(); return }
+                    e.dataTransfer.setData('application/form-kind', s.kind)
+                    e.dataTransfer.effectAllowed = 'copy'
+                  }}
+                  onClick={() => onPickShape(s)}
+                >
+                  <svg aria-hidden="true"><use href={`#${s.symbol}`} /></svg>
+                </button>
+              )
+            })}
           </div>
         </div>
       )}
