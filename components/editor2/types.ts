@@ -48,7 +48,7 @@ export type PointShape =
 
 export interface Point {
   id: string
-  shape: PointShape // the point's own (small) shape; default 'point'
+  shape: PointShape // the point's own (small) shape; default 'empty' (no glyph)
   name?: string
   color: Color
   formId: string // the Form this point sits on

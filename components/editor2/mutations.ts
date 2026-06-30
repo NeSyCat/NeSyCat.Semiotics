@@ -68,7 +68,7 @@ export function setFormsKind(d: Diagram, ids: string[], kind: FormKind): Diagram
 }
 
 // ── Points ───────────────────────────────────────────────────────────
-export function addPoint(d: Diagram, formId: string, edgeKey: EdgeKey, shape: PointShape = 'point'): [Diagram, string] {
+export function addPoint(d: Diagram, formId: string, edgeKey: EdgeKey, shape: PointShape = 'empty'): [Diagram, string] {
   const form = d.forms.find((f) => f.id === formId)
   if (!form) return [d, '']
   const id = newPointId(d)

@@ -170,6 +170,9 @@ function Canvas() {
     return shapes.size === 1 ? ([...shapes][0] as PointShape) : undefined
   }, [selectedPoints, diagram.points])
 
+  // The top-pill Shape icon mirrors the active/selected form's shape.
+  const activeKindSymbol = SHAPE_RAIL.find((s) => s.kind === activeKind)?.symbol ?? 'kind-hexagon'
+
   // ── Build RF nodes from forms ──────────────────────────────────────
   const builtNodes: Node[] = useMemo(() => {
     return diagram.forms.map((form) => ({
@@ -323,7 +326,13 @@ function Canvas() {
 
   // Selecting form(s) clears any selected point (the other half of exclusivity).
   const onSelectionChange = useCallback(({ nodes: sel }: { nodes: Node[] }) => {
-    if (sel.length > 0) useStore.getState().clearSelection()
+    if (sel.length === 0) return
+    useStore.getState().clearSelection() // a form got selected → drop point selection
+    // reflect the selected form's shape in the active tool (and so the top pill)
+    if (sel.length === 1) {
+      const form = useStore.getState().diagram.forms.find((f) => f.id === sel[0].id)
+      if (form) setActiveKind(form.kind)
+    }
   }, [])
 
   // ── Lines: drag handle → handle ────────────────────────────────────
@@ -493,7 +502,9 @@ function Canvas() {
               title={cat.label}
               onClick={() => setActiveCategory((c) => (c === cat.key ? '' : cat.key))}
             >
-              {cat.content}
+              {cat.key === 'shape'
+                ? <svg aria-hidden="true"><use href={`#${activeKindSymbol}`} /></svg>
+                : cat.content}
             </button>
           ))}
         </div>
