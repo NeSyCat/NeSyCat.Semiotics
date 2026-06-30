@@ -261,6 +261,11 @@ function Canvas() {
     [screenToFlowPosition, clearSelection, createForm, activeKind],
   )
 
+  // Selecting form(s) clears any selected point (the other half of exclusivity).
+  const onSelectionChange = useCallback(({ nodes: sel }: { nodes: Node[] }) => {
+    if (sel.length > 0) useStore.getState().clearSelection()
+  }, [])
+
   // ── Lines: drag handle → handle ────────────────────────────────────
   const isValidConnection = useCallback((c: Connection | Edge) => {
     const { source, target, sourceHandle, targetHandle } = c
@@ -394,8 +399,12 @@ function Canvas() {
         onConnectEnd={onConnectEnd}
         isValidConnection={isValidConnection}
         connectionMode={ConnectionMode.Loose}
+        // Plain click = single-select; Cmd/Ctrl+click accumulates; Shift+drag
+        // box-selects (selectionKeyCode stays the default Shift).
+        multiSelectionKeyCode={['Meta', 'Control']}
         onNodeDragStop={onNodeDragStop}
         onNodeDoubleClick={onNodeDoubleClick}
+        onSelectionChange={onSelectionChange}
         onPaneClick={onPaneClick}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}

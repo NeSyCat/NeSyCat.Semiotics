@@ -1,7 +1,7 @@
 'use client'
 
 import { memo } from 'react'
-import { Handle, type NodeProps } from '@xyflow/react'
+import { Handle, useReactFlow, type NodeProps } from '@xyflow/react'
 import theme from './theme'
 import { geometryFor, type Body } from './forms'
 import { encodeHandle } from './handles'
@@ -19,6 +19,7 @@ const POINT_GLYPH = 15
 // ToolbarSprite), rendered small and filled in the point's colour — so a point
 // shares the form/Shape-rail shape vocabulary. 'square' uses kind-rectangle.
 function PointGlyph({ shape, color }: { shape: PointShape; color: string }) {
+  if (shape === 'empty') return null // Empty = nothing rendered; the dashed circle is only the toolbar symbol
   const sym = shape === 'square' ? 'kind-rectangle' : `kind-${shape}`
   return (
     <svg
@@ -78,6 +79,7 @@ function FormNode({ data, selected }: NodeProps) {
   const selectedPoints = useStore((s) => s.selectedPoints)
   const setSelectedPoints = useStore((s) => s.setSelectedPoints)
   const toggleSelectedPoint = useStore((s) => s.toggleSelectedPoint)
+  const { setNodes } = useReactFlow()
 
   const pointVisuals: React.ReactNode[] = []
   for (const edgeKey of geom.edgeKeys) {
@@ -117,6 +119,9 @@ function FormNode({ data, selected }: NodeProps) {
             style={dotStyle}
             onClick={(e) => {
               e.stopPropagation()
+              // exclusive: selecting a point clears any selected form
+              setNodes((nds) => (nds.some((nd) => nd.selected) ? nds.map((nd) => (nd.selected ? { ...nd, selected: false } : nd)) : nds))
+              // Cmd/Ctrl+click accumulates points; plain click single-selects
               if (e.metaKey || e.ctrlKey) toggleSelectedPoint(pid)
               else setSelectedPoints([pid])
             }}
