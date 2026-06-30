@@ -7,6 +7,7 @@ import { geometryFor, type Body } from './forms'
 import { encodeHandle } from './handles'
 import { toRgbTriple } from './color'
 import { useStore } from './store'
+import { Tex } from './Tex'
 import type { Form, Point, PointShape } from './types'
 
 export interface FormNodeData {
@@ -15,6 +16,18 @@ export interface FormNodeData {
 }
 
 const POINT_GLYPH = 15
+const FORM_NAME_SIZE = 16 // forms and lines share this size
+const POINT_NAME_SIZE = 12 // points a little smaller
+
+// Visual centre of a form body — for centring its name label. A triangle's
+// centroid is not its bounding-box centre.
+function bodyCentroid(body: Body): [number, number] {
+  if (body.type === 'circle') return [0.5, 0.5]
+  const pts = body.pointsFrac
+  let sx = 0, sy = 0
+  for (const [x, y] of pts) { sx += x; sy += y }
+  return [sx / pts.length, sy / pts.length]
+}
 // A point's glyph is drawn from the SAME sprite as the toolbar (see Canvas's
 // ToolbarSprite), rendered small and filled in the point's colour — so a point
 // shares the form/Shape-rail shape vocabulary. 'square' uses kind-rectangle.
@@ -74,6 +87,7 @@ function FormNode({ data, selected }: NodeProps) {
   const { form, points } = data as unknown as FormNodeData
   const geom = geometryFor(form.kind)
   const n = geom.nodeSize(form)
+  const centroid = bodyCentroid(geom.body)
   const accent = toRgbTriple(form.color)
 
   const selectedPoints = useStore((s) => s.selectedPoints)
@@ -91,11 +105,6 @@ function FormNode({ data, selected }: NodeProps) {
       const isSel = selectedPoints.includes(pid)
       const fill = isSel ? `rgb(${accent})` : `rgba(${accent}, 0.85)`
       const hid = encodeHandle(edgeKey, index)
-      // the name label sits just outside the glyph, away from the form's centre
-      const ocx = anchor.x - n / 2, ocy = anchor.y - n / 2
-      const olen = Math.hypot(ocx, ocy) || 1
-      const lblX = anchor.x + (ocx / olen) * 15
-      const lblY = anchor.y + (ocy / olen) * 15
       // Handles are 1px AT the glyph centre, so a line anchors dead-centre on the
       // point (RF pins a handle to its position-edge — a large handle offsets the
       // line). The source carries an ~18px transparent grab pad; its pointer
@@ -134,15 +143,13 @@ function FormNode({ data, selected }: NodeProps) {
             {/* grab pad — easy to grab; events bubble to the handle above */}
             <span style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%, -50%)', width: POINT_HIT, height: POINT_HIT, borderRadius: '50%', cursor: 'crosshair', display: 'block' }} />
           </Handle>
-          {(pt.name || isSel) && (
-            <div style={{
-              position: 'absolute', top: lblY, left: lblX, transform: 'translate(-50%, -50%)',
-              zIndex: 4, pointerEvents: 'none', fontSize: 9, lineHeight: 1, whiteSpace: 'nowrap',
-              color: theme.text.secondary, fontFamily: 'var(--font-sans, system-ui, sans-serif)',
-            }}>
-              {pt.name ?? pid}
-            </div>
-          )}
+          {/* always-visible point name, centred just below the point */}
+          <div style={{
+            position: 'absolute', top: anchor.y + 14, left: anchor.x, transform: 'translate(-50%, -50%)',
+            zIndex: 4, pointerEvents: 'none',
+          }}>
+            <Tex fontSize={POINT_NAME_SIZE} color={theme.text.secondary}>{pt.name ?? pid}</Tex>
+          </div>
         </span>,
       )
     })
@@ -152,14 +159,11 @@ function FormNode({ data, selected }: NodeProps) {
     <div style={{ position: 'relative', width: n, height: n, cursor: 'pointer' }}>
       <BodyView body={geom.body} n={n} accent={accent} selected={!!selected} bodyOpacity={geom.bodyOpacity} />
       {geom.bodyOpacity > 0 && (
-        <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', pointerEvents: 'none', zIndex: 3 }}>
-          <span style={{
-            fontSize: 12, lineHeight: 1.1, textAlign: 'center', maxWidth: n * 0.66,
-            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-            color: theme.text.secondary, fontFamily: 'var(--font-sans, system-ui, sans-serif)',
-          }}>
-            {form.name ?? form.id}
-          </span>
+        <div style={{
+          position: 'absolute', left: centroid[0] * n, top: centroid[1] * n,
+          transform: 'translate(-50%, -50%)', pointerEvents: 'none', zIndex: 3,
+        }}>
+          <Tex fontSize={FORM_NAME_SIZE} color={theme.text.secondary}>{form.name ?? form.id}</Tex>
         </div>
       )}
       {pointVisuals}

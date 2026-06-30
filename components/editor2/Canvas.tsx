@@ -154,7 +154,6 @@ function NameField({ sig, initial, placeholder, disabled, onChange }: {
 function Canvas() {
   const diagram = useStore((s) => s.diagram)
   const clearSelection = useStore((s) => s.clearSelection)
-  const renameLine = useStore((s) => s.renameLine)
   const renameForms = useStore((s) => s.renameForms)
   const renamePoints = useStore((s) => s.renamePoints)
   const renameLines = useStore((s) => s.renameLines)
@@ -198,12 +197,12 @@ function Canvas() {
           targetHandle: tp.handleId,
           type: 'line',
           animated: true,
-          data: { label: line.name ?? line.id, onRename: (name: string) => renameLine(line.id, name) },
+          data: { label: line.name ?? line.id },
         })
       })
     }
     return out
-  }, [diagram, renameLine])
+  }, [diagram])
 
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([])
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])

@@ -11,6 +11,8 @@ import { SpeedInsights } from "@vercel/speed-insights/next";
 // DS default (:root); no `.dark` class is applied.
 import "admination-design-system/components/index.css";
 import "./globals.css";
+// KaTeX math fonts/styles — canvas labels (forms/points/lines) render as LaTeX.
+import "katex/dist/katex.min.css";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
