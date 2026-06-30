@@ -1,42 +1,34 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* ── Live Admination Design System (single source of truth) ──────────
+   This app consumes the REAL Admination DS files via the
+   `admination-design-system` file: dependency — a node_modules symlink to
+   the git submodule at vendor/Admination.02-Design. The DS's own token +
+   component CSS is pulled in by app/layout.tsx via a side-effect import
+   (BEFORE this file) so Turbopack inlines the DS's nested @import url(…)
+   chain; Tailwind's @import inliner drops that url-form chain, so the DS is
+   deliberately kept out of this Tailwind-processed file.
 
-  /* NeSyCat design tokens — single source of truth.
-     TypeScript consumers access these via components/editor/style/theme.ts,
-     whose helpers return `var(--…)` strings (no duplicated literals). */
-  --color-canvas-bg:       #0f0f14;
-  --color-glass-panel-bg:  rgba(15, 15, 20, 0.4);
-  --color-glass-button-bg: rgba(255, 255, 255, 0.06);
-  --color-glass-border:    rgba(255, 255, 255, 0.08);
-  --color-text-primary:    #ffffff;
-  --color-text-secondary:  rgba(255, 255, 255, 0.8);
-  --color-text-muted:      rgba(255, 255, 255, 0.55);
-  --color-text-dimmed:     rgba(255, 255, 255, 0.35);
-  --color-accent-blue:     rgb(59, 130, 246);
-  --color-accent-rgb:      59, 130, 246;
-  --size-radius-md:        8px;
-  --effect-blur:           3px;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+   Everything below CONSUMES the DS's real tokens (var(--color-*),
+   var(--radius-*), var(--shadow-*), var(--font-sans)) and NEVER redefines
+   them — edit a token in the DS repo and this app changes. Light theme is
+   the DS default (:root); no `.dark` class is applied. These rules are
+   editor-specific chrome the admin-focused DS doesn't ship (canvas, point
+   labels, React Flow theming). Real monospace for labels/JSON comes from
+   the next/font Geist Mono var (--font-geist-mono); the DS maps --font-mono
+   to proportional Geist on purpose, so we never touch that token. */
 
 body {
-  background: var(--color-canvas-bg);
+  background: var(--color-background);
   color: var(--color-text-secondary);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
   min-height: 100vh;
 }
 
 @layer components {
   .t-display {
+    font-family: var(--font-sans);
     font-size: 48px;
     font-weight: 600;
     letter-spacing: -0.02em;
@@ -69,45 +61,43 @@ body {
     color: var(--color-text-secondary);
   }
   .t-caption {
-    font-family: var(--font-mono), 'SF Mono', Menlo, ui-monospace, monospace;
+    font-family: var(--font-geist-mono), 'SF Mono', Menlo, ui-monospace, monospace;
     font-size: 11px;
     font-weight: 600;
     letter-spacing: 0.05em;
     text-transform: uppercase;
-    color: var(--color-text-muted);
+    color: var(--color-muted-foreground);
   }
   .t-mono {
-    font-family: var(--font-mono), 'SF Mono', Menlo, ui-monospace, monospace;
+    font-family: var(--font-geist-mono), 'SF Mono', Menlo, ui-monospace, monospace;
     font-size: 14px;
     font-weight: 500;
   }
 }
 
-/* React Flow — neutralise every default panel (no white boxes). */
+/* React Flow — neutralise every default panel (no boxes). */
 .react-flow__panel,
 .react-flow__attribution {
   background: transparent !important;
-  color: var(--color-text-dimmed) !important;
+  color: var(--color-muted-foreground) !important;
   box-shadow: none !important;
 }
 .react-flow__attribution a { color: inherit !important; }
 
-/* React Flow Controls — dark glass, bottom-left. Slides with sidebar. */
+/* React Flow Controls — light DS card, bottom-left. Slides with sidebar. */
 .react-flow__controls {
-  box-shadow: none !important;
-  border: 1px solid var(--color-glass-border) !important;
-  border-radius: var(--size-radius-md) !important;
+  border: 1px solid var(--color-border) !important;
+  border-radius: var(--radius-sm) !important;
   overflow: hidden;
-  background: var(--color-glass-panel-bg) !important;
-  backdrop-filter: blur(var(--effect-blur)) !important;
-  -webkit-backdrop-filter: blur(var(--effect-blur)) !important;
+  background: var(--color-card) !important;
+  box-shadow: var(--shadow-md) !important;
   transform: translateX(var(--sidebar-offset, 0px));
   transition: transform 200ms;
 }
 .react-flow__controls-button {
   background: transparent !important;
   border: none !important;
-  border-bottom: 1px solid var(--color-glass-border) !important;
+  border-bottom: 1px solid var(--color-border) !important;
   color: var(--color-text-secondary) !important;
   fill: currentColor !important;
   width: 28px;
@@ -117,7 +107,7 @@ body {
   border-bottom: none !important;
 }
 .react-flow__controls-button:hover {
-  background: var(--color-glass-button-bg) !important;
+  background: var(--color-surface) !important;
 }
 .react-flow__controls-button svg {
   fill: currentColor;
@@ -125,11 +115,11 @@ body {
   max-height: 14px;
 }
 
-/* React Flow selection rectangle — accent-blue glass, not white. */
+/* React Flow selection rectangle — DS primary tint, not white. */
 .react-flow__selection,
 .react-flow__nodesselection-rect {
-  background: rgba(59, 130, 246, 0.08) !important;
-  border: 1px solid rgba(59, 130, 246, 0.5) !important;
+  background: color-mix(in srgb, var(--color-primary) 10%, transparent) !important;
+  border: 1px solid color-mix(in srgb, var(--color-primary) 50%, transparent) !important;
 }
 
 /* Make edges easier to click */
@@ -209,10 +199,11 @@ input[type="search"]::-webkit-search-results-decoration {
   }
 }
 
-/* Thin glass scrollbar — applies everywhere (sidebar, JSON panel, etc). */
+/* Thin scrollbar — light theme: faint dark thumb on light surfaces.
+   Tints are mixed from the DS --color-foreground token. */
 * {
   scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
+  scrollbar-color: color-mix(in srgb, var(--color-foreground) 20%, transparent) transparent;
 }
 ::-webkit-scrollbar {
   width: 6px;
@@ -220,11 +211,11 @@ input[type="search"]::-webkit-search-results-decoration {
 }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.12);
+  background: color-mix(in srgb, var(--color-foreground) 20%, transparent);
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.22);
+  background: color-mix(in srgb, var(--color-foreground) 32%, transparent);
 }
 ::-webkit-scrollbar-corner { background: transparent; }
 

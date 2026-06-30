@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation'
-import CanvasRoot from '@/components/editor/Canvas'
+import CanvasRoot from '@/components/editor2/Canvas'
 import { loadDiagram } from '@/lib/actions/diagrams'
-import { restoreDiagram } from '@/components/editor/migrations'
+import { restoreDiagram } from '@/components/editor2/io'
 
 export default async function EditorDiagramPage(props: { params: Promise<{ id: string }> }) {
   const { id } = await props.params

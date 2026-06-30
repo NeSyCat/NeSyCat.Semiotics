@@ -5,7 +5,7 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { withRLS } from '@/lib/db'
 import { diagrams, type Diagram as DiagramRow } from '@/_concept/03-orm-schema/schema'
-import type { Diagram } from '@/components/editor/types'
+import type { Diagram } from '@/components/editor2/types'
 
 async function session() {
   const supabase = await createClient()
@@ -77,6 +77,7 @@ export async function renameDiagram(id: string, title: string): Promise<void> {
 
 const emptyData: Diagram = {
   schemaVersion: 1,
-  nodes: [],
-  edges: [],
+  forms: [],
+  points: {},
+  lines: [],
 }

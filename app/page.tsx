@@ -4,7 +4,7 @@ import { serverCallbackUrl, serverEditorHref } from '@/lib/editor-url'
 import Logo from '@/components/Logo'
 import SignInButton from '@/components/SignInButton'
 
-const ACC = '59, 130, 246'
+const ACC = '52, 120, 246'
 
 // This app is the Semiotics editor only — the umbrella site (nesycat.com)
 // lives in the sibling repo `NeSyCat.Web`. Authenticated users skip straight
@@ -43,7 +43,7 @@ export default async function Root() {
           margin: 0,
           maxWidth: 460,
           textAlign: 'center',
-          color: 'var(--color-text-muted)',
+          color: 'var(--color-muted-foreground)',
           fontSize: 15,
           lineHeight: 1.55,
         }}

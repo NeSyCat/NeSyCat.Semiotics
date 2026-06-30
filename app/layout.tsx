@@ -2,6 +2,14 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
+// Live design system — the REAL Admination DS files, referenced through the
+// `admination-design-system` file: dependency (a node_modules symlink to the
+// git submodule at vendor/Admination.02-Design). Imported here so Turbopack
+// inlines the DS's nested @import url(…) chain (tokens → leaves → containers →
+// layouts). Must come before globals.css so the editor's rules layer on top.
+// Edit a token/component in the DS repo → this app changes. Light theme is the
+// DS default (:root); no `.dark` class is applied.
+import "admination-design-system/components/index.css";
 import "./globals.css";
 
 const geistSans = Geist({

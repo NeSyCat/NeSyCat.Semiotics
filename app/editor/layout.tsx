@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { listDiagrams } from '@/lib/actions/diagrams'
-import EditorSidebar from '@/components/editor/EditorSidebar'
+import EditorSidebar from '@/components/EditorSidebar'
 import StarPrompt from '@/components/StarPrompt'
 import { serverLandingHref } from '@/lib/editor-url'
 

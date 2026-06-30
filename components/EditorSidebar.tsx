@@ -45,7 +45,7 @@ function XIcon() {
 }
 
 function LogoMark() {
-  const ACC = '59, 130, 246'
+  const ACC = '52, 120, 246'
   const ACC_C = `rgb(${ACC})`
   return (
     <svg width={22} height={22} viewBox="0 0 24 24" aria-hidden>
@@ -138,8 +138,8 @@ function DiagramItem({
     <div
       className="group relative"
       style={{
-        borderLeft: `3px solid ${active ? 'var(--color-accent-blue)' : 'transparent'}`,
-        background: active ? 'rgba(59, 130, 246, 0.12)' : 'transparent',
+        borderLeft: `3px solid ${active ? 'var(--color-primary)' : 'transparent'}`,
+        background: active ? 'color-mix(in srgb, var(--color-primary) 12%, transparent)' : 'transparent',
         transition: 'background 0.12s ease, border-color 0.12s ease',
       }}
     >
@@ -164,7 +164,7 @@ function DiagramItem({
               fontSize: 13,
               fontWeight: 500,
               color: 'var(--color-text-primary)',
-              border: `1px solid var(--color-glass-border)`,
+              border: `1px solid var(--color-border)`,
               borderRadius: 4,
               padding: '2px 6px',
               margin: '-3px -7px',
@@ -182,10 +182,10 @@ function DiagramItem({
             {title || 'Untitled'}
           </div>
         )}
-        <div style={{ fontSize: 11, marginTop: 3, color: 'var(--color-text-dimmed)', display: 'flex', alignItems: 'center', gap: 6 }}>
+        <div style={{ fontSize: 11, marginTop: 3, color: 'var(--color-muted-foreground)', display: 'flex', alignItems: 'center', gap: 6 }}>
           <span>{relativeTime(d.updatedAt)}</span>
           {pending && (
-            <span style={{ color: 'var(--color-accent-blue)', display: 'inline-flex' }}>
+            <span style={{ color: 'var(--color-primary)', display: 'inline-flex' }}>
               <Spinner />
             </span>
           )}
@@ -199,8 +199,8 @@ function DiagramItem({
             aria-label="Rename"
             title="Rename"
             onClick={openEdit}
-            className="flex items-center justify-center rounded hover:bg-white/10"
-            style={{ width: 28, height: 28, color: 'var(--color-text-muted)' }}
+            className="flex items-center justify-center rounded hover:bg-[var(--color-surface)]"
+            style={{ width: 28, height: 28, color: 'var(--color-muted-foreground)' }}
           >
             <PenIcon />
           </button>
@@ -209,8 +209,8 @@ function DiagramItem({
             aria-label="Delete"
             title="Delete"
             onClick={onDelete}
-            className="flex items-center justify-center rounded hover:bg-white/10"
-            style={{ width: 28, height: 28, color: 'var(--color-text-muted)' }}
+            className="flex items-center justify-center rounded hover:bg-[var(--color-surface)]"
+            style={{ width: 28, height: 28, color: 'var(--color-muted-foreground)' }}
           >
             <XIcon />
           </button>
@@ -309,18 +309,18 @@ export default function EditorSidebar({ diagrams }: { diagrams: Diagram[] }) {
   return (
     <>
       <aside
-        className="absolute inset-y-0 left-0 z-10 overflow-hidden border-r backdrop-blur-[3px] transition-[width] duration-200"
+        className="absolute inset-y-0 left-0 z-10 overflow-hidden border-r transition-[width] duration-200"
         style={{
           width: open ? 240 : 0,
-          background: 'var(--color-glass-panel-bg)',
-          borderColor: 'var(--color-glass-border)',
+          background: 'var(--color-card)',
+          borderColor: 'var(--color-border)',
         }}
       >
         <div className="flex h-full flex-col" style={{ width: 240 }}>
           <Link
             href={landingHref}
-            className="flex items-center gap-[10px] px-4 py-[14px] transition-colors hover:bg-white/5"
-            style={{ borderBottom: `1px solid var(--color-glass-border)`, textDecoration: 'none' }}
+            className="flex items-center gap-[10px] px-4 py-[14px] transition-colors hover:bg-[var(--color-surface)]"
+            style={{ borderBottom: `1px solid var(--color-border)`, textDecoration: 'none' }}
             title="Back to landing"
           >
             <LogoMark />
@@ -345,8 +345,8 @@ export default function EditorSidebar({ diagrams }: { diagrams: Diagram[] }) {
                   height: 36,
                   paddingLeft: 12,
                   paddingRight: query ? 32 : 12,
-                  borderColor: 'var(--color-glass-border)',
-                  background: 'var(--color-glass-button-bg)',
+                  borderColor: 'var(--color-border)',
+                  background: 'var(--color-surface)',
                   color: 'var(--color-text-primary)',
                 }}
               />
@@ -356,8 +356,8 @@ export default function EditorSidebar({ diagrams }: { diagrams: Diagram[] }) {
                   aria-label="Clear search"
                   title="Clear search"
                   onClick={() => setQuery('')}
-                  className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center justify-center rounded hover:bg-white/10"
-                  style={{ width: 24, height: 24, color: 'var(--color-text-muted)' }}
+                  className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center justify-center rounded hover:bg-[var(--color-surface)]"
+                  style={{ width: 24, height: 24, color: 'var(--color-muted-foreground)' }}
                 >
                   <XIcon />
                 </button>
@@ -369,13 +369,13 @@ export default function EditorSidebar({ diagrams }: { diagrams: Diagram[] }) {
               disabled={creating}
               aria-label="New diagram"
               title="New diagram"
-              className="flex shrink-0 items-center justify-center rounded-md border text-[18px] font-semibold leading-none transition-colors hover:bg-white/5 disabled:opacity-70"
+              className="flex shrink-0 items-center justify-center rounded-md border text-[18px] font-semibold leading-none transition-colors hover:bg-[var(--color-surface)] disabled:opacity-70"
               style={{
                 width: 36,
                 height: 36,
-                borderColor: 'var(--color-glass-border)',
-                background: 'var(--color-glass-button-bg)',
-                color: 'var(--color-text-muted)',
+                borderColor: 'var(--color-border)',
+                background: 'var(--color-surface)',
+                color: 'var(--color-muted-foreground)',
               }}
             >
               {creating ? <Spinner /> : '+'}
@@ -384,7 +384,7 @@ export default function EditorSidebar({ diagrams }: { diagrams: Diagram[] }) {
 
           <div className="flex-1 overflow-auto pt-3">
             {filteredDiagrams.length === 0 ? (
-              <div className="t-small px-4 py-4" style={{ color: 'var(--color-text-dimmed)' }}>
+              <div className="t-small px-4 py-4" style={{ color: 'var(--color-muted-foreground)' }}>
                 {creating ? 'Creating…' : q ? 'No matches.' : 'No diagrams yet.'}
               </div>
             ) : (
@@ -406,11 +406,11 @@ export default function EditorSidebar({ diagrams }: { diagrams: Diagram[] }) {
         type="button"
         aria-label={open ? 'Collapse sidebar' : 'Expand sidebar'}
         onClick={() => setOpen((v) => !v)}
-        className="absolute top-1/2 z-20 -translate-y-1/2 cursor-pointer border border-l-0 px-[10px] py-[36px] backdrop-blur-[3px] transition-[left] duration-200"
+        className="absolute top-1/2 z-20 -translate-y-1/2 cursor-pointer border border-l-0 px-[10px] py-[36px] transition-[left] duration-200"
         style={{
           left: open ? 240 : 0,
-          background: 'var(--color-glass-panel-bg)',
-          borderColor: 'var(--color-glass-border)',
+          background: 'var(--color-card)',
+          borderColor: 'var(--color-border)',
           borderRadius: '0 10px 10px 0',
           color: 'var(--color-text-secondary)',
           fontSize: 28,

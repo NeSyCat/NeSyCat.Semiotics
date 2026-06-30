@@ -5,14 +5,15 @@ import { desc } from 'drizzle-orm'
 import { COOKIE_DOMAIN, editorHrefForHost } from '@/lib/editor-url'
 import { withRLS } from '@/lib/db'
 import { diagrams } from '@/_concept/03-orm-schema/schema'
-import type { Diagram } from '@/components/editor/types'
+import type { Diagram } from '@/components/editor2/types'
 
 const NESYCAT_HOSTS = new Set(['nesycat.com', 'www.nesycat.com', 'semiotics.nesycat.com'])
 
 const emptyData: Diagram = {
   schemaVersion: 1,
-  nodes: [],
-  edges: [],
+  forms: [],
+  points: {},
+  lines: [],
 }
 
 export async function GET(request: NextRequest) {

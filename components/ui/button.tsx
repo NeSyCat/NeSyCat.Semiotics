@@ -8,11 +8,11 @@ type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
 }
 
 const BASE =
-  'inline-flex items-center justify-center h-[30px] px-4 text-[13px] font-semibold text-[color:var(--color-text-primary)] rounded-[var(--size-radius-md)] transition-colors cursor-pointer'
+  'inline-flex items-center justify-center h-[30px] px-4 text-[13px] font-semibold text-[color:var(--color-text-primary)] rounded-[var(--radius-sm)] transition-colors cursor-pointer'
 
 const VARIANT: Record<ButtonVariant, string> = {
-  primary: 'bg-[color:var(--color-accent-blue)] hover:opacity-90',
-  ghost:   'border border-[color:var(--color-glass-border)] hover:bg-[color:var(--color-glass-button-bg)]',
+  primary: 'bg-[color:var(--color-primary)] hover:opacity-90',
+  ghost:   'border border-[color:var(--color-border)] hover:bg-[color:var(--color-surface)]',
 }
 
 const FIGMA_NODE: Record<ButtonVariant, string> = {

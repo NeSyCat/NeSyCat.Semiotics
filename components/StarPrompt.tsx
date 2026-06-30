@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Button from '@/components/ui/button'
-import { selectionGlow } from '@/components/editor/style/theme'
+import { selectionGlow } from '@/components/editor2/theme'
 
 // localStorage is the state store — no DB column needed, and a signed-in user
 // who nukes their browser storage will just see the prompt again, which is fine.
@@ -29,7 +29,7 @@ function write(s: State) {
 const STAR_POINTS =
   '12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26'
 
-const ACCENT = 'var(--color-accent-rgb)'
+const ACCENT = '52, 120, 246'
 
 function DiagramStar({ size }: { size: number }) {
   return (
@@ -86,11 +86,12 @@ export default function StarPrompt({ repoUrl }: { repoUrl: string }) {
         role="dialog"
         aria-modal="true"
         aria-labelledby="star-prompt-title"
-        className="relative flex w-[min(92vw,420px)] flex-col items-center gap-5 border px-8 py-9 text-center backdrop-blur-[3px]"
+        className="relative flex w-[min(92vw,420px)] flex-col items-center gap-5 border px-8 py-9 text-center"
         style={{
-          background: 'var(--color-glass-panel-bg)',
-          borderColor: 'var(--color-glass-border)',
-          borderRadius: 'var(--size-radius-md)',
+          background: 'var(--color-card)',
+          borderColor: 'var(--color-border)',
+          borderRadius: 'var(--radius-sm)',
+          boxShadow: 'var(--shadow-md)',
         }}
       >
         <DiagramStar size={72} />
