@@ -22,7 +22,7 @@ function canonForm(f: Record<string, unknown>): Form {
     id: String(f.id),
     kind: f.kind as Form['kind'],
     ...(f.name !== undefined ? { name: String(f.name) } : {}),
-    color: asColor(f.color),
+    ...(f.color != null ? { color: asColor(f.color) } : {}),
     position: { x: Number(pos.x ?? 0), y: Number(pos.y ?? 0) },
     edges: (f.edges as Record<string, string[]>) ?? {},
   }
@@ -33,7 +33,7 @@ function canonPoint(p: Record<string, unknown>): Point {
     id: String(p.id),
     shape: p.shape == null || p.shape === 'dot' ? 'point' : (p.shape as PointShape),
     ...(p.name !== undefined ? { name: String(p.name) } : {}),
-    color: asColor(p.color),
+    ...(p.color != null ? { color: asColor(p.color) } : {}),
     formId: String(p.formId),
     edgeKey: String(p.edgeKey),
   }
@@ -43,7 +43,7 @@ function canonLine(l: Record<string, unknown>): Line {
   return {
     id: String(l.id),
     ...(l.name !== undefined ? { name: String(l.name) } : {}),
-    color: asColor(l.color),
+    ...(l.color != null ? { color: asColor(l.color) } : {}),
     source: String(l.source),
     targets: Array.isArray(l.targets) ? l.targets.map(String) : [],
   }

@@ -200,7 +200,7 @@ function Canvas() {
           targetHandle: tp.handleId,
           type: 'line',
           animated: true,
-          data: { label: line.name ?? line.id },
+          data: { label: line.name ?? line.id, color: line.color },
         })
       })
     }

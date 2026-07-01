@@ -1,7 +1,6 @@
 import type { Diagram, Form, Point, Line, FormKind, EdgeKey, PointShape } from './types'
 import { newFormId, newPointId, newLineId } from './ids'
 import { geometryFor } from './forms'
-import { DEFAULT_COLOR } from './color'
 
 // All pure: take a Diagram, return a new Diagram (+ new id where relevant).
 // The store snapshots each result into history (one entry per call).
@@ -11,7 +10,7 @@ export function addForm(d: Diagram, kind: FormKind, position: { x: number; y: nu
   const id = newFormId(d)
   const edges: Record<EdgeKey, string[]> = {}
   for (const k of geometryFor(kind).edgeKeys) edges[k] = []
-  const form: Form = { id, kind, color: [...DEFAULT_COLOR], position, edges }
+  const form: Form = { id, kind, position, edges }
   return [{ ...d, forms: [...d.forms, form] }, id]
 }
 
@@ -72,7 +71,7 @@ export function addPoint(d: Diagram, formId: string, edgeKey: EdgeKey, shape: Po
   const form = d.forms.find((f) => f.id === formId)
   if (!form) return [d, '']
   const id = newPointId(d)
-  const point: Point = { id, shape, color: [...DEFAULT_COLOR], formId, edgeKey }
+  const point: Point = { id, shape, formId, edgeKey }
   const edges = { ...form.edges, [edgeKey]: [...(form.edges[edgeKey] ?? []), id] }
   const forms = d.forms.map((f) => (f.id === formId ? { ...f, edges } : f))
   return [{ ...d, forms, points: { ...d.points, [id]: point } }, id]
@@ -123,7 +122,7 @@ export function setPointsShape(d: Diagram, ids: string[], shape: PointShape): Di
 // ── Lines ────────────────────────────────────────────────────────────
 export function addLine(d: Diagram, sourcePtId: string, targetPtId: string): [Diagram, string] {
   const id = newLineId(d)
-  const line: Line = { id, color: [...DEFAULT_COLOR], source: sourcePtId, targets: [targetPtId] }
+  const line: Line = { id, source: sourcePtId, targets: [targetPtId] }
   return [{ ...d, lines: [...d.lines, line] }, id]
 }
 

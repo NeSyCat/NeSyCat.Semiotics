@@ -52,14 +52,16 @@ function PointGlyph({ shape, color }: { shape: PointShape; color: string }) {
 // receive a line, so a point is fully bipolar.
 const POINT_HIT = 18
 
-// Body fill + 1.5px border. Selection only brightens the fill/border — no glow.
+// Body fill + 1.5px border. No colour → transparent fill; the border is ALWAYS
+// pure black. Selection only tints the fill.
 function BodyView({ body, n, accent, selected, bodyOpacity }: {
-  body: Body; n: number; accent: string; selected: boolean; bodyOpacity: number
+  body: Body; n: number; accent: string | null; selected: boolean; bodyOpacity: number
 }) {
   const fillOpacity = (selected ? theme.node.selectedFillOpacity : theme.node.fillOpacity) * bodyOpacity
-  const borderOpacity = (selected ? theme.node.selectedBorderOpacity : theme.node.borderOpacity) * bodyOpacity
-  const bg = `rgba(${accent}, ${fillOpacity})`
-  const border = `rgba(${accent}, ${borderOpacity})`
+  const bg = accent
+    ? `rgba(${accent}, ${fillOpacity})`
+    : (selected ? `rgba(${theme.node.accentBlue}, 0.10)` : 'transparent')
+  const border = `rgba(0, 0, 0, ${bodyOpacity})` // pure black (transparent only for the empty form)
 
   if (body.type === 'circle') {
     return (
@@ -88,7 +90,7 @@ function FormNode({ data, selected }: NodeProps) {
   const geom = geometryFor(form.kind)
   const n = geom.nodeSize(form)
   const centroid = bodyCentroid(geom.body)
-  const accent = toRgbTriple(form.color)
+  const accent = form.color ? toRgbTriple(form.color) : null
 
   const selectedPoints = useStore((s) => s.selectedPoints)
   const setSelectedPoints = useStore((s) => s.setSelectedPoints)
@@ -112,7 +114,7 @@ function FormNode({ data, selected }: NodeProps) {
       if (!pt) return
       const anchor = geom.pointAnchor(edgeKey, index, ids.length, n)
       const isSel = selectedPoints.includes(pid)
-      const fill = isSel ? `rgb(${accent})` : `rgba(${accent}, 0.85)`
+      const fill = accent ? (isSel ? `rgb(${accent})` : `rgba(${accent}, 0.85)`) : theme.text.ink
       const hid = encodeHandle(edgeKey, index)
       // The name label sits OUTSIDE the point, in its edge's outward direction
       // (apex point → right, left-edge point → left, etc.).
@@ -137,7 +139,7 @@ function FormNode({ data, selected }: NodeProps) {
             <div style={{
               position: 'absolute', top: anchor.y, left: anchor.x, transform: 'translate(-50%, -50%)',
               width: 15, height: 15, borderRadius: '50%', zIndex: 3, pointerEvents: 'none',
-              boxShadow: `0 0 0 2px rgba(${accent}, 0.45)`,
+              boxShadow: `0 0 0 2px rgba(${theme.node.accentBlue}, 0.45)`,
             }} />
           )}
           {/* glyph: visual only, behind the handles */}

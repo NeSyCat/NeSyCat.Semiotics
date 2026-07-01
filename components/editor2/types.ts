@@ -26,7 +26,7 @@ export interface Form {
   id: string
   kind: FormKind
   name?: string
-  color: Color
+  color?: Color // undefined = no colour (the default)
   position: { x: number; y: number }
   // edgeKey -> ordered list of POINT ids sitting on that edge.
   edges: Record<EdgeKey, string[]>
@@ -50,7 +50,7 @@ export interface Point {
   id: string
   shape: PointShape // the point's own (small) shape; default 'empty' (no glyph)
   name?: string
-  color: Color
+  color?: Color // undefined = no colour (the default)
   formId: string // the Form this point sits on
   edgeKey: EdgeKey // which edge of that form
   // No edges, no children — a point is a leaf.
@@ -60,7 +60,7 @@ export interface Point {
 export interface Line {
   id: string
   name?: string
-  color: Color
+  color?: Color // undefined = no colour (the default)
   source: string // point id
   targets: string[] // 1+ point ids (hyperedge)
 }

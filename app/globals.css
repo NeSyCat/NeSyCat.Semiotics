@@ -238,3 +238,7 @@ input[type="search"]::-webkit-search-results-decoration {
   width: auto; height: auto; padding: 0;
   border: none; background: none; box-shadow: none;
 }
+
+/* Pure white background — the DS off-white (--color-background) reads as greyish
+   behind the white canvas. */
+html, body { background: #ffffff; }

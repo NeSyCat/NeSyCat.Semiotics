@@ -11,9 +11,12 @@ import {
 import theme from './theme'
 import { useStore } from './store'
 import { Tex } from './Tex'
+import { toRgbTriple } from './color'
+import type { Color } from './types'
 
 interface LineEdgeData {
   label: string
+  color?: Color
 }
 
 function LineEdge({
@@ -35,13 +38,14 @@ function LineEdge({
     ? getSmoothStepPath({ sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition })
     : getStraightPath({ sourceX, sourceY, targetX, targetY })
 
+  const lineColor = d.color ? `rgb(${toRgbTriple(d.color)})` : '#000000' // no colour → black
   const edgeStyle = useMemo(
     () => ({
-      stroke: selected ? `rgba(${theme.node.accentBlue}, 1)` : `rgba(${theme.node.accentBlue}, 0.5)`,
+      stroke: selected ? `rgb(${theme.node.accentBlue})` : lineColor, // blue when selected
       strokeWidth: selected ? 2.5 : 1.5,
       transition: 'stroke 0.15s ease, stroke-width 0.15s ease',
     }),
-    [selected],
+    [selected, lineColor],
   )
 
   return (
