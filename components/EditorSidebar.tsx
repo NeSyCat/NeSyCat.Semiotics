@@ -122,7 +122,7 @@ function DiagramItem({
   }
 
   return (
-    <div className="group relative" style={{ margin: '0 4px 8px' }}>
+    <div className="group relative" style={{ margin: '0 4px 8px', pointerEvents: 'auto' }}>
       <div
         onClick={() => { if (!editing) onSelect() }}
         onDoubleClick={(e) => { e.preventDefault(); setEditing(true) }}
@@ -294,12 +294,12 @@ export default function EditorSidebar({ diagrams }: { diagrams: Diagram[] }) {
     <>
       <aside
         className="absolute inset-y-0 left-0 z-10 overflow-hidden transition-[width] duration-200"
-        style={{ width: open ? 250 : 0, background: 'transparent' }}
+        style={{ width: open ? 250 : 0, background: 'transparent', pointerEvents: 'none' }}
       >
         <div className="flex h-full flex-col" style={{ width: 250 }}>
           <div className="px-3 pt-3 flex items-center gap-2">
             {/* search PILL — the same DS .pill as the toolbar; the whole pill is the field */}
-            <div className="pill editor-pill relative min-w-0 flex-1">
+            <div className="pill editor-pill relative min-w-0 flex-1" style={{ pointerEvents: 'auto' }}>
               <input
                 type="search"
                 value={query}
@@ -331,7 +331,7 @@ export default function EditorSidebar({ diagrams }: { diagrams: Diagram[] }) {
               )}
             </div>
             {/* plus PILL — DS .pill + .btn.btn-icon */}
-            <div className="pill editor-pill">
+            <div className="pill editor-pill" style={{ pointerEvents: 'auto' }}>
               <button
                 type="button"
                 onClick={onCreate}
@@ -342,6 +342,19 @@ export default function EditorSidebar({ diagrams }: { diagrams: Diagram[] }) {
                 style={{ color: 'var(--color-muted-foreground)' }}
               >
                 {creating ? <Spinner /> : <span style={{ fontSize: 20, lineHeight: 1 }}>+</span>}
+              </button>
+            </div>
+            {/* collapse PILL — right next to plus */}
+            <div className="pill editor-pill" style={{ pointerEvents: 'auto' }}>
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                aria-label="Collapse sidebar"
+                title="Collapse"
+                className="btn btn-icon"
+                style={{ color: 'var(--color-muted-foreground)' }}
+              >
+                <span style={{ fontSize: 18, lineHeight: 1 }}>‹</span>
               </button>
             </div>
           </div>
@@ -366,23 +379,23 @@ export default function EditorSidebar({ diagrams }: { diagrams: Diagram[] }) {
         </div>
       </aside>
 
-      <button
-        type="button"
-        aria-label={open ? 'Collapse sidebar' : 'Expand sidebar'}
-        onClick={() => setOpen((v) => !v)}
-        className="absolute top-1/2 z-20 -translate-y-1/2 cursor-pointer border border-l-0 px-[10px] py-[36px] transition-[left] duration-200"
-        style={{
-          left: open ? 250 : 0,
-          background: 'var(--color-card)',
-          borderColor: 'var(--color-border)',
-          borderRadius: '0 10px 10px 0',
-          color: 'var(--color-text-secondary)',
-          fontSize: 28,
-          lineHeight: 1,
-        }}
-      >
-        {open ? '‹' : '›'}
-      </button>
+      {!open && (
+        <div
+          className="pill editor-pill"
+          style={{ position: 'absolute', top: 15, left: 12, zIndex: 20, pointerEvents: 'auto' }}
+        >
+          <button
+            type="button"
+            onClick={() => setOpen(true)}
+            aria-label="Expand sidebar"
+            title="Expand"
+            className="btn btn-icon"
+            style={{ color: 'var(--color-muted-foreground)' }}
+          >
+            <span style={{ fontSize: 18, lineHeight: 1 }}>›</span>
+          </button>
+        </div>
+      )}
     </>
   )
 }
