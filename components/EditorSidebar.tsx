@@ -122,17 +122,20 @@ function DiagramItem({
   }
 
   return (
-    <div className="group relative" style={{ margin: '0 8px 6px' }}>
+    <div className="group relative" style={{ margin: '0 4px 8px' }}>
       <div
         onClick={() => { if (!editing) onSelect() }}
         onDoubleClick={(e) => { e.preventDefault(); setEditing(true) }}
-        className="block cursor-pointer hover:bg-[var(--color-surface)]"
+        className="pill editor-pill cursor-pointer"
         style={{
-          borderRadius: 10,
-          padding: '9px 12px',
-          paddingRight: 60,
-          background: active ? 'color-mix(in srgb, var(--color-primary) 12%, transparent)' : undefined,
-          border: `1px solid ${active ? 'color-mix(in srgb, var(--color-primary) 28%, transparent)' : 'transparent'}`,
+          width: '100%',
+          flexDirection: 'column',
+          alignItems: 'flex-start',
+          gap: 1,
+          padding: '8px 16px',
+          paddingRight: 52,
+          background: active ? 'color-mix(in srgb, var(--color-primary) 14%, transparent)' : undefined,
+          borderColor: active ? 'color-mix(in srgb, var(--color-primary) 34%, transparent)' : undefined,
           transition: 'background 0.12s ease, border-color 0.12s ease',
         }}
       >
@@ -232,7 +235,7 @@ export default function EditorSidebar({ diagrams }: { diagrams: Diagram[] }) {
   // don't see a stale offset.
   useEffect(() => {
     const root = document.documentElement
-    root.style.setProperty('--sidebar-offset', open ? '240px' : '0px')
+    root.style.setProperty('--sidebar-offset', open ? '250px' : '0px')
     return () => { root.style.removeProperty('--sidebar-offset') }
   }, [open])
 
@@ -290,30 +293,28 @@ export default function EditorSidebar({ diagrams }: { diagrams: Diagram[] }) {
   return (
     <>
       <aside
-        className="absolute inset-y-0 left-0 z-10 overflow-hidden border-r transition-[width] duration-200"
-        style={{
-          width: open ? 240 : 0,
-          background: 'var(--color-card)',
-          borderColor: 'var(--color-border)',
-        }}
+        className="absolute inset-y-0 left-0 z-10 overflow-hidden transition-[width] duration-200"
+        style={{ width: open ? 250 : 0, background: 'transparent' }}
       >
-        <div className="flex h-full flex-col" style={{ width: 240 }}>
-          <div className="px-3 pt-4 flex items-center gap-2">
-            <div className="relative min-w-0 flex-1">
+        <div className="flex h-full flex-col" style={{ width: 250 }}>
+          <div className="px-3 pt-3 flex items-center gap-2">
+            {/* search PILL — the same DS .pill as the toolbar; the whole pill is the field */}
+            <div className="pill editor-pill relative min-w-0 flex-1">
               <input
                 type="search"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search…"
                 aria-label="Search diagrams"
-                className="w-full rounded-full border text-[13px] outline-none"
+                className="w-full outline-none"
                 style={{
                   height: 36,
-                  paddingLeft: 14,
-                  paddingRight: query ? 32 : 14,
-                  borderColor: 'var(--color-border)',
-                  background: 'var(--color-surface)',
-                  color: 'var(--color-text-primary)',
+                  background: 'transparent',
+                  border: 'none',
+                  fontSize: 14,
+                  padding: query ? '0 30px 0 10px' : '0 10px',
+                  color: 'var(--color-foreground)',
+                  fontFamily: 'var(--font-sans, system-ui, sans-serif)',
                 }}
               />
               {query && (
@@ -322,30 +323,27 @@ export default function EditorSidebar({ diagrams }: { diagrams: Diagram[] }) {
                   aria-label="Clear search"
                   title="Clear search"
                   onClick={() => setQuery('')}
-                  className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center justify-center rounded hover:bg-[var(--color-surface)]"
-                  style={{ width: 24, height: 24, color: 'var(--color-muted-foreground)' }}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center justify-center"
+                  style={{ width: 22, height: 22, color: 'var(--color-muted-foreground)' }}
                 >
                   <XIcon />
                 </button>
               )}
             </div>
-            <button
-              type="button"
-              onClick={onCreate}
-              disabled={creating}
-              aria-label="New diagram"
-              title="New diagram"
-              className="flex shrink-0 items-center justify-center rounded-full border text-[18px] font-semibold leading-none transition-colors hover:bg-[var(--color-surface)] disabled:opacity-70"
-              style={{
-                width: 36,
-                height: 36,
-                borderColor: 'var(--color-border)',
-                background: 'var(--color-surface)',
-                color: 'var(--color-muted-foreground)',
-              }}
-            >
-              {creating ? <Spinner /> : '+'}
-            </button>
+            {/* plus PILL — DS .pill + .btn.btn-icon */}
+            <div className="pill editor-pill">
+              <button
+                type="button"
+                onClick={onCreate}
+                disabled={creating}
+                aria-label="New diagram"
+                title="New diagram"
+                className="btn btn-icon disabled:opacity-70"
+                style={{ color: 'var(--color-muted-foreground)' }}
+              >
+                {creating ? <Spinner /> : <span style={{ fontSize: 20, lineHeight: 1 }}>+</span>}
+              </button>
+            </div>
           </div>
 
           <div className="flex-1 overflow-auto pt-3">
@@ -374,7 +372,7 @@ export default function EditorSidebar({ diagrams }: { diagrams: Diagram[] }) {
         onClick={() => setOpen((v) => !v)}
         className="absolute top-1/2 z-20 -translate-y-1/2 cursor-pointer border border-l-0 px-[10px] py-[36px] transition-[left] duration-200"
         style={{
-          left: open ? 240 : 0,
+          left: open ? 250 : 0,
           background: 'var(--color-card)',
           borderColor: 'var(--color-border)',
           borderRadius: '0 10px 10px 0',
