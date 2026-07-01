@@ -344,19 +344,6 @@ export default function EditorSidebar({ diagrams }: { diagrams: Diagram[] }) {
                 {creating ? <Spinner /> : <span style={{ fontSize: 20, lineHeight: 1 }}>+</span>}
               </button>
             </div>
-            {/* collapse PILL — to the RIGHT of the plus */}
-            <div className="pill editor-pill" style={{ pointerEvents: 'auto' }}>
-              <button
-                type="button"
-                onClick={() => setOpen(false)}
-                aria-label="Collapse sidebar"
-                title="Collapse"
-                className="btn btn-icon"
-                style={{ color: 'var(--color-muted-foreground)' }}
-              >
-                <span style={{ fontSize: 18, lineHeight: 1 }}>‹</span>
-              </button>
-            </div>
           </div>
 
           <div className="flex-1 overflow-auto pt-3">
@@ -379,10 +366,28 @@ export default function EditorSidebar({ diagrams }: { diagrams: Diagram[] }) {
         </div>
       </aside>
 
+      {/* collapse PILL — sticks out to the RIGHT of the aligned pill column */}
+      {open && (
+        <div
+          className="pill editor-pill"
+          style={{ position: 'absolute', top: 12, left: 254, zIndex: 20, pointerEvents: 'auto' }}
+        >
+          <button
+            type="button"
+            onClick={() => setOpen(false)}
+            aria-label="Collapse sidebar"
+            title="Collapse"
+            className="btn btn-icon"
+            style={{ color: 'var(--color-muted-foreground)' }}
+          >
+            <span style={{ fontSize: 18, lineHeight: 1 }}>‹</span>
+          </button>
+        </div>
+      )}
       {!open && (
         <div
           className="pill editor-pill"
-          style={{ position: 'absolute', top: 15, left: 12, zIndex: 20, pointerEvents: 'auto' }}
+          style={{ position: 'absolute', top: 12, left: 12, zIndex: 20, pointerEvents: 'auto' }}
         >
           <button
             type="button"
