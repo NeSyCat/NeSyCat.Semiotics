@@ -297,7 +297,7 @@ export default function EditorSidebar({ diagrams }: { diagrams: Diagram[] }) {
         style={{ width: open ? 250 : 0, background: 'transparent', pointerEvents: 'none' }}
       >
         <div className="flex h-full flex-col" style={{ width: 250 }}>
-          <div className="px-3 pt-3 flex items-center gap-2">
+          <div className="px-1 pt-3 flex items-center gap-2">
             {/* search PILL — the same DS .pill as the toolbar; the whole pill is the field */}
             <div className="pill editor-pill relative min-w-0 flex-1" style={{ pointerEvents: 'auto' }}>
               <input
