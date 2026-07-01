@@ -1,6 +1,5 @@
 'use client'
 
-import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useRef, useState, useTransition } from 'react'
 import {
@@ -40,18 +39,6 @@ function XIcon() {
     <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <line x1="18" y1="6" x2="6" y2="18" />
       <line x1="6" y1="6" x2="18" y2="18" />
-    </svg>
-  )
-}
-
-function LogoMark() {
-  const ACC = '52, 120, 246'
-  const ACC_C = `rgb(${ACC})`
-  return (
-    <svg width={22} height={22} viewBox="0 0 24 24" aria-hidden>
-      <rect x="2" y="2" width="20" height="20" fill={`rgba(${ACC},0.1)`} stroke={ACC_C} strokeWidth="1.3" />
-      <polygon points="12,3 21,12 12,21 3,12" fill={`rgba(${ACC},0.25)`} stroke={ACC_C} strokeWidth="1.3" />
-      <circle cx="12" cy="12" r="2.2" fill={ACC_C} />
     </svg>
   )
 }
@@ -135,18 +122,19 @@ function DiagramItem({
   }
 
   return (
-    <div
-      className="group relative"
-      style={{
-        borderLeft: `3px solid ${active ? 'var(--color-primary)' : 'transparent'}`,
-        background: active ? 'color-mix(in srgb, var(--color-primary) 12%, transparent)' : 'transparent',
-        transition: 'background 0.12s ease, border-color 0.12s ease',
-      }}
-    >
+    <div className="group relative" style={{ margin: '0 8px 6px' }}>
       <div
         onClick={() => { if (!editing) onSelect() }}
         onDoubleClick={(e) => { e.preventDefault(); setEditing(true) }}
-        className="block cursor-pointer px-4 py-[10px] pr-[72px]"
+        className="block cursor-pointer hover:bg-[var(--color-surface)]"
+        style={{
+          borderRadius: 10,
+          padding: '9px 12px',
+          paddingRight: 60,
+          background: active ? 'color-mix(in srgb, var(--color-primary) 12%, transparent)' : undefined,
+          border: `1px solid ${active ? 'color-mix(in srgb, var(--color-primary) 28%, transparent)' : 'transparent'}`,
+          transition: 'background 0.12s ease, border-color 0.12s ease',
+        }}
       >
         {editing ? (
           <input
@@ -237,7 +225,6 @@ export default function EditorSidebar({ diagrams }: { diagrams: Diagram[] }) {
   const [optimisticId, setOptimisticId] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
   const [optimisticNew, setOptimisticNew] = useState<Diagram | null>(null)
-  const [landingHref, setLandingHref] = useState('/')
   const [query, setQuery] = useState('')
 
   // Expose sidebar width so canvas-overlay controls (Kinds/Straight, React Flow
@@ -248,12 +235,6 @@ export default function EditorSidebar({ diagrams }: { diagrams: Diagram[] }) {
     root.style.setProperty('--sidebar-offset', open ? '240px' : '0px')
     return () => { root.style.removeProperty('--sidebar-offset') }
   }, [open])
-
-  useEffect(() => {
-    if (typeof window !== 'undefined' && window.location.host === 'semiotics.nesycat.com') {
-      setLandingHref('https://www.nesycat.com/')
-    }
-  }, [])
 
   useEffect(() => {
     const match = pathname.match(UUID_IN_PATH)
@@ -317,22 +298,7 @@ export default function EditorSidebar({ diagrams }: { diagrams: Diagram[] }) {
         }}
       >
         <div className="flex h-full flex-col" style={{ width: 240 }}>
-          <Link
-            href={landingHref}
-            className="flex items-center gap-[10px] px-4 py-[14px] transition-colors hover:bg-[var(--color-surface)]"
-            style={{ borderBottom: `1px solid var(--color-border)`, textDecoration: 'none' }}
-            title="Back to landing"
-          >
-            <LogoMark />
-            <span
-              className="whitespace-nowrap"
-              style={{ fontSize: 15, fontWeight: 600, color: 'var(--color-text-primary)', letterSpacing: '-0.3px' }}
-            >
-              NeSyCat Semiotics
-            </span>
-          </Link>
-
-          <div className="px-3 pt-3 flex items-center gap-2">
+          <div className="px-3 pt-4 flex items-center gap-2">
             <div className="relative min-w-0 flex-1">
               <input
                 type="search"
@@ -340,11 +306,11 @@ export default function EditorSidebar({ diagrams }: { diagrams: Diagram[] }) {
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search…"
                 aria-label="Search diagrams"
-                className="w-full rounded-md border text-[13px] outline-none"
+                className="w-full rounded-full border text-[13px] outline-none"
                 style={{
                   height: 36,
-                  paddingLeft: 12,
-                  paddingRight: query ? 32 : 12,
+                  paddingLeft: 14,
+                  paddingRight: query ? 32 : 14,
                   borderColor: 'var(--color-border)',
                   background: 'var(--color-surface)',
                   color: 'var(--color-text-primary)',
@@ -369,7 +335,7 @@ export default function EditorSidebar({ diagrams }: { diagrams: Diagram[] }) {
               disabled={creating}
               aria-label="New diagram"
               title="New diagram"
-              className="flex shrink-0 items-center justify-center rounded-md border text-[18px] font-semibold leading-none transition-colors hover:bg-[var(--color-surface)] disabled:opacity-70"
+              className="flex shrink-0 items-center justify-center rounded-full border text-[18px] font-semibold leading-none transition-colors hover:bg-[var(--color-surface)] disabled:opacity-70"
               style={{
                 width: 36,
                 height: 36,
