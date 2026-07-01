@@ -330,7 +330,20 @@ export default function EditorSidebar({ diagrams }: { diagrams: Diagram[] }) {
                 </button>
               )}
             </div>
-            {/* plus PILL — DS .pill + .btn.btn-icon */}
+            {/* collapse PILL — right next to the plus */}
+            <div className="pill editor-pill" style={{ pointerEvents: 'auto' }}>
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                aria-label="Collapse sidebar"
+                title="Collapse"
+                className="btn btn-icon"
+                style={{ color: 'var(--color-muted-foreground)' }}
+              >
+                <span style={{ fontSize: 18, lineHeight: 1 }}>‹</span>
+              </button>
+            </div>
+            {/* plus PILL — back at the far right (where it was) */}
             <div className="pill editor-pill" style={{ pointerEvents: 'auto' }}>
               <button
                 type="button"
@@ -342,19 +355,6 @@ export default function EditorSidebar({ diagrams }: { diagrams: Diagram[] }) {
                 style={{ color: 'var(--color-muted-foreground)' }}
               >
                 {creating ? <Spinner /> : <span style={{ fontSize: 20, lineHeight: 1 }}>+</span>}
-              </button>
-            </div>
-            {/* collapse PILL — right next to plus */}
-            <div className="pill editor-pill" style={{ pointerEvents: 'auto' }}>
-              <button
-                type="button"
-                onClick={() => setOpen(false)}
-                aria-label="Collapse sidebar"
-                title="Collapse"
-                className="btn btn-icon"
-                style={{ color: 'var(--color-muted-foreground)' }}
-              >
-                <span style={{ fontSize: 18, lineHeight: 1 }}>‹</span>
               </button>
             </div>
           </div>
