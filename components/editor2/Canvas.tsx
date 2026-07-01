@@ -4,8 +4,6 @@ import { useState, useMemo, useCallback, useRef, useEffect, useLayoutEffect } fr
 import {
   ReactFlow,
   ReactFlowProvider,
-  Background,
-  BackgroundVariant,
   ConnectionMode,
   useNodesState,
   useEdgesState,
@@ -485,7 +483,6 @@ function Canvas() {
         proOptions={{ hideAttribution: true }}
         style={{ background: theme.canvas.background }}
       >
-        <Background variant={BackgroundVariant.Dots} color={theme.canvas.gridColor} gap={20} size={1} />
       </ReactFlow>
 
       <ToolbarSprite />
