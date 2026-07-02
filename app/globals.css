@@ -231,6 +231,13 @@ input[type="search"]::-webkit-search-results-decoration {
 .editor-pill.pill .btn.btn-icon { width: 36px; }
 .editor-pill.pill .btn svg { width: 21px; height: 21px; }
 
+/* Sidebar row's delete Pill — same DS .pill/.btn, hover tints destructive
+   (red) instead of the neutral grey every other .btn hover uses. */
+.diagram-item-delete:hover {
+  background: color-mix(in srgb, var(--color-destructive) 14%, transparent);
+  color: var(--color-destructive);
+}
+
 /* KaTeX reuses class names that collide with the DS — notably `.text`, which is
    the DS's input field (border + height + background). Neutralise that inside
    rendered math so labels never get a box (e.g. on invalid LaTeX). */

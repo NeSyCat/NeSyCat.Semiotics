@@ -103,7 +103,7 @@ const CATEGORIES: Array<{ key: string; label: string; content: React.ReactNode }
   { key: 'order', label: 'Order', content: <span style={{ fontWeight: 600, fontSize: 14 }}>5</span> },
   { key: 'color', label: 'Color', content: <span style={{ width: 18, height: 18, borderRadius: '50%', background: '#0080ff', display: 'block' }} /> },
   { key: 'shape', label: 'Shape', content: <svg aria-hidden="true"><use href="#kind-hexagon" /></svg> },
-  { key: 'name', label: 'Name', content: <span style={{ fontWeight: 600, fontSize: 14 }}>X</span> },
+  { key: 'name', label: 'Name', content: <span style={{ fontWeight: 600, fontSize: 14, fontFamily: 'var(--font-sans, system-ui, sans-serif)' }}>Aa</span> },
 ]
 
 // Second toolbar — the Shape rail. SAME 9 slots as the Spine (equal length).
