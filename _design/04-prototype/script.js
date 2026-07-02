@@ -11,7 +11,7 @@ const state = {
   rotation: 0.25,                // 0..1  → CSS rotate(value × 360deg)
   scale: 0.50,                   // 0..1  → CSS scale(0.3 + value × 0.7)
   location: { x: 0, y: 0 },      // px    → CSS translate
-  number: 5,                     // discrete → Spine label + rail + badge
+  order: "5",                    // ordinal → Spine label + rail + badge (string so "∞" works)
   color: "#0080ff",              // hex   → poly fill + Spine sw-face
   shape: "Hexagon",              // enum  → polygon points + Spine glyph
   name: "X",                     // str   → centre label + name-bar input
@@ -22,17 +22,20 @@ const state = {
 
 // Map state.direction → which SVG sprite the Spine button shows.
 const DIRECTION_ICONS = {
-  Inside:  "#ic-direction-in",
-  Outside: "#ic-direction-out",
-  Center:  "#ic-direction-center",
-  South:   "#ic-chevron-double-down",
-  North:   "#ic-chevron-double-up",
-  Left:    "#ic-chevron-double-left",
-  Right:   "#ic-chevron-double-right",
+  Inside:       "#ic-direction-in",
+  Center:       "#ic-direction-center",
+  "South-West": "#ic-direction-sw",
+  South:        "#ic-chevron-double-down",
+  "South-East": "#ic-direction-se",
+  West:         "#ic-chevron-double-left",
+  East:         "#ic-chevron-double-right",
+  Outside:      "#ic-direction-out",
+  Everywhere:   "#ic-direction-everywhere",
 };
 
 // Map state.shape → which SVG sprite the Spine button shows.
 const SHAPE_ICONS = {
+  Empty:    "#kind-empty",
   Circle:   "#kind-circle",
   Point:    "#kind-point",
   Line:     "#kind-line",
@@ -48,6 +51,12 @@ const SHAPE_ICONS = {
 // function returning the INNER fill element scaled around (50, 50). Both are
 // in viewBox 0 0 100 100 with circumradius ~45 from centre (50, 50).
 const SHAPE_RENDERERS = {
+  Empty: {
+    // The empty carrier — a dashed hollow outline, no fill.
+    outer: () =>
+      `<circle cx="50" cy="50" r="45" fill="none" stroke="#111827" stroke-width="2" stroke-dasharray="5 5" />`,
+    inner: () => ``,
+  },
   Circle: {
     outer: () =>
       `<circle cx="50" cy="50" r="45" fill="none" stroke="#111827" stroke-width="2.2" />`,
@@ -116,9 +125,10 @@ const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
 const refs = {
   spineButtons: $$("[data-tool]"),
   spineDirection: $("[data-spine-direction]"),
-  spineNumber: $("[data-spine-number]"),
+  spineOrder: $("[data-spine-order]"),
   spineColor: $("[data-spine-color]"),
   spineShape: $("[data-spine-shape]"),
+  spineName: $("[data-spine-name]"),
   form: $("[data-form]"),
   formSvg: $("[data-form-svg]"),
   formLabel: $("[data-form-label]"),
@@ -126,7 +136,7 @@ const refs = {
   nameInput: $("[data-name-input]"),
   popovers: $$("[data-popover]"),
   directionCells: $$("[data-direction]"),
-  numberCells: $$("[data-number]"),
+  orderCells: $$("[data-order]"),
   colorCells: $$("[data-color]"),
   shapeCells: $$("[data-shape]"),
   xyX: $("[data-xy-x]"),
@@ -151,18 +161,28 @@ function renderSpine() {
   // Direction Spine glyph follows state.direction.
   const useEl = refs.spineDirection.querySelector("use");
   useEl.setAttribute("href", DIRECTION_ICONS[state.direction]);
-  // Number Spine label follows state.number.
-  refs.spineNumber.textContent = String(state.number);
-  // Color Spine disk follows state.color.
-  refs.spineColor.style.background = state.color;
+  // Order Spine label follows state.order.
+  refs.spineOrder.textContent = state.order;
+  // Color Spine disk follows state.color ("source" → rainbow conic swatch).
+  if (state.color === "source") {
+    refs.spineColor.style.background = "";
+    refs.spineColor.classList.add("sw-face--source");
+  } else {
+    refs.spineColor.classList.remove("sw-face--source");
+    refs.spineColor.style.background = state.color;
+  }
   // Shape Spine glyph follows state.shape.
   const shapeUse = refs.spineShape.querySelector("use");
   shapeUse.setAttribute("href", SHAPE_ICONS[state.shape]);
+  // Name Spine label follows state.name (Name is a category like any other).
+  refs.spineName.textContent = state.name;
 }
 
 function renderForm() {
   // SVG body — rebuilt whenever shape / weight / color changes.
-  refs.formSvg.innerHTML = buildPolygonSvg(state.shape, state.color, state.weight);
+  // "source" (the ∞ colour) fills with the rainbow gradient def.
+  const fill = state.color === "source" ? "url(#grad-rainbow)" : state.color;
+  refs.formSvg.innerHTML = buildPolygonSvg(state.shape, fill, state.weight);
 
   // Container transforms: rotation (× 360°), scale (0.3..1.0 range), location.
   const rotDeg = state.rotation * 360;
@@ -177,8 +197,8 @@ function renderForm() {
   refs.formLabel.textContent = state.name;
   refs.formLabel.style.transform = `translate(-50%, -50%) rotate(${-rotDeg}deg)`;
 
-  // Number badge — counter-rotate / counter-scale so it stays upright + readable.
-  refs.formBadge.textContent = String(state.number);
+  // Order badge — counter-rotate / counter-scale so it stays upright + readable.
+  refs.formBadge.textContent = state.order;
   refs.formBadge.style.transform = `rotate(${-rotDeg}deg) scale(${1 / scl})`;
   refs.formBadge.style.transformOrigin = "center";
 }
@@ -201,14 +221,16 @@ function renderPopovers() {
       renderSliderPopover(pop, key);
     } else if (key === "direction") {
       renderActiveCell(refs.directionCells, "direction", state.direction);
-    } else if (key === "number") {
-      renderActiveCell(refs.numberCells, "number", String(state.number));
+    } else if (key === "order") {
+      renderActiveCell(refs.orderCells, "order", state.order);
     } else if (key === "color") {
       renderActiveCell(refs.colorCells, "color", state.color);
     } else if (key === "shape") {
       renderActiveCell(refs.shapeCells, "shape", state.shape);
     } else if (key === "location") {
       renderXYPopover();
+    } else if (key === "name") {
+      if (document.activeElement !== refs.nameInput) refs.nameInput.focus();
     }
   });
 }
@@ -263,11 +285,11 @@ function attachListeners() {
     });
   });
 
-  // Number rail.
-  refs.numberCells.forEach((cell) => {
+  // Order rail.
+  refs.orderCells.forEach((cell) => {
     cell.addEventListener("click", (e) => {
       e.stopPropagation();
-      state.number = parseInt(cell.dataset.number, 10);
+      state.order = cell.dataset.order;
       render();
     });
   });
@@ -365,10 +387,12 @@ function attachListeners() {
     render();
   });
 
-  // Name bar — live edit the form's centre glyph.
+  // Name field (in the Spine popover) — live-edit the form's centre glyph
+  // and the Name button label in the pill.
   refs.nameInput.addEventListener("input", () => {
     state.name = refs.nameInput.value;
     refs.formLabel.textContent = state.name;
+    refs.spineName.textContent = state.name;
   });
 
   // Click inside an open popover should not close it.

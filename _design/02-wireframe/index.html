@@ -165,8 +165,8 @@
     <header class="editor-topbar">
       <div class="topbar-center">
         <div class="topbar-tools" role="toolbar" aria-label="Category editor">
-          <button class="shape-tool tool-weight"    type="button" aria-label="Weight"    title="Weight"><svg aria-hidden="true"><use href="#ic-weight"/></svg></button>
           <button class="shape-tool tool-direction" type="button" aria-label="Direction" title="Direction"><svg aria-hidden="true"><use href="#ic-direction-center"/></svg></button>
+          <button class="shape-tool tool-weight"    type="button" aria-label="Weight"    title="Weight"><svg aria-hidden="true"><use href="#ic-weight"/></svg></button>
           <button class="shape-tool tool-rotation"  type="button" aria-label="Rotation"  title="Rotation"><svg aria-hidden="true"><use href="#ic-rotation"/></svg></button>
           <button class="shape-tool tool-scale"     type="button" aria-label="Scale"     title="Scale"><svg aria-hidden="true"><use href="#ic-scale"/></svg></button>
           <button class="shape-tool tool-location"  type="button" aria-label="Location"  title="Location"><svg aria-hidden="true"><use href="#ic-location"/></svg></button>
@@ -198,10 +198,71 @@
   </div>
 </section>
 
-<!-- ═══════ Scene 1: Weight (bounds slider) ═══════ -->
+<!-- ═══════ Scene 1: Direction (8-cell rail) ═══════ -->
 
 <section class="wireframe-section">
-  <h2 class="t-h1">Scene 1 — Weight</h2>
+  <h2 class="t-h1">Scene 1 — Direction</h2>
+  <p class="lead">
+    Direction = <strong>Center</strong>. The form sits dead-centre on the
+    canvas. (Inside/Outside collapse the form inward/outward; the four
+    cardinal directions offset the form along that axis — future
+    iterations.)
+  </p>
+
+  <div class="editor-frame">
+    <div class="canvas-bg"></div>
+    <header class="editor-topbar">
+      <div class="topbar-center">
+        <div class="topbar-tools" role="toolbar" aria-label="Category editor">
+          <button class="shape-tool tool-direction is-active"  type="button" title="Direction"><svg aria-hidden="true"><use href="#ic-direction-center"/></svg></button>
+          <button class="shape-tool tool-weight"               type="button" title="Weight"><svg aria-hidden="true"><use href="#ic-weight"/></svg></button>
+          <button class="shape-tool tool-rotation"             type="button" title="Rotation"><svg aria-hidden="true"><use href="#ic-rotation"/></svg></button>
+          <button class="shape-tool tool-scale"                type="button" title="Scale"><svg aria-hidden="true"><use href="#ic-scale"/></svg></button>
+          <button class="shape-tool tool-location"             type="button" title="Location"><svg aria-hidden="true"><use href="#ic-location"/></svg></button>
+          <button class="shape-tool tool-number"               type="button" title="Number">5</button>
+          <button class="shape-tool tool-color"                type="button" title="Color"><span class="sw-face" style="background:#0080ff" aria-hidden="true"></span></button>
+          <button class="shape-tool tool-shape"                type="button" title="Shape"><svg aria-hidden="true"><use href="#kind-hexagon"/></svg></button>
+        </div>
+      </div>
+    </header>
+    <div class="canvas-area">
+      <div class="canvas-stage">
+        <div class="canvas-shape">
+          <svg class="cnv-svg" viewBox="0 0 100 100" aria-hidden="true">
+            <polygon class="cnv-poly" points="50,5 91,28 91,72 50,95 9,72 9,28" />
+          </svg>
+          <span class="cnv-label">X</span>
+        </div>
+      </div>
+      <div class="canvas-name-bar">
+        <input type="text" value="X" aria-label="Form name (LaTeX)" />
+      </div>
+      <div class="controls-cluster">
+        <button type="button"><svg aria-hidden="true"><use href="#ic-plus"/></svg></button>
+        <button type="button"><svg aria-hidden="true"><use href="#ic-minus"/></svg></button>
+        <button type="button"><svg aria-hidden="true"><use href="#ic-fit"/></svg></button>
+        <button type="button"><svg aria-hidden="true"><use href="#ic-lock"/></svg></button>
+      </div>
+      <div class="tool-popover tool-popover--direction">
+        <div class="topbar-tools topbar-tools--popover-rail points-rail" role="group" aria-label="Direction values">
+          <button type="button" class="shape-tool points-rail-slot points-rail-slot--chevron" aria-label="Inside" title="Inside"><svg aria-hidden="true"><use href="#ic-direction-in"/></svg></button>
+          <button type="button" class="shape-tool points-rail-slot points-rail-slot--chevron" aria-label="Outside" title="Outside"><svg aria-hidden="true"><use href="#ic-direction-out"/></svg></button>
+          <span class="rail-divider" aria-hidden="true"></span>
+          <button type="button" class="shape-tool points-rail-slot points-rail-slot--chevron is-active" aria-label="Center" title="Center"><svg aria-hidden="true"><use href="#ic-direction-center"/></svg></button>
+          <button type="button" class="shape-tool points-rail-slot points-rail-slot--chevron" aria-label="South" title="South"><svg aria-hidden="true"><use href="#ic-chevron-double-down"/></svg></button>
+          <button type="button" class="shape-tool points-rail-slot points-rail-slot--chevron" aria-label="North" title="North"><svg aria-hidden="true"><use href="#ic-chevron-double-up"/></svg></button>
+          <button type="button" class="shape-tool points-rail-slot points-rail-slot--chevron" aria-label="Left" title="Left (West)"><svg aria-hidden="true"><use href="#ic-chevron-double-left"/></svg></button>
+          <button type="button" class="shape-tool points-rail-slot points-rail-slot--chevron" aria-label="Right" title="Right (East)"><svg aria-hidden="true"><use href="#ic-chevron-double-right"/></svg></button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════ Scene 2: Weight (bounds slider) ═══════ -->
+
+<section class="wireframe-section">
+  <h2 class="t-h1">Scene 2 — Weight</h2>
   <p class="lead">
     Weight = <strong>0.36</strong>. A solid-Azure hexagon sits at the centre
     of the outer outline, scaled to 36 % of the full size. The fill keeps
@@ -215,8 +276,8 @@
     <header class="editor-topbar">
       <div class="topbar-center">
         <div class="topbar-tools" role="toolbar" aria-label="Category editor">
-          <button class="shape-tool tool-weight is-active" type="button" title="Weight"><svg aria-hidden="true"><use href="#ic-weight"/></svg></button>
           <button class="shape-tool tool-direction"        type="button" title="Direction"><svg aria-hidden="true"><use href="#ic-direction-center"/></svg></button>
+          <button class="shape-tool tool-weight is-active" type="button" title="Weight"><svg aria-hidden="true"><use href="#ic-weight"/></svg></button>
           <button class="shape-tool tool-rotation"         type="button" title="Rotation"><svg aria-hidden="true"><use href="#ic-rotation"/></svg></button>
           <button class="shape-tool tool-scale"            type="button" title="Scale"><svg aria-hidden="true"><use href="#ic-scale"/></svg></button>
           <button class="shape-tool tool-location"         type="button" title="Location"><svg aria-hidden="true"><use href="#ic-location"/></svg></button>
@@ -272,67 +333,6 @@
   </div>
 </section>
 
-<!-- ═══════ Scene 2: Direction (8-cell rail) ═══════ -->
-
-<section class="wireframe-section">
-  <h2 class="t-h1">Scene 2 — Direction</h2>
-  <p class="lead">
-    Direction = <strong>Center</strong>. The form sits dead-centre on the
-    canvas. (Inside/Outside collapse the form inward/outward; the four
-    cardinal directions offset the form along that axis — future
-    iterations.)
-  </p>
-
-  <div class="editor-frame">
-    <div class="canvas-bg"></div>
-    <header class="editor-topbar">
-      <div class="topbar-center">
-        <div class="topbar-tools" role="toolbar" aria-label="Category editor">
-          <button class="shape-tool tool-weight"               type="button" title="Weight"><svg aria-hidden="true"><use href="#ic-weight"/></svg></button>
-          <button class="shape-tool tool-direction is-active"  type="button" title="Direction"><svg aria-hidden="true"><use href="#ic-direction-center"/></svg></button>
-          <button class="shape-tool tool-rotation"             type="button" title="Rotation"><svg aria-hidden="true"><use href="#ic-rotation"/></svg></button>
-          <button class="shape-tool tool-scale"                type="button" title="Scale"><svg aria-hidden="true"><use href="#ic-scale"/></svg></button>
-          <button class="shape-tool tool-location"             type="button" title="Location"><svg aria-hidden="true"><use href="#ic-location"/></svg></button>
-          <button class="shape-tool tool-number"               type="button" title="Number">5</button>
-          <button class="shape-tool tool-color"                type="button" title="Color"><span class="sw-face" style="background:#0080ff" aria-hidden="true"></span></button>
-          <button class="shape-tool tool-shape"                type="button" title="Shape"><svg aria-hidden="true"><use href="#kind-hexagon"/></svg></button>
-        </div>
-      </div>
-    </header>
-    <div class="canvas-area">
-      <div class="canvas-stage">
-        <div class="canvas-shape">
-          <svg class="cnv-svg" viewBox="0 0 100 100" aria-hidden="true">
-            <polygon class="cnv-poly" points="50,5 91,28 91,72 50,95 9,72 9,28" />
-          </svg>
-          <span class="cnv-label">X</span>
-        </div>
-      </div>
-      <div class="canvas-name-bar">
-        <input type="text" value="X" aria-label="Form name (LaTeX)" />
-      </div>
-      <div class="controls-cluster">
-        <button type="button"><svg aria-hidden="true"><use href="#ic-plus"/></svg></button>
-        <button type="button"><svg aria-hidden="true"><use href="#ic-minus"/></svg></button>
-        <button type="button"><svg aria-hidden="true"><use href="#ic-fit"/></svg></button>
-        <button type="button"><svg aria-hidden="true"><use href="#ic-lock"/></svg></button>
-      </div>
-      <div class="tool-popover tool-popover--direction">
-        <div class="topbar-tools topbar-tools--popover-rail points-rail" role="group" aria-label="Direction values">
-          <button type="button" class="shape-tool points-rail-slot points-rail-slot--chevron" aria-label="Inside" title="Inside"><svg aria-hidden="true"><use href="#ic-direction-in"/></svg></button>
-          <button type="button" class="shape-tool points-rail-slot points-rail-slot--chevron" aria-label="Outside" title="Outside"><svg aria-hidden="true"><use href="#ic-direction-out"/></svg></button>
-          <span class="rail-divider" aria-hidden="true"></span>
-          <button type="button" class="shape-tool points-rail-slot points-rail-slot--chevron is-active" aria-label="Center" title="Center"><svg aria-hidden="true"><use href="#ic-direction-center"/></svg></button>
-          <button type="button" class="shape-tool points-rail-slot points-rail-slot--chevron" aria-label="South" title="South"><svg aria-hidden="true"><use href="#ic-chevron-double-down"/></svg></button>
-          <button type="button" class="shape-tool points-rail-slot points-rail-slot--chevron" aria-label="North" title="North"><svg aria-hidden="true"><use href="#ic-chevron-double-up"/></svg></button>
-          <button type="button" class="shape-tool points-rail-slot points-rail-slot--chevron" aria-label="Left" title="Left (West)"><svg aria-hidden="true"><use href="#ic-chevron-double-left"/></svg></button>
-          <button type="button" class="shape-tool points-rail-slot points-rail-slot--chevron" aria-label="Right" title="Right (East)"><svg aria-hidden="true"><use href="#ic-chevron-double-right"/></svg></button>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
 <!-- ═══════ Scene 3: Rotation (bounds slider) ═══════ -->
 
 <section class="wireframe-section">
@@ -347,8 +347,8 @@
     <header class="editor-topbar">
       <div class="topbar-center">
         <div class="topbar-tools" role="toolbar" aria-label="Category editor">
-          <button class="shape-tool tool-weight"              type="button" title="Weight"><svg aria-hidden="true"><use href="#ic-weight"/></svg></button>
           <button class="shape-tool tool-direction"           type="button" title="Direction"><svg aria-hidden="true"><use href="#ic-direction-center"/></svg></button>
+          <button class="shape-tool tool-weight"              type="button" title="Weight"><svg aria-hidden="true"><use href="#ic-weight"/></svg></button>
           <button class="shape-tool tool-rotation is-active"  type="button" title="Rotation"><svg aria-hidden="true"><use href="#ic-rotation"/></svg></button>
           <button class="shape-tool tool-scale"               type="button" title="Scale"><svg aria-hidden="true"><use href="#ic-scale"/></svg></button>
           <button class="shape-tool tool-location"            type="button" title="Location"><svg aria-hidden="true"><use href="#ic-location"/></svg></button>
@@ -411,8 +411,8 @@
     <header class="editor-topbar">
       <div class="topbar-center">
         <div class="topbar-tools" role="toolbar" aria-label="Category editor">
-          <button class="shape-tool tool-weight"            type="button" title="Weight"><svg aria-hidden="true"><use href="#ic-weight"/></svg></button>
           <button class="shape-tool tool-direction"         type="button" title="Direction"><svg aria-hidden="true"><use href="#ic-direction-center"/></svg></button>
+          <button class="shape-tool tool-weight"            type="button" title="Weight"><svg aria-hidden="true"><use href="#ic-weight"/></svg></button>
           <button class="shape-tool tool-rotation"          type="button" title="Rotation"><svg aria-hidden="true"><use href="#ic-rotation"/></svg></button>
           <button class="shape-tool tool-scale is-active"   type="button" title="Scale"><svg aria-hidden="true"><use href="#ic-scale"/></svg></button>
           <button class="shape-tool tool-location"          type="button" title="Location"><svg aria-hidden="true"><use href="#ic-location"/></svg></button>
@@ -475,8 +475,8 @@
     <header class="editor-topbar">
       <div class="topbar-center">
         <div class="topbar-tools" role="toolbar" aria-label="Category editor">
-          <button class="shape-tool tool-weight"              type="button" title="Weight"><svg aria-hidden="true"><use href="#ic-weight"/></svg></button>
           <button class="shape-tool tool-direction"           type="button" title="Direction"><svg aria-hidden="true"><use href="#ic-direction-center"/></svg></button>
+          <button class="shape-tool tool-weight"              type="button" title="Weight"><svg aria-hidden="true"><use href="#ic-weight"/></svg></button>
           <button class="shape-tool tool-rotation"            type="button" title="Rotation"><svg aria-hidden="true"><use href="#ic-rotation"/></svg></button>
           <button class="shape-tool tool-scale"               type="button" title="Scale"><svg aria-hidden="true"><use href="#ic-scale"/></svg></button>
           <button class="shape-tool tool-location is-active"  type="button" title="Location"><svg aria-hidden="true"><use href="#ic-location"/></svg></button>
@@ -535,8 +535,8 @@
     <header class="editor-topbar">
       <div class="topbar-center">
         <div class="topbar-tools" role="toolbar" aria-label="Category editor">
-          <button class="shape-tool tool-weight"            type="button" title="Weight"><svg aria-hidden="true"><use href="#ic-weight"/></svg></button>
           <button class="shape-tool tool-direction"         type="button" title="Direction"><svg aria-hidden="true"><use href="#ic-direction-center"/></svg></button>
+          <button class="shape-tool tool-weight"            type="button" title="Weight"><svg aria-hidden="true"><use href="#ic-weight"/></svg></button>
           <button class="shape-tool tool-rotation"          type="button" title="Rotation"><svg aria-hidden="true"><use href="#ic-rotation"/></svg></button>
           <button class="shape-tool tool-scale"             type="button" title="Scale"><svg aria-hidden="true"><use href="#ic-scale"/></svg></button>
           <button class="shape-tool tool-location"          type="button" title="Location"><svg aria-hidden="true"><use href="#ic-location"/></svg></button>
@@ -597,8 +597,8 @@
     <header class="editor-topbar">
       <div class="topbar-center">
         <div class="topbar-tools" role="toolbar" aria-label="Category editor">
-          <button class="shape-tool tool-weight"            type="button" title="Weight"><svg aria-hidden="true"><use href="#ic-weight"/></svg></button>
           <button class="shape-tool tool-direction"         type="button" title="Direction"><svg aria-hidden="true"><use href="#ic-direction-center"/></svg></button>
+          <button class="shape-tool tool-weight"            type="button" title="Weight"><svg aria-hidden="true"><use href="#ic-weight"/></svg></button>
           <button class="shape-tool tool-rotation"          type="button" title="Rotation"><svg aria-hidden="true"><use href="#ic-rotation"/></svg></button>
           <button class="shape-tool tool-scale"             type="button" title="Scale"><svg aria-hidden="true"><use href="#ic-scale"/></svg></button>
           <button class="shape-tool tool-location"          type="button" title="Location"><svg aria-hidden="true"><use href="#ic-location"/></svg></button>
@@ -660,8 +660,8 @@
     <header class="editor-topbar">
       <div class="topbar-center">
         <div class="topbar-tools" role="toolbar" aria-label="Category editor">
-          <button class="shape-tool tool-weight"          type="button" title="Weight"><svg aria-hidden="true"><use href="#ic-weight"/></svg></button>
           <button class="shape-tool tool-direction"       type="button" title="Direction"><svg aria-hidden="true"><use href="#ic-direction-center"/></svg></button>
+          <button class="shape-tool tool-weight"          type="button" title="Weight"><svg aria-hidden="true"><use href="#ic-weight"/></svg></button>
           <button class="shape-tool tool-rotation"        type="button" title="Rotation"><svg aria-hidden="true"><use href="#ic-rotation"/></svg></button>
           <button class="shape-tool tool-scale"           type="button" title="Scale"><svg aria-hidden="true"><use href="#ic-scale"/></svg></button>
           <button class="shape-tool tool-location"        type="button" title="Location"><svg aria-hidden="true"><use href="#ic-location"/></svg></button>

@@ -10,6 +10,11 @@
         href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@500;600&display=swap" />
   <link rel="stylesheet"
         href="https://fonts.googleapis.com/css2?family=STIX+Two+Math:ital@0&display=swap" />
+  <!-- Real Admination Design System — live link via the git submodule
+       (vendor/Admination.02-Design). The Spine toolbar below uses the DS
+       .pill / .btn component directly; edit the DS and this prototype changes. -->
+  <link rel="stylesheet"
+        href="../../vendor/Admination.02-Design/0-foundations/admination-design-system/components/index.css" />
   <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
@@ -100,7 +105,37 @@
       <g transform="translate(-3.25 0)"><path d="m9 6 6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></g>
       <g transform="translate(3.25 0)"><path d="m9 6 6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></g>
     </symbol>
+    <!-- diagonal double-chevrons: the 'South' chevron rotated ±45° -->
+    <symbol id="ic-direction-sw" viewBox="0 0 24 24" fill="none">
+      <g transform="rotate(45 12 12)">
+        <g transform="translate(0 -3.25)"><path d="m6 9 6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></g>
+        <g transform="translate(0 3.25)"><path d="m6 9 6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></g>
+      </g>
+    </symbol>
+    <symbol id="ic-direction-se" viewBox="0 0 24 24" fill="none">
+      <g transform="rotate(-45 12 12)">
+        <g transform="translate(0 -3.25)"><path d="m6 9 6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></g>
+        <g transform="translate(0 3.25)"><path d="m6 9 6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></g>
+      </g>
+    </symbol>
+    <!-- Everywhere — rays in all directions -->
+    <symbol id="ic-direction-everywhere" viewBox="0 0 24 24" fill="none">
+      <path d="M12 4v16M4 12h16M6.34 6.34l11.32 11.32M17.66 6.34 6.34 17.66" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+    </symbol>
+    <!-- Rainbow gradient for the "Source" colour form fill -->
+    <linearGradient id="grad-rainbow" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ff0000"/>
+      <stop offset="16%" stop-color="#ff8000"/>
+      <stop offset="33%" stop-color="#ffe000"/>
+      <stop offset="50%" stop-color="#00c000"/>
+      <stop offset="66%" stop-color="#00d4c8"/>
+      <stop offset="83%" stop-color="#0080ff"/>
+      <stop offset="100%" stop-color="#ff00ff"/>
+    </linearGradient>
 
+    <symbol id="kind-empty" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="9.25" fill="none" stroke="currentColor" stroke-width="1.4" stroke-dasharray="2.4 2.6"/>
+    </symbol>
     <symbol id="kind-point" viewBox="0 0 24 24">
       <circle cx="12" cy="12" r="3.15" fill="currentColor"/>
     </symbol>
@@ -149,15 +184,16 @@
     <!-- Top Spine pill ─────────────────────────────────────────────── -->
     <header class="editor-topbar">
       <div class="topbar-center">
-        <div class="topbar-tools" role="toolbar" aria-label="Category editor" data-spine>
-          <button class="shape-tool tool-weight"    type="button" aria-label="Weight"    title="Weight"    data-tool="weight"><svg aria-hidden="true"><use href="#ic-weight"/></svg></button>
-          <button class="shape-tool tool-direction" type="button" aria-label="Direction" title="Direction" data-tool="direction"><svg aria-hidden="true" data-spine-direction><use href="#ic-direction-center"/></svg></button>
-          <button class="shape-tool tool-rotation"  type="button" aria-label="Rotation"  title="Rotation"  data-tool="rotation"><svg aria-hidden="true"><use href="#ic-rotation"/></svg></button>
-          <button class="shape-tool tool-scale"     type="button" aria-label="Scale"     title="Scale"     data-tool="scale"><svg aria-hidden="true"><use href="#ic-scale"/></svg></button>
-          <button class="shape-tool tool-location"  type="button" aria-label="Location"  title="Location"  data-tool="location"><svg aria-hidden="true"><use href="#ic-location"/></svg></button>
-          <button class="shape-tool tool-number"    type="button" aria-label="Number"    title="Number"    data-tool="number" data-spine-number>5</button>
-          <button class="shape-tool tool-color"     type="button" aria-label="Color"     title="Color"     data-tool="color"><span class="sw-face" style="background:#0080ff" aria-hidden="true" data-spine-color></span></button>
-          <button class="shape-tool tool-shape"     type="button" aria-label="Shape"     title="Shape"     data-tool="shape"><svg aria-hidden="true" data-spine-shape><use href="#kind-hexagon"/></svg></button>
+        <div class="pill" role="toolbar" aria-label="Category editor" data-spine>
+          <button class="btn btn-icon tool-direction" type="button" aria-label="Direction" title="Direction" data-tool="direction"><svg aria-hidden="true" data-spine-direction><use href="#ic-direction-center"/></svg></button>
+          <button class="btn btn-icon tool-weight"    type="button" aria-label="Weight"    title="Weight"    data-tool="weight"><svg aria-hidden="true"><use href="#ic-weight"/></svg></button>
+          <button class="btn btn-icon tool-scale"     type="button" aria-label="Scale"     title="Scale"     data-tool="scale"><svg aria-hidden="true"><use href="#ic-scale"/></svg></button>
+          <button class="btn btn-icon tool-rotation"  type="button" aria-label="Rotation"  title="Rotation"  data-tool="rotation"><svg aria-hidden="true"><use href="#ic-rotation"/></svg></button>
+          <button class="btn btn-icon tool-location"  type="button" aria-label="Location"  title="Location"  data-tool="location"><svg aria-hidden="true"><use href="#ic-location"/></svg></button>
+          <button class="btn btn-icon tool-order"     type="button" aria-label="Order"     title="Order"     data-tool="order" data-spine-order>5</button>
+          <button class="btn btn-icon tool-color"     type="button" aria-label="Color"     title="Color"     data-tool="color"><span class="sw-face" style="background:#0080ff" aria-hidden="true" data-spine-color></span></button>
+          <button class="btn btn-icon tool-shape"     type="button" aria-label="Shape"     title="Shape"     data-tool="shape"><svg aria-hidden="true" data-spine-shape><use href="#kind-hexagon"/></svg></button>
+          <button class="btn btn-icon tool-name"      type="button" aria-label="Name"     title="Name"     data-tool="name"><span class="spine-name" data-spine-name>X</span></button>
         </div>
       </div>
     </header>
@@ -173,11 +209,6 @@
           <span class="cnv-label" data-form-label>X</span>
           <span class="cnv-num-badge" aria-hidden="true" data-form-badge>5</span>
         </div>
-      </div>
-
-      <!-- Bottom name bar — type to rename the form ─────────────── -->
-      <div class="canvas-name-bar">
-        <input type="text" value="X" aria-label="Form name (LaTeX-ish)" data-name-input />
       </div>
 
       <!-- Zoom cluster (decorative; not wired in v1) ───────────── -->
@@ -249,15 +280,16 @@
 
       <!-- Direction rail -->
       <div class="tool-popover tool-popover--direction" data-popover="direction">
-        <div class="topbar-tools topbar-tools--popover-rail points-rail" role="group" aria-label="Direction values">
-          <button type="button" class="shape-tool points-rail-slot points-rail-slot--chevron" data-direction="Inside"  title="Inside"><svg aria-hidden="true"><use href="#ic-direction-in"/></svg></button>
-          <button type="button" class="shape-tool points-rail-slot points-rail-slot--chevron" data-direction="Outside" title="Outside"><svg aria-hidden="true"><use href="#ic-direction-out"/></svg></button>
-          <span class="rail-divider" aria-hidden="true"></span>
-          <button type="button" class="shape-tool points-rail-slot points-rail-slot--chevron" data-direction="Center" title="Center"><svg aria-hidden="true"><use href="#ic-direction-center"/></svg></button>
-          <button type="button" class="shape-tool points-rail-slot points-rail-slot--chevron" data-direction="South"  title="South"><svg aria-hidden="true"><use href="#ic-chevron-double-down"/></svg></button>
-          <button type="button" class="shape-tool points-rail-slot points-rail-slot--chevron" data-direction="North"  title="North"><svg aria-hidden="true"><use href="#ic-chevron-double-up"/></svg></button>
-          <button type="button" class="shape-tool points-rail-slot points-rail-slot--chevron" data-direction="Left"   title="Left (West)"><svg aria-hidden="true"><use href="#ic-chevron-double-left"/></svg></button>
-          <button type="button" class="shape-tool points-rail-slot points-rail-slot--chevron" data-direction="Right"  title="Right (East)"><svg aria-hidden="true"><use href="#ic-chevron-double-right"/></svg></button>
+        <div class="pill points-rail" role="group" aria-label="Direction values Inside to Everywhere">
+          <button type="button" class="btn btn-icon" data-direction="Inside"     title="Inside (0)"><svg aria-hidden="true"><use href="#ic-direction-in"/></svg></button>
+          <button type="button" class="btn btn-icon" data-direction="Center"     title="Center (1)"><svg aria-hidden="true"><use href="#ic-direction-center"/></svg></button>
+          <button type="button" class="btn btn-icon" data-direction="South-West" title="South-West (2)"><svg aria-hidden="true"><use href="#ic-direction-sw"/></svg></button>
+          <button type="button" class="btn btn-icon" data-direction="South"      title="South (3)"><svg aria-hidden="true"><use href="#ic-chevron-double-down"/></svg></button>
+          <button type="button" class="btn btn-icon" data-direction="South-East" title="South-East (4)"><svg aria-hidden="true"><use href="#ic-direction-se"/></svg></button>
+          <button type="button" class="btn btn-icon" data-direction="West"       title="West (5)"><svg aria-hidden="true"><use href="#ic-chevron-double-left"/></svg></button>
+          <button type="button" class="btn btn-icon" data-direction="East"       title="East (6)"><svg aria-hidden="true"><use href="#ic-chevron-double-right"/></svg></button>
+          <button type="button" class="btn btn-icon" data-direction="Outside"    title="Outside (10)"><svg aria-hidden="true"><use href="#ic-direction-out"/></svg></button>
+          <button type="button" class="btn btn-icon" data-direction="Everywhere" title="Everywhere (∞)"><svg aria-hidden="true"><use href="#ic-direction-everywhere"/></svg></button>
         </div>
       </div>
 
@@ -276,45 +308,55 @@
         </div>
       </div>
 
-      <!-- Number rail -->
-      <div class="tool-popover tool-popover--number" data-popover="number">
-        <div class="topbar-tools topbar-tools--popover-rail order-slot-rail" role="group" aria-label="Number value">
-          <button type="button" class="shape-tool order-slot-digit" data-number="0" aria-label="0">0</button>
-          <button type="button" class="shape-tool order-slot-digit" data-number="1" aria-label="1">1</button>
-          <button type="button" class="shape-tool order-slot-digit" data-number="2" aria-label="2">2</button>
-          <button type="button" class="shape-tool order-slot-digit" data-number="3" aria-label="3">3</button>
-          <button type="button" class="shape-tool order-slot-digit" data-number="4" aria-label="4">4</button>
-          <button type="button" class="shape-tool order-slot-digit" data-number="5" aria-label="5">5</button>
-          <button type="button" class="shape-tool order-slot-digit" data-number="6" aria-label="6">6</button>
-          <button type="button" class="shape-tool order-slot-digit order-slot-digit--two" data-number="10" aria-label="10">10</button>
+      <!-- Order rail — the signed ordinal, sampled at the 9 category indices {0..6, 10, ∞} -->
+      <div class="tool-popover tool-popover--order" data-popover="order">
+        <div class="pill order-slot-rail" role="group" aria-label="Order value">
+          <button type="button" class="btn btn-icon" data-order="0" aria-label="0">0</button>
+          <button type="button" class="btn btn-icon" data-order="1" aria-label="1">1</button>
+          <button type="button" class="btn btn-icon" data-order="2" aria-label="2">2</button>
+          <button type="button" class="btn btn-icon" data-order="3" aria-label="3">3</button>
+          <button type="button" class="btn btn-icon" data-order="4" aria-label="4">4</button>
+          <button type="button" class="btn btn-icon" data-order="5" aria-label="5">5</button>
+          <button type="button" class="btn btn-icon" data-order="6" aria-label="6">6</button>
+          <button type="button" class="btn btn-icon" data-order="10" aria-label="10">10</button>
+          <button type="button" class="btn btn-icon" data-order="∞" aria-label="Infinity">∞</button>
         </div>
       </div>
 
       <!-- Color rail -->
       <div class="tool-popover tool-popover--color" data-popover="color">
-        <div class="topbar-tools topbar-tools--popover-rail color-slot-rail" role="group" aria-label="Color presets Black to White">
-          <button type="button" class="shape-tool" data-color="#0a0a0a" title="Black"><span class="sw-face sw-face--preset-black"></span></button>
-          <button type="button" class="shape-tool" data-color="#ff0000" title="Red"><span class="sw-face" style="background:#ff0000"></span></button>
-          <button type="button" class="shape-tool" data-color="#ff8000" title="Orange"><span class="sw-face" style="background:#ff8000"></span></button>
-          <button type="button" class="shape-tool" data-color="#ffff00" title="Yellow"><span class="sw-face sw-face--hsv-strong" style="background:#ffff00"></span></button>
-          <button type="button" class="shape-tool" data-color="#00ff00" title="Green"><span class="sw-face" style="background:#00ff00"></span></button>
-          <button type="button" class="shape-tool" data-color="#00ffff" title="Cyan"><span class="sw-face" style="background:#00ffff"></span></button>
-          <button type="button" class="shape-tool" data-color="#0080ff" title="Azure"><span class="sw-face" style="background:#0080ff"></span></button>
-          <button type="button" class="shape-tool" data-color="#fafafa" title="White"><span class="sw-face sw-face--white"></span></button>
+        <div class="pill color-slot-rail" role="group" aria-label="Colour values Red to Source">
+          <button type="button" class="btn btn-icon" data-color="#ff0000" title="Red (0)"><span class="sw-face" style="background:#ff0000"></span></button>
+          <button type="button" class="btn btn-icon" data-color="#ff8000" title="Orange (1)"><span class="sw-face" style="background:#ff8000"></span></button>
+          <button type="button" class="btn btn-icon" data-color="#ffe000" title="Yellow (2)"><span class="sw-face" style="background:#ffe000"></span></button>
+          <button type="button" class="btn btn-icon" data-color="#9ade00" title="Lime (3)"><span class="sw-face" style="background:#9ade00"></span></button>
+          <button type="button" class="btn btn-icon" data-color="#00c000" title="Green (4)"><span class="sw-face" style="background:#00c000"></span></button>
+          <button type="button" class="btn btn-icon" data-color="#00d4c8" title="Turquoise (5)"><span class="sw-face" style="background:#00d4c8"></span></button>
+          <button type="button" class="btn btn-icon" data-color="#0080ff" title="Azure (6)"><span class="sw-face" style="background:#0080ff"></span></button>
+          <button type="button" class="btn btn-icon" data-color="#ff00ff" title="Magenta (10)"><span class="sw-face" style="background:#ff00ff"></span></button>
+          <button type="button" class="btn btn-icon" data-color="source" title="Source (∞)"><span class="sw-face sw-face--source"></span></button>
         </div>
       </div>
 
       <!-- Shape rail -->
       <div class="tool-popover tool-popover--shape" data-popover="shape">
-        <div class="topbar-tools topbar-tools--popover-rail kind-rail" role="group" aria-label="Shape values Circle to Square">
-          <button class="drag-tile" type="button" data-shape="Circle"   title="Circle"><svg aria-hidden="true"><use href="#kind-circle"/></svg></button>
-          <button class="drag-tile kind-tile--point" type="button" data-shape="Point" title="Point"><svg aria-hidden="true"><use href="#kind-point"/></svg></button>
-          <button class="drag-tile" type="button" data-shape="Line"     title="Line"><svg aria-hidden="true"><use href="#kind-line"/></svg></button>
-          <button class="drag-tile" type="button" data-shape="Triangle" title="Triangle"><svg aria-hidden="true"><use href="#kind-triangle"/></svg></button>
-          <button class="drag-tile" type="button" data-shape="Rhombus"  title="Rhombus"><svg aria-hidden="true"><use href="#kind-rhombus"/></svg></button>
-          <button class="drag-tile" type="button" data-shape="Pentagon" title="Pentagon"><svg aria-hidden="true"><use href="#kind-pentagon"/></svg></button>
-          <button class="drag-tile" type="button" data-shape="Hexagon"  title="Hexagon"><svg aria-hidden="true"><use href="#kind-hexagon"/></svg></button>
-          <button class="drag-tile" type="button" data-shape="Square"   title="Square"><svg aria-hidden="true"><use href="#kind-rectangle"/></svg></button>
+        <div class="pill kind-rail" role="group" aria-label="Shape values Empty to Square">
+          <button class="btn btn-icon" type="button" data-shape="Empty"    title="Empty (0)"><svg aria-hidden="true"><use href="#kind-empty"/></svg></button>
+          <button class="btn btn-icon" type="button" data-shape="Point"    title="Point (1)"><svg aria-hidden="true"><use href="#kind-point"/></svg></button>
+          <button class="btn btn-icon" type="button" data-shape="Line"     title="Line (2)"><svg aria-hidden="true"><use href="#kind-line"/></svg></button>
+          <button class="btn btn-icon" type="button" data-shape="Triangle" title="Triangle (3)"><svg aria-hidden="true"><use href="#kind-triangle"/></svg></button>
+          <button class="btn btn-icon" type="button" data-shape="Rhombus"  title="Rhombus (4)"><svg aria-hidden="true"><use href="#kind-rhombus"/></svg></button>
+          <button class="btn btn-icon" type="button" data-shape="Pentagon" title="Pentagon (5)"><svg aria-hidden="true"><use href="#kind-pentagon"/></svg></button>
+          <button class="btn btn-icon" type="button" data-shape="Hexagon"  title="Hexagon (6)"><svg aria-hidden="true"><use href="#kind-hexagon"/></svg></button>
+          <button class="btn btn-icon" type="button" data-shape="Circle"   title="Circle (10)"><svg aria-hidden="true"><use href="#kind-circle"/></svg></button>
+          <button class="btn btn-icon" type="button" data-shape="Square"   title="Square (∞)"><svg aria-hidden="true"><use href="#kind-rectangle"/></svg></button>
+        </div>
+      </div>
+
+      <!-- Name field — the whole DS pill IS the input (no label, no inner box) -->
+      <div class="tool-popover tool-popover--name" data-popover="name">
+        <div class="pill">
+          <input class="name-field" type="text" value="X" aria-label="Form name" data-name-input />
         </div>
       </div>
 
