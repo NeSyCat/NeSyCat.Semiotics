@@ -14,6 +14,7 @@ interface State {
   diagram: Diagram
   selectedPoints: string[] // point ids
   edgePath: EdgePathMode
+  pointsVisible: boolean
 
   history: Diagram[]
   historyIndex: number
@@ -21,6 +22,7 @@ interface State {
   redo: () => void
 
   toggleEdgePath: () => void
+  togglePointsVisible: () => void
   setSelectedPoints: (ids: string[]) => void
   toggleSelectedPoint: (id: string) => void
   clearSelection: () => void
@@ -67,6 +69,7 @@ export const useStore = create<State>((set, get) => {
     diagram: emptyDiagram,
     selectedPoints: [],
     edgePath: 'straight',
+    pointsVisible: true,
     history: [emptyDiagram],
     historyIndex: 0,
 
@@ -84,6 +87,7 @@ export const useStore = create<State>((set, get) => {
     },
 
     toggleEdgePath: () => set({ edgePath: get().edgePath === 'straight' ? 'smoothstep' : 'straight' }),
+    togglePointsVisible: () => set({ pointsVisible: !get().pointsVisible }),
     setSelectedPoints: (ids) => {
       if (ids.length === 0 && get().selectedPoints.length === 0) return
       set({ selectedPoints: ids })

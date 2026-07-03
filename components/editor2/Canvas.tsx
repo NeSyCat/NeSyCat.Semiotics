@@ -76,6 +76,15 @@ function ToolbarSprite() {
           <path d="M3 12l2.5-2M3 12l2.5 2" />
           <path d="M21 12l-2.5-2M21 12l-2.5 2" />
         </symbol>
+        <symbol id="ic-eye" viewBox="0 0 24 24" fill="none">
+          <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+          <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.7" />
+        </symbol>
+        <symbol id="ic-eye-off" viewBox="0 0 24 24" fill="none">
+          <path d="M9.9 5.14A10.7 10.7 0 0 1 12 5c6.4 0 10 7 10 7a13.3 13.3 0 0 1-3.05 3.9m-2.87 1.9A10.7 10.7 0 0 1 12 19c-6.4 0-10-7-10-7a13.3 13.3 0 0 1 4.22-4.8" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M9.9 14.1a3 3 0 0 0 4.24-4.24" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M3 3l18 18" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+        </symbol>
         <symbol id="kind-empty" viewBox="0 0 24 24">
           <circle cx="12" cy="12" r="9.25" fill="none" stroke="currentColor" strokeWidth="1.4" strokeDasharray="2.4 2.6" />
         </symbol>
@@ -156,6 +165,8 @@ function Canvas() {
   const renamePoints = useStore((s) => s.renamePoints)
   const renameLines = useStore((s) => s.renameLines)
   const selectedPoints = useStore((s) => s.selectedPoints)
+  const pointsVisible = useStore((s) => s.pointsVisible)
+  const togglePointsVisible = useStore((s) => s.togglePointsVisible)
   const { screenToFlowPosition, getNodes } = useReactFlow()
 
   const [activeKind, setActiveKind] = useState<FormKind>('triangle')
@@ -454,7 +465,7 @@ function Canvas() {
   }, [])
 
   return (
-    <div style={{ width: '100%', height: '100%', position: 'relative' }} onDrop={onDrop} onDragOver={onDragOver}>
+    <div className={pointsVisible ? undefined : 'points-hidden'} style={{ width: '100%', height: '100%', position: 'relative' }} onDrop={onDrop} onDragOver={onDragOver}>
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -486,6 +497,21 @@ function Canvas() {
       </ReactFlow>
 
       <ToolbarSprite />
+
+      {/* Points-visibility toggle — a single-button pill in the canvas's top-right
+          corner, mirroring the sidebar's collapse pill on the opposite side. */}
+      <div style={{ position: 'absolute', top: 16, right: 16, zIndex: 10 }}>
+        <div className="pill editor-pill">
+          <button
+            className={`btn btn-icon${pointsVisible ? '' : ' is-active'}`}
+            title={pointsVisible ? 'Hide point names' : 'Show point names'}
+            aria-label={pointsVisible ? 'Hide point names' : 'Show point names'}
+            onClick={togglePointsVisible}
+          >
+            <svg aria-hidden="true"><use href={`#${pointsVisible ? 'ic-eye' : 'ic-eye-off'}`} /></svg>
+          </button>
+        </div>
+      </div>
 
       {/* General toolbar — the mockup's category Spine (DS .pill, scaled up),
           centred over the canvas. Most categories are placeholders; clicking

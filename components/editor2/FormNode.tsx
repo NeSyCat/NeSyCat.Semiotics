@@ -154,8 +154,9 @@ function FormNode({ data, selected }: NodeProps) {
             {/* grab pad — easy to grab; events bubble to the handle above */}
             <span style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%, -50%)', width: POINT_HIT, height: POINT_HIT, borderRadius: '50%', cursor: 'crosshair', display: 'block' }} />
           </Handle>
-          {/* always-visible point name — click it to select the point too */}
-          <div onClick={(e) => selectPoint(e, pid)} style={{ position: 'absolute', ...lblPos, zIndex: 4, cursor: 'pointer' }}>
+          {/* point name — click it to select the point too; hidden via .points-hidden
+              (see globals.css) when the Points toggle is off */}
+          <div className="point-label" onClick={(e) => selectPoint(e, pid)} style={{ position: 'absolute', ...lblPos, zIndex: 4, cursor: 'pointer' }}>
             <Tex fontSize={POINT_NAME_SIZE} color={theme.text.ink}>{pt.name ?? pid}</Tex>
           </div>
         </span>,
