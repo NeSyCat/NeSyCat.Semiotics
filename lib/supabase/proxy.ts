@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { COOKIE_DOMAIN } from '@/lib/editor-url'
 
 function isNesycatHost(host: string): boolean {
-  return host === 'nesycat.com' || host === 'www.nesycat.com' || host === 'semiotics.nesycat.com'
+  return host === 'nesycat.org' || host === 'www.nesycat.org' || host === 'semiotics.nesycat.org'
 }
 
 function makeResponse(request: NextRequest, rewriteTo: URL | null) {

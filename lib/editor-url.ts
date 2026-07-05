@@ -1,13 +1,13 @@
 import { headers } from 'next/headers'
 
-export const EDITOR_SUBDOMAIN = 'semiotics.nesycat.com'
-export const COOKIE_DOMAIN = '.nesycat.com'
+export const EDITOR_SUBDOMAIN = 'semiotics.nesycat.org'
+export const COOKIE_DOMAIN = '.nesycat.org'
 
 type Mode = 'subdomain' | 'apex' | 'single-host'
 
 function modeForHost(host: string): Mode {
   if (host === EDITOR_SUBDOMAIN) return 'subdomain'
-  if (host === 'nesycat.com' || host === 'www.nesycat.com') return 'apex'
+  if (host === 'nesycat.org' || host === 'www.nesycat.org') return 'apex'
   return 'single-host'
 }
 
@@ -34,7 +34,7 @@ export async function serverCallbackUrl(): Promise<string> {
 }
 
 export function landingHrefForHost(host: string): string {
-  if (modeForHost(host) === 'subdomain') return 'https://www.nesycat.com/'
+  if (modeForHost(host) === 'subdomain') return 'https://www.nesycat.org/'
   return '/'
 }
 
