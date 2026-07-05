@@ -116,15 +116,15 @@ const CATEGORIES: Array<{ key: string; label: string; content: React.ReactNode }
 ]
 
 // Second toolbar — the Shape rail. SAME 9 slots as the Spine (equal length).
-// Every tile sets the shape of the SELECTED POINT(S). For FORMS, only the three
-// with a `kind` (triangle/circle/square) are functional; the rest are form
-// placeholders (but all 9 are valid point shapes).
+// Every tile sets the shape of the SELECTED POINT(S). For FORMS, only tiles
+// with a `kind` are functional; the rest are point-only placeholders (but all
+// 9 are valid point shapes).
 const SHAPE_RAIL: Array<{ label: string; symbol: string; pshape: PointShape; kind?: FormKind }> = [
   { label: 'Empty', symbol: 'kind-empty', pshape: 'empty' },
-  { label: 'Point', symbol: 'kind-point', pshape: 'point' },
+  { label: 'Point', symbol: 'kind-point', pshape: 'point', kind: 'point' },
   { label: 'Line', symbol: 'kind-line', pshape: 'line' },
   { label: 'Triangle', symbol: 'kind-triangle', pshape: 'triangle', kind: 'triangle' },
-  { label: 'Rhombus', symbol: 'kind-rhombus', pshape: 'rhombus' },
+  { label: 'Rhombus', symbol: 'kind-rhombus', pshape: 'rhombus', kind: 'rhombus' },
   { label: 'Pentagon', symbol: 'kind-pentagon', pshape: 'pentagon' },
   { label: 'Hexagon', symbol: 'kind-hexagon', pshape: 'hexagon' },
   { label: 'Circle', symbol: 'kind-circle', pshape: 'circle', kind: 'circle' },

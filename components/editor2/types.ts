@@ -11,9 +11,9 @@
 export type Color = [number, number, number] // normalized RGB, each in [0,1]
 
 // ── Forms (the big shapes) ───────────────────────────────────────────
-export type FormKind = 'triangle' | 'square' | 'circle' | 'rhombus' | 'empty'
-// Functional in Phase 1; the rest render as a placeholder body.
-export const PRIORITY_KINDS = ['triangle', 'square', 'circle'] as const
+export type FormKind = 'triangle' | 'square' | 'circle' | 'rhombus' | 'empty' | 'point'
+// Have real edges that points can attach to; 'empty' renders as an edgeless placeholder body.
+export const PRIORITY_KINDS = ['triangle', 'square', 'circle', 'rhombus', 'point'] as const
 
 // An edge key names one side/arc of a form. Validated per-kind by the form
 // registry (forms.ts):

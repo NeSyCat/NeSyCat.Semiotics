@@ -193,18 +193,92 @@ const circleGeometry: FormGeometry = {
   },
 }
 
-// ── Stubs (non-functional until later) ───────────────────────────────
-const stubAnchor = (_e: EdgeKey, _i: number, _c: number, n: number): Anchor => ({ x: n / 2, y: n / 2, position: Position.Top })
+// ── RHOMBUS (diamond orientation — 4 sides + 4 corners, same shape as
+//   SQUARE just named for diagonal sides). v0 = top, v1 = right, v2 = bottom,
+//   v3 = left. Sides run clockwise between adjacent corners.
+const RHOMBUS_CORNERS = { v0: [0.5, 0], v1: [1, 0.5], v2: [0.5, 1], v3: [0, 0.5] } as const
+const RHOMBUS_EDGES = ['top-right', 'bottom-right', 'bottom-left', 'top-left', 'v0', 'v1', 'v2', 'v3'] as const
+const RHOMBUS_SIDES: Record<string, { a: readonly [number, number]; b: readonly [number, number]; position: Position }> = {
+  'top-right': { a: RHOMBUS_CORNERS.v0, b: RHOMBUS_CORNERS.v1, position: Position.Top },
+  'bottom-right': { a: RHOMBUS_CORNERS.v1, b: RHOMBUS_CORNERS.v2, position: Position.Bottom },
+  'bottom-left': { a: RHOMBUS_CORNERS.v2, b: RHOMBUS_CORNERS.v3, position: Position.Bottom },
+  'top-left': { a: RHOMBUS_CORNERS.v3, b: RHOMBUS_CORNERS.v0, position: Position.Top },
+}
+const lerp = (a: readonly [number, number], b: readonly [number, number], t: number): [number, number] =>
+  [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]
 
 const rhombusGeometry: FormGeometry = {
-  kind: 'rhombus', displayName: 'Rhombus', edgeKeys: [], corners: {},
+  kind: 'rhombus',
+  displayName: 'Rhombus',
+  edgeKeys: RHOMBUS_EDGES,
+  corners: RHOMBUS_CORNERS,
   body: { type: 'polygon', pointsFrac: [[0.5, 0], [1, 0.5], [0.5, 1], [0, 0.5]] },
-  bodyOpacity: 1, nodeSize: () => BASE_SIZE, pointAnchor: stubAnchor, edgeAt: () => undefined,
+  bodyOpacity: 1,
+  nodeSize: sizeFor(RHOMBUS_EDGES),
+  pointAnchor: (edgeKey, index, count, n) => {
+    if (edgeKey in RHOMBUS_CORNERS) return cornerAnchor(RHOMBUS_CORNERS[edgeKey as keyof typeof RHOMBUS_CORNERS], index, n)
+    const side = RHOMBUS_SIDES[edgeKey]
+    const t = (index + 1) / (count + 1)
+    const [x, y] = lerp(side.a, side.b, t)
+    return { x: x * n, y: y * n, position: side.position }
+  },
+  edgeAt: (rx, ry) => {
+    const nc = nearestCorner(rx, ry, RHOMBUS_CORNERS)
+    if (nc && nc.dist < CORNER_R) return nc.key
+    let best: EdgeKey = 'top-right'
+    let bestDist = Infinity
+    for (const key of Object.keys(RHOMBUS_SIDES)) {
+      const { a, b } = RHOMBUS_SIDES[key]
+      const d = distToSeg(rx, ry, a[0], a[1], b[0], b[1])
+      if (d < bestDist) { bestDist = d; best = key }
+    }
+    return best
+  },
+}
+
+// ── POINT — a standalone atomic form: the string-diagram "copy" node. Its
+// single 'self' edge takes an unbounded list of points, fanned evenly around
+// the dot's own circumference (unlike other kinds, ANY spot on the body
+// resolves to the same edge — the whole point is one shared attachment, so
+// every wire touching it is a copy of the same value).
+const POINT_EDGE = 'self'
+const POINT_SIZE = 40
+// Past 4 attached points, grow the dot a little so the fan doesn't crowd.
+const FAN_CROWD_THRESHOLD = 4
+const FAN_GROWTH_PER_POINT = 6
+
+function cardinal(theta: number): Position {
+  if (theta > Math.PI / 4 && theta <= (3 * Math.PI) / 4) return Position.Top
+  if (theta > -Math.PI / 4 && theta <= Math.PI / 4) return Position.Right
+  if (theta > -(3 * Math.PI) / 4 && theta <= -Math.PI / 4) return Position.Bottom
+  return Position.Left
+}
+
+const pointGeometry: FormGeometry = {
+  kind: 'point',
+  displayName: 'Point',
+  edgeKeys: [POINT_EDGE],
+  corners: {},
+  body: { type: 'circle' },
+  bodyOpacity: 1,
+  nodeSize: (form) => {
+    const count = form.edges[POINT_EDGE]?.length ?? 0
+    return POINT_SIZE + Math.max(0, count - FAN_CROWD_THRESHOLD) * FAN_GROWTH_PER_POINT
+  },
+  pointAnchor: (_edgeKey, index, count, n) => {
+    const raw = (index / count) * 2 * Math.PI
+    const theta = raw > Math.PI ? raw - 2 * Math.PI : raw
+    const r = n / 2
+    return { x: n / 2 + r * Math.cos(theta), y: n / 2 - r * Math.sin(theta), position: cardinal(theta) }
+  },
+  edgeAt: () => POINT_EDGE,
 }
 
 const emptyGeometry: FormGeometry = {
   kind: 'empty', displayName: 'Empty', edgeKeys: [], corners: {},
-  body: { type: 'circle' }, bodyOpacity: 0, nodeSize: () => BASE_SIZE / 2, pointAnchor: stubAnchor, edgeAt: () => undefined,
+  body: { type: 'circle' }, bodyOpacity: 0, nodeSize: () => BASE_SIZE / 2,
+  pointAnchor: (_e, _i, _c, n) => ({ x: n / 2, y: n / 2, position: Position.Top }),
+  edgeAt: () => undefined,
 }
 
 // ── Registry ─────────────────────────────────────────────────────────
@@ -213,6 +287,7 @@ export const formRegistry: Record<FormKind, FormGeometry> = {
   square: squareGeometry,
   circle: circleGeometry,
   rhombus: rhombusGeometry,
+  point: pointGeometry,
   empty: emptyGeometry,
 }
 
