@@ -27,7 +27,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "NeSyCat — Semiotics editor",
   description:
-    "The Semiotics editor: compose string diagrams, wire their points, round-trip JSON. Part of the NeSyCat project (nesycat.com).",
+    "The Semiotics editor: compose string diagrams, wire their points, round-trip JSON. Part of the NeSyCat project (nesycat.org).",
 };
 
 export default function RootLayout({

@@ -191,7 +191,7 @@ function DiagramItem({
 const UUID_IN_PATH = /\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?:\/|$)/i
 
 function editorPath(id: string): string {
-  if (typeof window !== 'undefined' && window.location.host === 'semiotics.nesycat.com') {
+  if (typeof window !== 'undefined' && window.location.host === 'semiotics.nesycat.org') {
     return `/${id}`
   }
   return `/editor/${id}`
@@ -272,7 +272,7 @@ export default function EditorSidebar({ diagrams }: { diagrams: Diagram[] }) {
       const onThis = pathname.includes(selectedId)
       if (onThis) {
         router.push(
-          typeof window !== 'undefined' && window.location.host === 'semiotics.nesycat.com'
+          typeof window !== 'undefined' && window.location.host === 'semiotics.nesycat.org'
             ? '/'
             : '/editor'
         )

@@ -3,8 +3,8 @@ import { createBrowserClient } from '@supabase/ssr'
 function sharedCookieDomain(): string | undefined {
   if (typeof window === 'undefined') return undefined
   const host = window.location.hostname
-  if (host === 'nesycat.com' || host.endsWith('.nesycat.com')) {
-    return '.nesycat.com'
+  if (host === 'nesycat.org' || host.endsWith('.nesycat.org')) {
+    return '.nesycat.org'
   }
   return undefined
 }
@@ -14,9 +14,9 @@ function sharedCookieDomain(): string | undefined {
 // and consuming the ?code=… first (which caused bad_code_verifier 400s).
 //
 // cookieOptions.domain: in production we store session + PKCE verifier
-// cookies with Domain=.nesycat.com so the verifier set on www.nesycat.com
+// cookies with Domain=.nesycat.org so the verifier set on www.nesycat.org
 // (where sign-in is clicked) is readable by the callback on
-// semiotics.nesycat.com (where OAuth lands).
+// semiotics.nesycat.org (where OAuth lands).
 export const createClient = () =>
   createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
