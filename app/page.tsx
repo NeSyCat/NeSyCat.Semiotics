@@ -6,7 +6,7 @@ import SignInButton from '@/components/SignInButton'
 
 const ACC = '52, 120, 246'
 
-// This app is the Semiotics editor only — the umbrella site (nesycat.com)
+// This app is the Semiotics editor only — the umbrella site (nesycat.org)
 // lives in the sibling repo `NeSyCat.Web`. Authenticated users skip straight
 // to /editor; unauthenticated users get a one-screen sign-in surface plus a
 // link out to the umbrella.
@@ -52,7 +52,7 @@ export default async function Root() {
       </p>
       <SignInButton isSignedIn={false} editorHref={editorHref} callbackUrl={callbackUrl} big />
       <a
-        href="https://nesycat.com"
+        href="https://nesycat.org"
         target="_blank"
         rel="noreferrer"
         className="t-mono"

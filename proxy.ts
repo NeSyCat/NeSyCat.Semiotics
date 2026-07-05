@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { updateSession } from '@/lib/supabase/proxy'
 import { EDITOR_SUBDOMAIN } from '@/lib/editor-url'
 
-const APEX_HOSTS = new Set(['nesycat.com', 'www.nesycat.com'])
+const APEX_HOSTS = new Set(['nesycat.org', 'www.nesycat.org'])
 
 export async function proxy(request: NextRequest) {
   const host = request.headers.get('host') ?? ''

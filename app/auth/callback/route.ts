@@ -7,7 +7,7 @@ import { withRLS } from '@/lib/db'
 import { diagrams } from '@/_concept/03-orm-schema/schema'
 import type { Diagram } from '@/components/editor2/types'
 
-const NESYCAT_HOSTS = new Set(['nesycat.com', 'www.nesycat.com', 'semiotics.nesycat.com'])
+const NESYCAT_HOSTS = new Set(['nesycat.org', 'www.nesycat.org', 'semiotics.nesycat.org'])
 
 const emptyData: Diagram = {
   schemaVersion: 1,
