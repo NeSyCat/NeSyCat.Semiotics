@@ -176,7 +176,7 @@ function NameField({ sig, initial, placeholder, disabled, onChange }: {
 // Slider drags snap to the right angles when within this many degrees, so
 // landing on an exact 0/90/180/270 is easy without fighting the mouse.
 const RIGHT_ANGLES = [0, 90, 180, 270, 360]
-const SNAP_TOLERANCE = 4
+const SNAP_TOLERANCE = 12
 function snapToRightAngle(v: number): number {
   const hit = RIGHT_ANGLES.find((a) => Math.abs(v - a) <= SNAP_TOLERANCE)
   return hit === undefined ? v : hit % 360
