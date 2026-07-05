@@ -14,6 +14,7 @@ interface State {
   diagram: Diagram
   selectedPoints: string[] // point ids
   edgePath: EdgePathMode
+  pointsVisible: boolean
 
   history: Diagram[]
   historyIndex: number
@@ -21,6 +22,7 @@ interface State {
   redo: () => void
 
   toggleEdgePath: () => void
+  togglePointsVisible: () => void
   setSelectedPoints: (ids: string[]) => void
   toggleSelectedPoint: (id: string) => void
   clearSelection: () => void
@@ -33,6 +35,7 @@ interface State {
   renameForm: (id: string, name: string) => void
   renameForms: (ids: string[], name: string) => void
   setFormsKind: (ids: string[], kind: FormKind) => void
+  setFormsRotation: (ids: string[], rotation: number) => void
 
   addPoint: (formId: string, edgeKey: string, shape?: PointShape) => string
   removePoint: (id: string) => void
@@ -67,6 +70,7 @@ export const useStore = create<State>((set, get) => {
     diagram: emptyDiagram,
     selectedPoints: [],
     edgePath: 'straight',
+    pointsVisible: true,
     history: [emptyDiagram],
     historyIndex: 0,
 
@@ -84,6 +88,7 @@ export const useStore = create<State>((set, get) => {
     },
 
     toggleEdgePath: () => set({ edgePath: get().edgePath === 'straight' ? 'smoothstep' : 'straight' }),
+    togglePointsVisible: () => set({ pointsVisible: !get().pointsVisible }),
     setSelectedPoints: (ids) => {
       if (ids.length === 0 && get().selectedPoints.length === 0) return
       set({ selectedPoints: ids })
@@ -107,6 +112,7 @@ export const useStore = create<State>((set, get) => {
     renameForm: (id, name) => setCur(M.renameForm(get().diagram, id, name)),
     renameForms: (ids, name) => { if (ids.length) setCur(M.renameForms(get().diagram, ids, name), 'name:forms:' + [...ids].sort().join(',')) },
     setFormsKind: (ids, kind) => { if (ids.length) setCur(M.setFormsKind(get().diagram, ids, kind)) },
+    setFormsRotation: (ids, rotation) => { if (ids.length) setCur(M.setFormsRotation(get().diagram, ids, rotation), 'rotation:forms:' + [...ids].sort().join(',')) },
 
     addPoint: (formId, edgeKey, shape) => {
       const [d, id] = M.addPoint(get().diagram, formId, edgeKey, shape)

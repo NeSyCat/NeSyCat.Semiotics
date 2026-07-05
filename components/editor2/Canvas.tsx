@@ -19,7 +19,7 @@ import FormNode from './FormNode'
 import LineEdge from './LineEdge'
 import { useStore, initStore } from './store'
 import { useAutosave } from './save'
-import { geometryFor } from './forms'
+import { geometryFor, pointIdsAt } from './forms'
 import { encodeHandle, decodeHandle } from './handles'
 import theme from './theme'
 import type { Diagram, FormKind, PointShape } from './types'
@@ -29,13 +29,28 @@ const edgeTypes: EdgeTypes = { line: LineEdge }
 
 const clamp01 = (v: number) => Math.max(0, Math.min(1, v))
 
+// A form's CSS rotation is purely visual — its node box/position stay in the
+// unrotated flow frame. Edge/corner hit-testing (double-click to add a point,
+// drag-drop to auto-attach a line) needs the INVERSE of that rotation applied
+// to the click point first, or a click on what's now visually the right side
+// resolves against where the right side used to be before rotating.
+function unrotateLocal(localX: number, localY: number, w: number, h: number, rotationDeg: number): [number, number] {
+  if (!rotationDeg) return [localX, localY]
+  const theta = (rotationDeg * Math.PI) / 180
+  const cx = w / 2, cy = h / 2
+  const vx = localX - cx, vy = localY - cy
+  const ux = vx * Math.cos(theta) + vy * Math.sin(theta)
+  const uy = -vx * Math.sin(theta) + vy * Math.cos(theta)
+  return [cx + ux, cy + uy]
+}
+
 // point id -> { nodeId, handleId } (the form it sits on + its handle).
 function pointToHandle(d: Diagram, pointId: string): { nodeId: string; handleId: string } | undefined {
   const pt = d.points[pointId]
   if (!pt) return undefined
   const form = d.forms.find((f) => f.id === pt.formId)
   if (!form) return undefined
-  const idx = (form.edges[pt.edgeKey] ?? []).indexOf(pointId)
+  const idx = pointIdsAt(form, pt.edgeKey).indexOf(pointId)
   if (idx < 0) return undefined
   return { nodeId: form.id, handleId: encodeHandle(pt.edgeKey, idx) }
 }
@@ -45,7 +60,7 @@ function handleToPointId(d: Diagram, nodeId: string, handleId: string): string |
   const form = d.forms.find((f) => f.id === nodeId)
   if (!form) return undefined
   const { edgeKey, index } = decodeHandle(handleId)
-  return (form.edges[edgeKey] ?? [])[index]
+  return pointIdsAt(form, edgeKey)[index]
 }
 
 // SVG sprite — copied verbatim from _design/04-prototype (the mockup). The DS
@@ -75,6 +90,15 @@ function ToolbarSprite() {
           <path d="M12 21l-2-2.5M12 21l2-2.5" />
           <path d="M3 12l2.5-2M3 12l2.5 2" />
           <path d="M21 12l-2.5-2M21 12l-2.5 2" />
+        </symbol>
+        <symbol id="ic-eye" viewBox="0 0 24 24" fill="none">
+          <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+          <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.7" />
+        </symbol>
+        <symbol id="ic-eye-off" viewBox="0 0 24 24" fill="none">
+          <path d="M9.9 5.14A10.7 10.7 0 0 1 12 5c6.4 0 10 7 10 7a13.3 13.3 0 0 1-3.05 3.9m-2.87 1.9A10.7 10.7 0 0 1 12 19c-6.4 0-10-7-10-7a13.3 13.3 0 0 1 4.22-4.8" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M9.9 14.1a3 3 0 0 0 4.24-4.24" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M3 3l18 18" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
         </symbol>
         <symbol id="kind-empty" viewBox="0 0 24 24">
           <circle cx="12" cy="12" r="9.25" fill="none" stroke="currentColor" strokeWidth="1.4" strokeDasharray="2.4 2.6" />
@@ -107,20 +131,33 @@ const CATEGORIES: Array<{ key: string; label: string; content: React.ReactNode }
 ]
 
 // Second toolbar — the Shape rail. SAME 9 slots as the Spine (equal length).
-// Every tile sets the shape of the SELECTED POINT(S). For FORMS, only the three
-// with a `kind` (triangle/circle/square) are functional; the rest are form
-// placeholders (but all 9 are valid point shapes).
+// Every tile sets the shape of the SELECTED POINT(S). For FORMS, only tiles
+// with a `kind` are functional; the rest are point-only placeholders (but all
+// 9 are valid point shapes).
 const SHAPE_RAIL: Array<{ label: string; symbol: string; pshape: PointShape; kind?: FormKind }> = [
   { label: 'Empty', symbol: 'kind-empty', pshape: 'empty' },
-  { label: 'Point', symbol: 'kind-point', pshape: 'point' },
+  { label: 'Point', symbol: 'kind-point', pshape: 'point', kind: 'point' },
   { label: 'Line', symbol: 'kind-line', pshape: 'line' },
   { label: 'Triangle', symbol: 'kind-triangle', pshape: 'triangle', kind: 'triangle' },
-  { label: 'Rhombus', symbol: 'kind-rhombus', pshape: 'rhombus' },
+  { label: 'Rhombus', symbol: 'kind-rhombus', pshape: 'rhombus', kind: 'rhombus' },
   { label: 'Pentagon', symbol: 'kind-pentagon', pshape: 'pentagon' },
   { label: 'Hexagon', symbol: 'kind-hexagon', pshape: 'hexagon' },
   { label: 'Circle', symbol: 'kind-circle', pshape: 'circle', kind: 'circle' },
   { label: 'Square', symbol: 'kind-rectangle', pshape: 'square', kind: 'square' },
 ]
+
+// Which toolbar tool/category is active is a UI preference, not diagram data —
+// persisted to localStorage (not the store/history) so it survives a reload
+// without becoming an undo step or part of the saved diagram.
+const ACTIVE_KIND_KEY = 'nesycat.editor.activeKind'
+const ACTIVE_CATEGORY_KEY = 'nesycat.editor.activeCategory'
+
+function readLocalStorage(key: string): string | null {
+  try { return localStorage.getItem(key) } catch { return null }
+}
+function writeLocalStorage(key: string, value: string) {
+  try { localStorage.setItem(key, value) } catch { /* e.g. storage disabled/full — just don't persist */ }
+}
 
 // The Name category's second pill — the whole pill is a text input that renames
 // the current selection live (one undo step, via the store's coalescing). `sig`
@@ -149,6 +186,74 @@ function NameField({ sig, initial, placeholder, disabled, onChange }: {
   )
 }
 
+// Slider drags snap to the right angles when within this many degrees, so
+// landing on an exact 0/90/180/270 is easy without fighting the mouse.
+const RIGHT_ANGLES = [0, 90, 180, 270, 360]
+const SNAP_TOLERANCE = 12
+function snapToRightAngle(v: number): number {
+  const hit = RIGHT_ANGLES.find((a) => Math.abs(v - a) <= SNAP_TOLERANCE)
+  return hit === undefined ? v : hit % 360
+}
+
+// The Rotation category's second pill — a 0-359° slider over the selected
+// form(s) (mirrors the mockup's bounds slider), plus a directly-editable
+// degree readout. `sig` re-seeds the field when the selection changes, same
+// coalescing-drag pattern as NameField.
+function RotationField({ sig, initial, disabled, onChange }: {
+  sig: string; initial: number; disabled: boolean; onChange: (v: number) => void
+}) {
+  const [val, setVal] = useState(initial)
+  const [text, setText] = useState(String(initial))
+  useEffect(() => { setVal(initial); setText(String(initial)) }, [sig]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const apply = (deg: number) => {
+    const wrapped = ((Math.round(deg) % 360) + 360) % 360
+    setVal(wrapped)
+    setText(String(wrapped))
+    onChange(wrapped)
+  }
+  const commitText = () => {
+    const n = Number(text)
+    if (Number.isFinite(n)) apply(n)
+    else setText(String(val))
+  }
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', height: 36, padding: '0 14px', boxSizing: 'border-box' }}>
+      <input
+        type="range"
+        min={0}
+        max={359}
+        step={1}
+        disabled={disabled}
+        value={disabled ? 0 : val}
+        onChange={(e) => apply(snapToRightAngle(Number(e.target.value)))}
+        style={{ flex: 1 }}
+      />
+      <input
+        type="text"
+        inputMode="numeric"
+        disabled={disabled}
+        value={disabled ? '—' : text}
+        onChange={(e) => setText(e.target.value)}
+        onFocus={(e) => e.target.select()}
+        onBlur={commitText}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
+          if (e.key === 'Escape') { setText(String(val)); (e.target as HTMLInputElement).blur() }
+        }}
+        style={{
+          width: 28, textAlign: 'right', fontSize: 13, fontVariantNumeric: 'tabular-nums',
+          background: 'transparent', border: 'none', outline: 'none', padding: 0,
+          color: disabled ? 'var(--color-muted-foreground)' : 'var(--color-foreground)',
+          fontFamily: 'var(--font-sans, system-ui, sans-serif)',
+        }}
+      />
+      <span style={{ fontSize: 13, color: disabled ? 'var(--color-muted-foreground)' : 'var(--color-foreground)' }}>°</span>
+    </div>
+  )
+}
+
 function Canvas() {
   const diagram = useStore((s) => s.diagram)
   const clearSelection = useStore((s) => s.clearSelection)
@@ -156,10 +261,20 @@ function Canvas() {
   const renamePoints = useStore((s) => s.renamePoints)
   const renameLines = useStore((s) => s.renameLines)
   const selectedPoints = useStore((s) => s.selectedPoints)
+  const pointsVisible = useStore((s) => s.pointsVisible)
+  const togglePointsVisible = useStore((s) => s.togglePointsVisible)
   const { screenToFlowPosition, getNodes } = useReactFlow()
 
-  const [activeKind, setActiveKind] = useState<FormKind>('triangle')
-  const [activeCategory, setActiveCategory] = useState<string>('shape')
+  const [activeKind, setActiveKind] = useState<FormKind>(() => {
+    const stored = readLocalStorage(ACTIVE_KIND_KEY)
+    return stored && SHAPE_RAIL.some((s) => s.kind === stored) ? (stored as FormKind) : 'triangle'
+  })
+  const [activeCategory, setActiveCategory] = useState<string>(() => {
+    const stored = readLocalStorage(ACTIVE_CATEGORY_KEY)
+    return stored != null && (stored === '' || CATEGORIES.some((c) => c.key === stored)) ? stored : 'shape'
+  })
+  useEffect(() => { writeLocalStorage(ACTIVE_KIND_KEY, activeKind) }, [activeKind])
+  useEffect(() => { writeLocalStorage(ACTIVE_CATEGORY_KEY, activeCategory) }, [activeCategory])
 
   // The shape shared by all selected points (for the rail highlight), if any.
   const selectedPointShape = useMemo<PointShape | undefined>(() => {
@@ -260,6 +375,19 @@ function Canvas() {
     else if (nameTarget.kind === 'forms') renameForms(nameTarget.ids, value)
     else renameLines(nameTarget.ids, value)
   }, [nameTarget, renamePoints, renameForms, renameLines])
+
+  // ── Rotation field target: selected FORM(s) only (points/lines have no
+  // body to rotate) ───────────────────────────────────────────────────
+  const selectedFormIds = useMemo(() => nodes.filter((n) => n.selected).map((n) => n.id), [nodes])
+  const rotationInfo = useMemo(() => {
+    if (selectedFormIds.length === 0) return { value: 0, sig: '' }
+    const form = diagram.forms.find((f) => f.id === selectedFormIds[0])
+    return { value: form?.rotation ?? 0, sig: selectedFormIds.join(',') }
+  }, [selectedFormIds, diagram])
+
+  const onRotate = useCallback((deg: number) => {
+    if (selectedFormIds.length) useStore.getState().setFormsRotation(selectedFormIds, deg)
+  }, [selectedFormIds])
 
   // ── Create forms ───────────────────────────────────────────────────
   const createForm = useCallback(
@@ -378,8 +506,9 @@ function Canvas() {
     const geom = geometryFor(targetForm.kind)
     const w = dropTarget.measured?.width ?? dropTarget.width ?? 1
     const h = dropTarget.measured?.height ?? dropTarget.height ?? 1
-    const rx = clamp01((position.x - dropTarget.position.x) / w)
-    const ry = clamp01((position.y - dropTarget.position.y) / h)
+    const [lx, ly] = unrotateLocal(position.x - dropTarget.position.x, position.y - dropTarget.position.y, w, h, targetForm.rotation ?? 0)
+    const rx = clamp01(lx / w)
+    const ry = clamp01(ly / h)
     const edgeKey = geom.edgeAt(rx, ry)
     if (!edgeKey) return
     const newPtId = useStore.getState().addPoint(dropTarget.id, edgeKey)
@@ -398,8 +527,9 @@ function Canvas() {
     const w = node.measured?.width ?? node.width ?? geom.nodeSize(form)
     const h = node.measured?.height ?? node.height ?? geom.nodeSize(form)
     const flow = screenToFlowPosition({ x: event.clientX, y: event.clientY })
-    const rx = clamp01((flow.x - node.position.x) / w)
-    const ry = clamp01((flow.y - node.position.y) / h)
+    const [lx, ly] = unrotateLocal(flow.x - node.position.x, flow.y - node.position.y, w, h, form.rotation ?? 0)
+    const rx = clamp01(lx / w)
+    const ry = clamp01(ly / h)
     const edgeKey = geom.edgeAt(rx, ry)
     if (!edgeKey) return
     useStore.getState().addPoint(node.id, edgeKey)
@@ -454,7 +584,7 @@ function Canvas() {
   }, [])
 
   return (
-    <div style={{ width: '100%', height: '100%', position: 'relative' }} onDrop={onDrop} onDragOver={onDragOver}>
+    <div className={pointsVisible ? undefined : 'points-hidden'} style={{ width: '100%', height: '100%', position: 'relative' }} onDrop={onDrop} onDragOver={onDragOver}>
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -486,6 +616,21 @@ function Canvas() {
       </ReactFlow>
 
       <ToolbarSprite />
+
+      {/* Points-visibility toggle — a single-button pill in the canvas's top-right
+          corner, mirroring the sidebar's collapse pill on the opposite side. */}
+      <div style={{ position: 'absolute', top: 16, right: 16, zIndex: 10 }}>
+        <div className="pill editor-pill">
+          <button
+            className={`btn btn-icon${pointsVisible ? '' : ' is-active'}`}
+            title={pointsVisible ? 'Hide point names' : 'Show point names'}
+            aria-label={pointsVisible ? 'Hide point names' : 'Show point names'}
+            onClick={togglePointsVisible}
+          >
+            <svg aria-hidden="true"><use href={`#${pointsVisible ? 'ic-eye' : 'ic-eye-off'}`} /></svg>
+          </button>
+        </div>
+      </div>
 
       {/* General toolbar — the mockup's category Spine (DS .pill, scaled up),
           centred over the canvas. Most categories are placeholders; clicking
@@ -543,6 +688,16 @@ function Canvas() {
         <div style={{ position: 'absolute', top: 70, left: 'calc(50% + (var(--sidebar-offset, 0px) / 2))', transform: 'translateX(-50%)', zIndex: 10, transition: 'left 200ms' }}>
           <div className="pill editor-pill" style={{ width: 360, padding: '0 4px' }}>
             <NameField sig={nameInfo.sig} initial={nameInfo.value} placeholder={nameInfo.placeholder} disabled={!nameTarget} onChange={onName} />
+          </div>
+        </div>
+      )}
+
+      {/* Rotation field — a 0-359° slider over the selected form(s). Same
+          width as the Shape rail. */}
+      {activeCategory === 'rotation' && (
+        <div style={{ position: 'absolute', top: 70, left: 'calc(50% + (var(--sidebar-offset, 0px) / 2))', transform: 'translateX(-50%)', zIndex: 10, transition: 'left 200ms' }}>
+          <div className="pill editor-pill" style={{ width: 360, padding: '0 4px' }}>
+            <RotationField sig={rotationInfo.sig} initial={rotationInfo.value} disabled={selectedFormIds.length === 0} onChange={onRotate} />
           </div>
         </div>
       )}

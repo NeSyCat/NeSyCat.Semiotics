@@ -5,20 +5,38 @@ import { geometryFor } from './forms'
 // All pure: take a Diagram, return a new Diagram (+ new id where relevant).
 // The store snapshots each result into history (one entry per call).
 
+// Fresh, empty edges/corners for a kind — sides start as [], corners as
+// undefined (per geometry.corners: which edgeKeys are vertices vs sides).
+function emptySlots(kind: FormKind): { edges: Record<EdgeKey, string[]>; corners: Record<EdgeKey, string | undefined> } {
+  const geom = geometryFor(kind)
+  const edges: Record<EdgeKey, string[]> = {}
+  const corners: Record<EdgeKey, string | undefined> = {}
+  for (const k of geom.edgeKeys) {
+    if (k in geom.corners) corners[k] = undefined
+    else edges[k] = []
+  }
+  return { edges, corners }
+}
+
+// All point ids currently attached to a form, across both its sides and corners.
+function allFormPointIds(form: Form): Set<string> {
+  const ids = new Set<string>()
+  for (const k of Object.keys(form.edges)) for (const pid of form.edges[k]) ids.add(pid)
+  for (const k of Object.keys(form.corners)) { const pid = form.corners[k]; if (pid) ids.add(pid) }
+  return ids
+}
+
 // ── Forms ────────────────────────────────────────────────────────────
 export function addForm(d: Diagram, kind: FormKind, position: { x: number; y: number }): [Diagram, string] {
   const id = newFormId(d)
-  const edges: Record<EdgeKey, string[]> = {}
-  for (const k of geometryFor(kind).edgeKeys) edges[k] = []
-  const form: Form = { id, kind, position, edges }
+  const form: Form = { id, kind, position, ...emptySlots(kind) }
   return [{ ...d, forms: [...d.forms, form] }, id]
 }
 
 export function deleteForm(d: Diagram, id: string): Diagram {
   const form = d.forms.find((f) => f.id === id)
   if (!form) return d
-  const ptIds = new Set<string>()
-  for (const k of Object.keys(form.edges)) for (const pid of form.edges[k]) ptIds.add(pid)
+  const ptIds = allFormPointIds(form)
   const points = { ...d.points }
   for (const pid of ptIds) delete points[pid]
   const lines = pruneLines(d.lines, ptIds)
@@ -50,13 +68,10 @@ export function renameForms(d: Diagram, ids: string[], name: string): Diagram {
 export function setFormKind(d: Diagram, id: string, kind: FormKind): Diagram {
   const form = d.forms.find((f) => f.id === id)
   if (!form || form.kind === kind) return d
-  const ptIds = new Set<string>()
-  for (const k of Object.keys(form.edges)) for (const pid of form.edges[k]) ptIds.add(pid)
+  const ptIds = allFormPointIds(form)
   const points = { ...d.points }
   for (const pid of ptIds) delete points[pid]
-  const edges: Record<EdgeKey, string[]> = {}
-  for (const k of geometryFor(kind).edgeKeys) edges[k] = []
-  const forms = d.forms.map((f) => (f.id === id ? { ...f, kind, edges } : f))
+  const forms = d.forms.map((f) => (f.id === id ? { ...f, kind, ...emptySlots(kind) } : f))
   return { ...d, forms, points, lines: pruneLines(d.lines, ptIds) }
 }
 
@@ -66,25 +81,39 @@ export function setFormsKind(d: Diagram, ids: string[], kind: FormKind): Diagram
   return out
 }
 
+// Rotation in degrees, 0-359 (wraps); 0 clears back to the undefined default.
+export function setFormsRotation(d: Diagram, ids: string[], rotation: number): Diagram {
+  const set = new Set(ids)
+  const deg = ((rotation % 360) + 360) % 360
+  return { ...d, forms: d.forms.map((f) => (set.has(f.id) ? { ...f, rotation: deg === 0 ? undefined : deg } : f)) }
+}
+
 // ── Points ───────────────────────────────────────────────────────────
+// A corner is a single slot: if it's already occupied, refuse (returns the id
+// as '' — same "no-op" signal as "form not found") rather than stacking a
+// second point on one vertex.
 export function addPoint(d: Diagram, formId: string, edgeKey: EdgeKey, shape: PointShape = 'empty'): [Diagram, string] {
   const form = d.forms.find((f) => f.id === formId)
   if (!form) return [d, '']
+  const isCorner = edgeKey in geometryFor(form.kind).corners
+  if (isCorner && form.corners[edgeKey]) return [d, '']
   const id = newPointId(d)
   const point: Point = { id, shape, formId, edgeKey }
-  const edges = { ...form.edges, [edgeKey]: [...(form.edges[edgeKey] ?? []), id] }
-  const forms = d.forms.map((f) => (f.id === formId ? { ...f, edges } : f))
+  const updated: Form = isCorner
+    ? { ...form, corners: { ...form.corners, [edgeKey]: id } }
+    : { ...form, edges: { ...form.edges, [edgeKey]: [...(form.edges[edgeKey] ?? []), id] } }
+  const forms = d.forms.map((f) => (f.id === formId ? updated : f))
   return [{ ...d, forms, points: { ...d.points, [id]: point } }, id]
 }
 
 export function removePoint(d: Diagram, pointId: string): Diagram {
   const pt = d.points[pointId]
   if (!pt) return d
-  const forms = d.forms.map((f) =>
-    f.id === pt.formId
-      ? { ...f, edges: { ...f.edges, [pt.edgeKey]: (f.edges[pt.edgeKey] ?? []).filter((id) => id !== pointId) } }
-      : f,
-  )
+  const forms = d.forms.map((f) => {
+    if (f.id !== pt.formId) return f
+    if (pt.edgeKey in geometryFor(f.kind).corners) return { ...f, corners: { ...f.corners, [pt.edgeKey]: undefined } }
+    return { ...f, edges: { ...f.edges, [pt.edgeKey]: (f.edges[pt.edgeKey] ?? []).filter((id) => id !== pointId) } }
+  })
   const points = { ...d.points }
   delete points[pointId]
   return { ...d, forms, points, lines: pruneLines(d.lines, new Set([pointId])) }

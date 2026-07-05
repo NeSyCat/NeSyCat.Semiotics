@@ -1,9 +1,9 @@
 'use client'
 
-import { memo } from 'react'
-import { Handle, Position, useReactFlow, type NodeProps } from '@xyflow/react'
+import { memo, useEffect } from 'react'
+import { Handle, Position, useReactFlow, useUpdateNodeInternals, type NodeProps } from '@xyflow/react'
 import theme from './theme'
-import { geometryFor, type Body } from './forms'
+import { geometryFor, pointIdsAt, type Body } from './forms'
 import { encodeHandle } from './handles'
 import { toRgbTriple } from './color'
 import { useStore } from './store'
@@ -22,7 +22,7 @@ const POINT_NAME_SIZE = 12 // points a little smaller
 // Visual centre of a form body — for centring its name label. A triangle's
 // centroid is not its bounding-box centre.
 function bodyCentroid(body: Body): [number, number] {
-  if (body.type === 'circle') return [0.5, 0.5]
+  if (body.type === 'circle' || body.type === 'dot') return [0.5, 0.5]
   const pts = body.pointsFrac
   let sx = 0, sy = 0
   for (const [x, y] of pts) { sx += x; sy += y }
@@ -72,6 +72,16 @@ function BodyView({ body, n, accent, selected, bodyOpacity }: {
       }} />
     )
   }
+  if (body.type === 'dot') {
+    const fill = accent ? `rgb(${accent})` : theme.text.ink
+    return (
+      <div style={{
+        position: 'absolute', inset: 0, borderRadius: '50%', background: fill,
+        boxShadow: selected ? `0 0 0 3px rgba(${theme.node.accentBlue}, 0.45)` : 'none',
+        transition: 'background 0.15s ease, box-shadow 0.15s ease',
+      }} />
+    )
+  }
   const pts = body.pointsFrac
   const clip = `polygon(${pts.map(([x, y]) => `${(x * 100).toFixed(3)}% ${(y * 100).toFixed(3)}%`).join(', ')})`
   const polyPts = pts.map(([x, y]) => `${x * n},${y * n}`).join(' ')
@@ -85,12 +95,19 @@ function BodyView({ body, n, accent, selected, bodyOpacity }: {
   )
 }
 
-function FormNode({ data, selected }: NodeProps) {
+function FormNode({ id, data, selected }: NodeProps) {
   const { form, points } = data as unknown as FormNodeData
   const geom = geometryFor(form.kind)
   const n = geom.nodeSize(form)
   const centroid = bodyCentroid(geom.body)
   const accent = form.color ? toRgbTriple(form.color) : null
+
+  // Rotation is a CSS transform on the whole node (body + points + name, one
+  // rigid unit). Handles move with it, but React Flow only remeasures handle
+  // positions on resize — a pure transform doesn't trigger that — so nudge it
+  // explicitly or connected edges keep drawing to the pre-rotation spot.
+  const updateNodeInternals = useUpdateNodeInternals()
+  useEffect(() => { updateNodeInternals(id) }, [id, form.rotation, updateNodeInternals])
 
   const selectedPoints = useStore((s) => s.selectedPoints)
   const setSelectedPoints = useStore((s) => s.setSelectedPoints)
@@ -108,7 +125,7 @@ function FormNode({ data, selected }: NodeProps) {
 
   const pointVisuals: React.ReactNode[] = []
   for (const edgeKey of geom.edgeKeys) {
-    const ids = form.edges[edgeKey] ?? []
+    const ids = pointIdsAt(form, edgeKey)
     ids.forEach((pid, index) => {
       const pt = points[pid]
       if (!pt) return
@@ -117,13 +134,16 @@ function FormNode({ data, selected }: NodeProps) {
       const fill = accent ? (isSel ? `rgb(${accent})` : `rgba(${accent}, 0.85)`) : theme.text.ink
       const hid = encodeHandle(edgeKey, index)
       // The name label sits OUTSIDE the point, in its edge's outward direction
-      // (apex point → right, left-edge point → left, etc.).
+      // (apex point → right, left-edge point → left, etc.). Counter-rotate so
+      // it stays upright/readable when the form is rotated — same billboard
+      // trick as the form's own name label.
       const GAP = 11
+      const counterRotate = ` rotate(${-(form.rotation ?? 0)}deg)`
       const lblPos: React.CSSProperties =
-        anchor.position === Position.Left ? { left: anchor.x - GAP, top: anchor.y, transform: 'translate(-100%, -50%)' }
-          : anchor.position === Position.Right ? { left: anchor.x + GAP, top: anchor.y, transform: 'translate(0, -50%)' }
-            : anchor.position === Position.Top ? { left: anchor.x, top: anchor.y - GAP, transform: 'translate(-50%, -100%)' }
-              : { left: anchor.x, top: anchor.y + GAP, transform: 'translate(-50%, 0)' }
+        anchor.position === Position.Left ? { left: anchor.x - GAP, top: anchor.y, transform: `translate(-100%, -50%)${counterRotate}` }
+          : anchor.position === Position.Right ? { left: anchor.x + GAP, top: anchor.y, transform: `translate(0, -50%)${counterRotate}` }
+            : anchor.position === Position.Top ? { left: anchor.x, top: anchor.y - GAP, transform: `translate(-50%, -100%)${counterRotate}` }
+              : { left: anchor.x, top: anchor.y + GAP, transform: `translate(-50%, 0)${counterRotate}` }
       // Handles are 1px AT the glyph centre, so a line anchors dead-centre on the
       // point (RF pins a handle to its position-edge — a large handle offsets the
       // line). The source carries an ~18px transparent grab pad; its pointer
@@ -154,8 +174,9 @@ function FormNode({ data, selected }: NodeProps) {
             {/* grab pad — easy to grab; events bubble to the handle above */}
             <span style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%, -50%)', width: POINT_HIT, height: POINT_HIT, borderRadius: '50%', cursor: 'crosshair', display: 'block' }} />
           </Handle>
-          {/* always-visible point name — click it to select the point too */}
-          <div onClick={(e) => selectPoint(e, pid)} style={{ position: 'absolute', ...lblPos, zIndex: 4, cursor: 'pointer' }}>
+          {/* point name — click it to select the point too; hidden via .points-hidden
+              (see globals.css) when the Points toggle is off */}
+          <div className="point-label" onClick={(e) => selectPoint(e, pid)} style={{ position: 'absolute', ...lblPos, zIndex: 4, cursor: 'pointer' }}>
             <Tex fontSize={POINT_NAME_SIZE} color={theme.text.ink}>{pt.name ?? pid}</Tex>
           </div>
         </span>,
@@ -164,12 +185,18 @@ function FormNode({ data, selected }: NodeProps) {
   }
 
   return (
-    <div style={{ position: 'relative', width: n, height: n, cursor: 'pointer' }}>
+    <div style={{
+      position: 'relative', width: n, height: n, cursor: 'pointer',
+      transform: form.rotation ? `rotate(${form.rotation}deg)` : undefined,
+    }}>
       <BodyView body={geom.body} n={n} accent={accent} selected={!!selected} bodyOpacity={geom.bodyOpacity} />
-      {geom.bodyOpacity > 0 && (
+      {geom.bodyOpacity > 0 && geom.showName && (
         <div style={{
           position: 'absolute', left: centroid[0] * n, top: centroid[1] * n,
-          transform: 'translate(-50%, -50%)', pointerEvents: 'none', zIndex: 3,
+          // Counter-rotate so the name stays upright/readable — it's along
+          // for the ride positionally, but its own orientation shouldn't spin.
+          transform: `translate(-50%, -50%) rotate(${-(form.rotation ?? 0)}deg)`,
+          pointerEvents: 'none', zIndex: 3,
         }}>
           <Tex fontSize={FORM_NAME_SIZE} color={theme.text.ink}>{form.name ?? form.id}</Tex>
         </div>

@@ -3,10 +3,10 @@
 ## Scope
 
 This repo is **only** the Semiotics editor (the in-browser string-diagram tool),
-deployed at `https://semiotics.nesycat.com`. The umbrella marketing/info site
+deployed at `https://semiotics.nesycat.org`. The umbrella marketing/info site
 for the NeSyCat project as a whole lives in the sibling repo `NeSyCat.Web`,
-deployed at `https://nesycat.com`. Don't reintroduce marketing copy here — it
-belongs on `nesycat.com`.
+deployed at `https://nesycat.org`. Don't reintroduce marketing copy here — it
+belongs on `nesycat.org`.
 
 ## This is NOT the Next.js you know
 
@@ -98,8 +98,8 @@ symlinks back into `_concept/`.
 
 ## Deployment
 
-- Production: `https://semiotics.nesycat.com`
-- The umbrella site `https://nesycat.com` (and `https://www.nesycat.com`) lives
+- Production: `https://semiotics.nesycat.org`
+- The umbrella site `https://nesycat.org` (and `https://www.nesycat.org`) lives
   in the sibling repo `NeSyCat.Web` and is a separate Vercel project.
 - Hosted on Vercel; DNS authoritative there.
 - Local dev: `npm run dev` on port 3456.

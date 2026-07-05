@@ -1,4 +1,5 @@
 import type { Diagram, Form, Point, Line, Color, PointShape } from './types'
+import { geometryFor } from './forms'
 
 // Single load-boundary normalizer. Persisted JSON arrives from Supabase
 // (`diagrams.data` jsonb) or a JSON import; this fills defaults and rebuilds
@@ -18,13 +19,31 @@ function asColor(c: unknown): Color {
 
 function canonForm(f: Record<string, unknown>): Form {
   const pos = (f.position ?? {}) as { x?: unknown; y?: unknown }
+  const kind = f.kind as Form['kind']
+  const geom = geometryFor(kind)
+  const rawEdges = (f.edges as Record<string, string[]>) ?? {}
+  const rawCorners = (f.corners as Record<string, string | undefined>) ?? {}
+  const edges: Record<string, string[]> = {}
+  const corners: Record<string, string | undefined> = {}
+  for (const k of geom.edgeKeys) {
+    if (k in geom.corners) {
+      // Corners moved from `edges` (an array) to their own single-slot
+      // `corners` map. Migrate old data by keeping just the first point —
+      // a corner was never meant to hold more than one.
+      corners[k] = rawCorners[k] ?? (Array.isArray(rawEdges[k]) ? rawEdges[k][0] : undefined)
+    } else {
+      edges[k] = Array.isArray(rawEdges[k]) ? rawEdges[k] : []
+    }
+  }
   return {
     id: String(f.id),
-    kind: f.kind as Form['kind'],
+    kind,
     ...(f.name !== undefined ? { name: String(f.name) } : {}),
     ...(f.color != null ? { color: asColor(f.color) } : {}),
+    ...(f.rotation != null ? { rotation: Number(f.rotation) } : {}),
     position: { x: Number(pos.x ?? 0), y: Number(pos.y ?? 0) },
-    edges: (f.edges as Record<string, string[]>) ?? {},
+    edges,
+    corners,
   }
 }
 
