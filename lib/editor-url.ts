@@ -33,16 +33,6 @@ export async function serverCallbackUrl(): Promise<string> {
   return callbackUrlForHost(h.get('host') ?? '')
 }
 
-export function landingHrefForHost(host: string): string {
-  if (modeForHost(host) === 'subdomain') return 'https://www.nesycat.org/'
-  return '/'
-}
-
-export async function serverLandingHref(): Promise<string> {
-  const h = await headers()
-  return landingHrefForHost(h.get('host') ?? '')
-}
-
 export async function isSubdomainHost(): Promise<boolean> {
   const h = await headers()
   return (h.get('host') ?? '') === EDITOR_SUBDOMAIN

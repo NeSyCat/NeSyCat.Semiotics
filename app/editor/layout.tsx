@@ -1,14 +1,16 @@
-import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { listDiagrams } from '@/lib/actions/diagrams'
 import EditorSidebar from '@/components/EditorSidebar'
 import StarPrompt from '@/components/StarPrompt'
-import { serverLandingHref } from '@/lib/editor-url'
+import SignInLanding from '@/components/SignInLanding'
 
 export default async function EditorLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect(await serverLandingHref())
+  // Unauthenticated visitors get the sign-in landing in place — this stays on
+  // whatever host they arrived on (e.g. semiotics.nesycat.org) rather than
+  // bouncing off-domain to the umbrella site.
+  if (!user) return <SignInLanding />
 
   const diagrams = await listDiagrams()
 
