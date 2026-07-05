@@ -39,10 +39,21 @@ export interface FormGeometry {
 }
 
 // ── Shared helpers ───────────────────────────────────────────────────
+// The point id(s) at an edge key — a side's ordered list as-is, or a corner's
+// single optional slot wrapped as a 0-or-1 list. Single source of "what's
+// here" for rendering/lookup code that doesn't need to care which it is.
+export function pointIdsAt(form: Form, edgeKey: EdgeKey): string[] {
+  if (edgeKey in geometryFor(form.kind).corners) {
+    const pid = form.corners[edgeKey]
+    return pid ? [pid] : []
+  }
+  return form.edges[edgeKey] ?? []
+}
+
 function maxPointsOnAnyEdge(form: Form, edgeKeys: readonly EdgeKey[]): number {
   let m = 0
   for (const k of edgeKeys) {
-    const len = form.edges[k]?.length ?? 0
+    const len = pointIdsAt(form, k).length
     if (len > m) m = len
   }
   return m

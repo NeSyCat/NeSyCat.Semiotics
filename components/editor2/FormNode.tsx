@@ -3,7 +3,7 @@
 import { memo, useEffect } from 'react'
 import { Handle, Position, useReactFlow, useUpdateNodeInternals, type NodeProps } from '@xyflow/react'
 import theme from './theme'
-import { geometryFor, type Body } from './forms'
+import { geometryFor, pointIdsAt, type Body } from './forms'
 import { encodeHandle } from './handles'
 import { toRgbTriple } from './color'
 import { useStore } from './store'
@@ -125,7 +125,7 @@ function FormNode({ id, data, selected }: NodeProps) {
 
   const pointVisuals: React.ReactNode[] = []
   for (const edgeKey of geom.edgeKeys) {
-    const ids = form.edges[edgeKey] ?? []
+    const ids = pointIdsAt(form, edgeKey)
     ids.forEach((pid, index) => {
       const pt = points[pid]
       if (!pt) return
@@ -134,13 +134,16 @@ function FormNode({ id, data, selected }: NodeProps) {
       const fill = accent ? (isSel ? `rgb(${accent})` : `rgba(${accent}, 0.85)`) : theme.text.ink
       const hid = encodeHandle(edgeKey, index)
       // The name label sits OUTSIDE the point, in its edge's outward direction
-      // (apex point → right, left-edge point → left, etc.).
+      // (apex point → right, left-edge point → left, etc.). Counter-rotate so
+      // it stays upright/readable when the form is rotated — same billboard
+      // trick as the form's own name label.
       const GAP = 11
+      const counterRotate = ` rotate(${-(form.rotation ?? 0)}deg)`
       const lblPos: React.CSSProperties =
-        anchor.position === Position.Left ? { left: anchor.x - GAP, top: anchor.y, transform: 'translate(-100%, -50%)' }
-          : anchor.position === Position.Right ? { left: anchor.x + GAP, top: anchor.y, transform: 'translate(0, -50%)' }
-            : anchor.position === Position.Top ? { left: anchor.x, top: anchor.y - GAP, transform: 'translate(-50%, -100%)' }
-              : { left: anchor.x, top: anchor.y + GAP, transform: 'translate(-50%, 0)' }
+        anchor.position === Position.Left ? { left: anchor.x - GAP, top: anchor.y, transform: `translate(-100%, -50%)${counterRotate}` }
+          : anchor.position === Position.Right ? { left: anchor.x + GAP, top: anchor.y, transform: `translate(0, -50%)${counterRotate}` }
+            : anchor.position === Position.Top ? { left: anchor.x, top: anchor.y - GAP, transform: `translate(-50%, -100%)${counterRotate}` }
+              : { left: anchor.x, top: anchor.y + GAP, transform: `translate(-50%, 0)${counterRotate}` }
       // Handles are 1px AT the glyph centre, so a line anchors dead-centre on the
       // point (RF pins a handle to its position-edge — a large handle offsets the
       // line). The source carries an ~18px transparent grab pad; its pointer

@@ -19,7 +19,7 @@ import FormNode from './FormNode'
 import LineEdge from './LineEdge'
 import { useStore, initStore } from './store'
 import { useAutosave } from './save'
-import { geometryFor } from './forms'
+import { geometryFor, pointIdsAt } from './forms'
 import { encodeHandle, decodeHandle } from './handles'
 import theme from './theme'
 import type { Diagram, FormKind, PointShape } from './types'
@@ -50,7 +50,7 @@ function pointToHandle(d: Diagram, pointId: string): { nodeId: string; handleId:
   if (!pt) return undefined
   const form = d.forms.find((f) => f.id === pt.formId)
   if (!form) return undefined
-  const idx = (form.edges[pt.edgeKey] ?? []).indexOf(pointId)
+  const idx = pointIdsAt(form, pt.edgeKey).indexOf(pointId)
   if (idx < 0) return undefined
   return { nodeId: form.id, handleId: encodeHandle(pt.edgeKey, idx) }
 }
@@ -60,7 +60,7 @@ function handleToPointId(d: Diagram, nodeId: string, handleId: string): string |
   const form = d.forms.find((f) => f.id === nodeId)
   if (!form) return undefined
   const { edgeKey, index } = decodeHandle(handleId)
-  return (form.edges[edgeKey] ?? [])[index]
+  return pointIdsAt(form, edgeKey)[index]
 }
 
 // SVG sprite — copied verbatim from _design/04-prototype (the mockup). The DS
