@@ -66,6 +66,13 @@ export function setFormsKind(d: Diagram, ids: string[], kind: FormKind): Diagram
   return out
 }
 
+// Rotation in degrees, 0-359 (wraps); 0 clears back to the undefined default.
+export function setFormsRotation(d: Diagram, ids: string[], rotation: number): Diagram {
+  const set = new Set(ids)
+  const deg = ((rotation % 360) + 360) % 360
+  return { ...d, forms: d.forms.map((f) => (set.has(f.id) ? { ...f, rotation: deg === 0 ? undefined : deg } : f)) }
+}
+
 // ── Points ───────────────────────────────────────────────────────────
 export function addPoint(d: Diagram, formId: string, edgeKey: EdgeKey, shape: PointShape = 'empty'): [Diagram, string] {
   const form = d.forms.find((f) => f.id === formId)

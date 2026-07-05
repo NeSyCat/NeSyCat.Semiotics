@@ -27,6 +27,7 @@ export interface Form {
   kind: FormKind
   name?: string
   color?: Color // undefined = no colour (the default)
+  rotation?: number // degrees, 0-359; undefined = 0 (no rotation)
   position: { x: number; y: number }
   // edgeKey -> ordered list of POINT ids sitting on that edge.
   edges: Record<EdgeKey, string[]>

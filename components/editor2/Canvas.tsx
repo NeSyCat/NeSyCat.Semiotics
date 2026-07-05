@@ -29,6 +29,21 @@ const edgeTypes: EdgeTypes = { line: LineEdge }
 
 const clamp01 = (v: number) => Math.max(0, Math.min(1, v))
 
+// A form's CSS rotation is purely visual — its node box/position stay in the
+// unrotated flow frame. Edge/corner hit-testing (double-click to add a point,
+// drag-drop to auto-attach a line) needs the INVERSE of that rotation applied
+// to the click point first, or a click on what's now visually the right side
+// resolves against where the right side used to be before rotating.
+function unrotateLocal(localX: number, localY: number, w: number, h: number, rotationDeg: number): [number, number] {
+  if (!rotationDeg) return [localX, localY]
+  const theta = (rotationDeg * Math.PI) / 180
+  const cx = w / 2, cy = h / 2
+  const vx = localX - cx, vy = localY - cy
+  const ux = vx * Math.cos(theta) + vy * Math.sin(theta)
+  const uy = -vx * Math.sin(theta) + vy * Math.cos(theta)
+  return [cx + ux, cy + uy]
+}
+
 // point id -> { nodeId, handleId } (the form it sits on + its handle).
 function pointToHandle(d: Diagram, pointId: string): { nodeId: string; handleId: string } | undefined {
   const pt = d.points[pointId]
@@ -158,6 +173,74 @@ function NameField({ sig, initial, placeholder, disabled, onChange }: {
   )
 }
 
+// Slider drags snap to the right angles when within this many degrees, so
+// landing on an exact 0/90/180/270 is easy without fighting the mouse.
+const RIGHT_ANGLES = [0, 90, 180, 270, 360]
+const SNAP_TOLERANCE = 4
+function snapToRightAngle(v: number): number {
+  const hit = RIGHT_ANGLES.find((a) => Math.abs(v - a) <= SNAP_TOLERANCE)
+  return hit === undefined ? v : hit % 360
+}
+
+// The Rotation category's second pill — a 0-359° slider over the selected
+// form(s) (mirrors the mockup's bounds slider), plus a directly-editable
+// degree readout. `sig` re-seeds the field when the selection changes, same
+// coalescing-drag pattern as NameField.
+function RotationField({ sig, initial, disabled, onChange }: {
+  sig: string; initial: number; disabled: boolean; onChange: (v: number) => void
+}) {
+  const [val, setVal] = useState(initial)
+  const [text, setText] = useState(String(initial))
+  useEffect(() => { setVal(initial); setText(String(initial)) }, [sig]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const apply = (deg: number) => {
+    const wrapped = ((Math.round(deg) % 360) + 360) % 360
+    setVal(wrapped)
+    setText(String(wrapped))
+    onChange(wrapped)
+  }
+  const commitText = () => {
+    const n = Number(text)
+    if (Number.isFinite(n)) apply(n)
+    else setText(String(val))
+  }
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', height: 36, padding: '0 14px', boxSizing: 'border-box' }}>
+      <input
+        type="range"
+        min={0}
+        max={359}
+        step={1}
+        disabled={disabled}
+        value={disabled ? 0 : val}
+        onChange={(e) => apply(snapToRightAngle(Number(e.target.value)))}
+        style={{ flex: 1 }}
+      />
+      <input
+        type="text"
+        inputMode="numeric"
+        disabled={disabled}
+        value={disabled ? '—' : text}
+        onChange={(e) => setText(e.target.value)}
+        onFocus={(e) => e.target.select()}
+        onBlur={commitText}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
+          if (e.key === 'Escape') { setText(String(val)); (e.target as HTMLInputElement).blur() }
+        }}
+        style={{
+          width: 28, textAlign: 'right', fontSize: 13, fontVariantNumeric: 'tabular-nums',
+          background: 'transparent', border: 'none', outline: 'none', padding: 0,
+          color: disabled ? 'var(--color-muted-foreground)' : 'var(--color-foreground)',
+          fontFamily: 'var(--font-sans, system-ui, sans-serif)',
+        }}
+      />
+      <span style={{ fontSize: 13, color: disabled ? 'var(--color-muted-foreground)' : 'var(--color-foreground)' }}>°</span>
+    </div>
+  )
+}
+
 function Canvas() {
   const diagram = useStore((s) => s.diagram)
   const clearSelection = useStore((s) => s.clearSelection)
@@ -271,6 +354,19 @@ function Canvas() {
     else if (nameTarget.kind === 'forms') renameForms(nameTarget.ids, value)
     else renameLines(nameTarget.ids, value)
   }, [nameTarget, renamePoints, renameForms, renameLines])
+
+  // ── Rotation field target: selected FORM(s) only (points/lines have no
+  // body to rotate) ───────────────────────────────────────────────────
+  const selectedFormIds = useMemo(() => nodes.filter((n) => n.selected).map((n) => n.id), [nodes])
+  const rotationInfo = useMemo(() => {
+    if (selectedFormIds.length === 0) return { value: 0, sig: '' }
+    const form = diagram.forms.find((f) => f.id === selectedFormIds[0])
+    return { value: form?.rotation ?? 0, sig: selectedFormIds.join(',') }
+  }, [selectedFormIds, diagram])
+
+  const onRotate = useCallback((deg: number) => {
+    if (selectedFormIds.length) useStore.getState().setFormsRotation(selectedFormIds, deg)
+  }, [selectedFormIds])
 
   // ── Create forms ───────────────────────────────────────────────────
   const createForm = useCallback(
@@ -389,8 +485,9 @@ function Canvas() {
     const geom = geometryFor(targetForm.kind)
     const w = dropTarget.measured?.width ?? dropTarget.width ?? 1
     const h = dropTarget.measured?.height ?? dropTarget.height ?? 1
-    const rx = clamp01((position.x - dropTarget.position.x) / w)
-    const ry = clamp01((position.y - dropTarget.position.y) / h)
+    const [lx, ly] = unrotateLocal(position.x - dropTarget.position.x, position.y - dropTarget.position.y, w, h, targetForm.rotation ?? 0)
+    const rx = clamp01(lx / w)
+    const ry = clamp01(ly / h)
     const edgeKey = geom.edgeAt(rx, ry)
     if (!edgeKey) return
     const newPtId = useStore.getState().addPoint(dropTarget.id, edgeKey)
@@ -409,8 +506,9 @@ function Canvas() {
     const w = node.measured?.width ?? node.width ?? geom.nodeSize(form)
     const h = node.measured?.height ?? node.height ?? geom.nodeSize(form)
     const flow = screenToFlowPosition({ x: event.clientX, y: event.clientY })
-    const rx = clamp01((flow.x - node.position.x) / w)
-    const ry = clamp01((flow.y - node.position.y) / h)
+    const [lx, ly] = unrotateLocal(flow.x - node.position.x, flow.y - node.position.y, w, h, form.rotation ?? 0)
+    const rx = clamp01(lx / w)
+    const ry = clamp01(ly / h)
     const edgeKey = geom.edgeAt(rx, ry)
     if (!edgeKey) return
     useStore.getState().addPoint(node.id, edgeKey)
@@ -569,6 +667,16 @@ function Canvas() {
         <div style={{ position: 'absolute', top: 70, left: 'calc(50% + (var(--sidebar-offset, 0px) / 2))', transform: 'translateX(-50%)', zIndex: 10, transition: 'left 200ms' }}>
           <div className="pill editor-pill" style={{ width: 360, padding: '0 4px' }}>
             <NameField sig={nameInfo.sig} initial={nameInfo.value} placeholder={nameInfo.placeholder} disabled={!nameTarget} onChange={onName} />
+          </div>
+        </div>
+      )}
+
+      {/* Rotation field — a 0-359° slider over the selected form(s). Same
+          width as the Shape rail. */}
+      {activeCategory === 'rotation' && (
+        <div style={{ position: 'absolute', top: 70, left: 'calc(50% + (var(--sidebar-offset, 0px) / 2))', transform: 'translateX(-50%)', zIndex: 10, transition: 'left 200ms' }}>
+          <div className="pill editor-pill" style={{ width: 360, padding: '0 4px' }}>
+            <RotationField sig={rotationInfo.sig} initial={rotationInfo.value} disabled={selectedFormIds.length === 0} onChange={onRotate} />
           </div>
         </div>
       )}

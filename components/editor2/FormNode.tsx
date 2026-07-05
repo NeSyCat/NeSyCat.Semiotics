@@ -1,7 +1,7 @@
 'use client'
 
-import { memo } from 'react'
-import { Handle, Position, useReactFlow, type NodeProps } from '@xyflow/react'
+import { memo, useEffect } from 'react'
+import { Handle, Position, useReactFlow, useUpdateNodeInternals, type NodeProps } from '@xyflow/react'
 import theme from './theme'
 import { geometryFor, type Body } from './forms'
 import { encodeHandle } from './handles'
@@ -95,12 +95,19 @@ function BodyView({ body, n, accent, selected, bodyOpacity }: {
   )
 }
 
-function FormNode({ data, selected }: NodeProps) {
+function FormNode({ id, data, selected }: NodeProps) {
   const { form, points } = data as unknown as FormNodeData
   const geom = geometryFor(form.kind)
   const n = geom.nodeSize(form)
   const centroid = bodyCentroid(geom.body)
   const accent = form.color ? toRgbTriple(form.color) : null
+
+  // Rotation is a CSS transform on the whole node (body + points + name, one
+  // rigid unit). Handles move with it, but React Flow only remeasures handle
+  // positions on resize — a pure transform doesn't trigger that — so nudge it
+  // explicitly or connected edges keep drawing to the pre-rotation spot.
+  const updateNodeInternals = useUpdateNodeInternals()
+  useEffect(() => { updateNodeInternals(id) }, [id, form.rotation, updateNodeInternals])
 
   const selectedPoints = useStore((s) => s.selectedPoints)
   const setSelectedPoints = useStore((s) => s.setSelectedPoints)
@@ -175,12 +182,18 @@ function FormNode({ data, selected }: NodeProps) {
   }
 
   return (
-    <div style={{ position: 'relative', width: n, height: n, cursor: 'pointer' }}>
+    <div style={{
+      position: 'relative', width: n, height: n, cursor: 'pointer',
+      transform: form.rotation ? `rotate(${form.rotation}deg)` : undefined,
+    }}>
       <BodyView body={geom.body} n={n} accent={accent} selected={!!selected} bodyOpacity={geom.bodyOpacity} />
       {geom.bodyOpacity > 0 && geom.showName && (
         <div style={{
           position: 'absolute', left: centroid[0] * n, top: centroid[1] * n,
-          transform: 'translate(-50%, -50%)', pointerEvents: 'none', zIndex: 3,
+          // Counter-rotate so the name stays upright/readable — it's along
+          // for the ride positionally, but its own orientation shouldn't spin.
+          transform: `translate(-50%, -50%) rotate(${-(form.rotation ?? 0)}deg)`,
+          pointerEvents: 'none', zIndex: 3,
         }}>
           <Tex fontSize={FORM_NAME_SIZE} color={theme.text.ink}>{form.name ?? form.id}</Tex>
         </div>
