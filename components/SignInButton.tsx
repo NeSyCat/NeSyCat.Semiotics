@@ -17,7 +17,7 @@ interface Props {
   suffix?: string
 }
 
-const ACC = '59, 130, 246'
+const ACC = '52, 120, 246'
 
 function btnStyle(variant: SignInVariant, big?: boolean): React.CSSProperties {
   return {
@@ -25,17 +25,15 @@ function btnStyle(variant: SignInVariant, big?: boolean): React.CSSProperties {
     alignItems: 'center',
     gap: 8,
     padding: big ? '14px 24px' : '9px 16px',
-    border: `1px solid ${variant === 'primary' ? `rgba(${ACC},0.7)` : 'var(--color-glass-border)'}`,
+    border: `1px solid ${variant === 'primary' ? 'color-mix(in srgb, var(--color-primary) 70%, transparent)' : 'var(--color-border)'}`,
     borderRadius: 8,
-    background: variant === 'primary' ? `rgba(${ACC},0.22)` : 'var(--color-glass-button-bg)',
+    background: variant === 'primary' ? 'color-mix(in srgb, var(--color-primary) 22%, transparent)' : 'var(--color-surface)',
     color: variant === 'primary' ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
     fontSize: big ? 15 : 13,
     fontWeight: 600,
     cursor: 'pointer',
     whiteSpace: 'nowrap',
-    backdropFilter: 'blur(3px)',
-    WebkitBackdropFilter: 'blur(3px)',
-    boxShadow: variant === 'primary' ? `0 0 0 4px rgba(${ACC},0.08)` : 'none',
+    boxShadow: variant === 'primary' ? '0 0 0 4px color-mix(in srgb, var(--color-primary) 8%, transparent)' : 'none',
     transition: 'background .15s, border-color .15s',
     textDecoration: 'none',
     fontFamily: 'inherit',

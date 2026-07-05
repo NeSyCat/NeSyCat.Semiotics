@@ -1,0 +1,3 @@
+[submodule "vendor/Admination.02-Design"]
+	path = vendor/Admination.02-Design
+	url = https://github.com/Admination-de/design.admination.git

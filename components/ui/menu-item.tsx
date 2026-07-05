@@ -6,10 +6,10 @@ type MenuItemProps = Omit<HTMLAttributes<HTMLDivElement>, 'role'> & {
 }
 
 const BASE =
-  'flex items-center gap-[10px] w-[240px] h-[36px] px-[14px] py-[10px] rounded-[var(--size-radius-sm)] text-[14px] text-[color:var(--color-text-primary)] cursor-pointer transition-colors'
+  'flex items-center gap-[10px] w-[240px] h-[36px] px-[14px] py-[10px] rounded-[var(--radius-sm)] text-[14px] text-[color:var(--color-text-primary)] cursor-pointer transition-colors'
 
-const SELECTED = 'bg-[color:var(--color-glass-button-bg)]'
-const DEFAULT  = 'hover:bg-[color:var(--color-glass-button-bg)]'
+const SELECTED = 'bg-[color:var(--color-surface)]'
+const DEFAULT  = 'hover:bg-[color:var(--color-surface)]'
 
 export function MenuItem({ selected = false, className, children, ...rest }: MenuItemProps) {
   return (
@@ -28,9 +28,9 @@ export function MenuItem({ selected = false, className, children, ...rest }: Men
           viewBox="0 0 14 14"
           fill="none"
           aria-hidden
-          style={{ filter: 'drop-shadow(0 0 4px rgba(59,130,246,0.7))' }}
+          style={{ filter: 'drop-shadow(0 0 4px rgba(52,120,246,0.7))' }}
         >
-          <path d="M2 7 L6 11 L12 2" stroke="var(--color-accent-blue)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M2 7 L6 11 L12 2" stroke="var(--color-primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       ) : (
         <span className="shrink-0 size-[14px]" aria-hidden />

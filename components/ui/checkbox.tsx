@@ -9,13 +9,13 @@ type CheckboxProps = {
 }
 
 const BOX_BASE =
-  'inline-flex items-center justify-center size-[18px] rounded-[var(--size-radius-sm)] border-[1.5px] cursor-pointer transition-all outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-accent-blue)]'
+  'inline-flex items-center justify-center size-[18px] rounded-[var(--radius-sm)] border-[1.5px] cursor-pointer transition-all outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-primary)]'
 
 const BOX_UNCHECKED =
-  'bg-[color:var(--color-glass-button-bg)] border-[color:var(--color-glass-border)]'
+  'bg-[color:var(--color-surface)] border-[color:var(--color-border)]'
 
 const BOX_CHECKED =
-  'bg-[color:var(--color-accent-blue)] border-[color:var(--color-accent-blue)] shadow-[0_0_6px_rgba(59,130,246,0.6)]'
+  'bg-[color:var(--color-primary)] border-[color:var(--color-primary)] shadow-[0_0_6px_rgba(52,120,246,0.6)]'
 
 export function Checkbox({ checked = false, onChange, label, className, disabled }: CheckboxProps) {
   const box = (

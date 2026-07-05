@@ -3,10 +3,10 @@
 ## Scope
 
 This repo is **only** the Semiotics editor (the in-browser string-diagram tool),
-deployed at `https://semiotics.nesycat.com`. The umbrella marketing/info site
+deployed at `https://semiotics.nesycat.org`. The umbrella marketing/info site
 for the NeSyCat project as a whole lives in the sibling repo `NeSyCat.Web`,
-deployed at `https://nesycat.com`. Don't reintroduce marketing copy here — it
-belongs on `nesycat.com`.
+deployed at `https://nesycat.org`. Don't reintroduce marketing copy here — it
+belongs on `nesycat.org`.
 
 ## This is NOT the Next.js you know
 
@@ -95,11 +95,23 @@ symlinks back into `_concept/`.
   via `npm run db:…` so cwd stays at repo root and `.env.local` resolves. The
   scripts intentionally don't include a `db:migrate` — Supabase applies
   migrations on push, not Drizzle.
+- **Vercel can't fetch private git submodules** — `admination-design-system`
+  (a `file:` dependency into `vendor/Admination.02-Design`, a submodule
+  pointing at the private `Admination-de/design.admination`) clones empty on
+  Vercel, failing the build with `Module not found:
+  admination-design-system/components/index.css`. This isn't a GitHub App
+  permissions gap — Vercel's docs are explicit that private submodules fail
+  during the Build step regardless of grants. `scripts/vercel-prebuild.sh`
+  re-fetches it over an authenticated HTTPS rewrite using the
+  `ADMINATION_DS_TOKEN` env var (a fine-grained PAT scoped to read-only
+  access on that one repo, set in the Vercel project's environment
+  variables) before `next build` runs. No-ops locally where that env var
+  isn't set, since the submodule is already checked out there.
 
 ## Deployment
 
-- Production: `https://semiotics.nesycat.com`
-- The umbrella site `https://nesycat.com` (and `https://www.nesycat.com`) lives
+- Production: `https://semiotics.nesycat.org`
+- The umbrella site `https://nesycat.org` (and `https://www.nesycat.org`) lives
   in the sibling repo `NeSyCat.Web` and is a separate Vercel project.
 - Hosted on Vercel; DNS authoritative there.
 - Local dev: `npm run dev` on port 3456.

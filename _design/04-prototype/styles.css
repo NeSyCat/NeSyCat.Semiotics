@@ -33,3 +33,89 @@
 .canvas-name-bar input:focus-visible {
   outline: none;
 }
+
+/* ── Spine pill = real Admination DS .pill / .btn ───────────────────────
+   The Spine toolbar now uses the DS component (linked in index.html). These
+   two rules only add back the editor-specific glyphs the generic DS .btn
+   doesn't ship — the colour swatch face and the tabular number — layered on
+   top of the DS, never redefining a DS token. */
+.pill .btn .sw-face {
+  display: block;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
+}
+.pill .btn[data-tool="order"] {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+/* DS .btn.is-active paints the swatch button solid primary; keep the colour
+   chip readable by giving it a white ring when its button is active. */
+.pill .btn.is-active .sw-face {
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.85);
+}
+
+/* ── Both pills are ALWAYS the same size ─────────────────────────────────
+   The top Spine pill and every popover hold the same 9 slots, so they are
+   locked to ONE width. Every category and every discrete value is a 28px
+   btn-icon; 9 of them + gaps + padding = --pill-w. Non-discrete popovers
+   (sliders, xy, name field) are forced to the same width too — never bigger,
+   never smaller. */
+:root, .editor-frame { --pill-w: 278px; }
+
+.pill[data-spine],
+.tool-popover .pill {
+  width: var(--pill-w);
+  justify-content: space-between;
+  box-sizing: border-box;
+}
+/* Name shows in a 28px icon slot like every other category (clip long names). */
+.pill .btn.tool-name { overflow: hidden; }
+
+/* ── Popover placement + de-doubling ────────────────────────────────────
+   Every popover is pinned directly UNDER the top pill, centred the same way
+   the pill is, so it never drifts on zoom/scroll — and is the SAME width. */
+.tool-popover {
+  top: calc(var(--pill-row-top, 16px) + var(--pill-size, 40px) + 10px);
+  left: 50%;
+  right: auto;
+  transform: translateX(-50%);
+  width: var(--pill-w);
+  box-sizing: border-box;
+}
+/* Rail popovers are real DS .pill components that already paint the capsule;
+   strip the legacy outer .tool-popover capsule so it isn't drawn twice. */
+.tool-popover:has(.pill) {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  padding: 0;
+  overflow: visible;
+}
+
+/* "Source" colour (∞) — the origin of all colour: a rainbow conic swatch. */
+.pill .btn .sw-face--source {
+  background: conic-gradient(#ff0000, #ff8000, #ffe000, #9ade00, #00c000, #00d4c8, #0080ff, #7a3cff, #ff00ff, #ff0000);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.18);
+}
+
+/* Name popover — the whole DS pill IS the text field: the input fills it
+   edge to edge (no separate label, no inner box). */
+.pill .name-field {
+  width: 100%;
+  box-sizing: border-box;
+  height: 28px;
+  padding: 0 14px;
+  border: none;
+  background: transparent;
+  outline: none;
+  text-align: center;
+  font-family: var(--font-sans);
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: var(--color-foreground, #1f2937);
+}
+.pill .name-field::placeholder { color: var(--color-muted-foreground, #6b7280); }
