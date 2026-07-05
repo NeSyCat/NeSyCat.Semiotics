@@ -146,6 +146,19 @@ const SHAPE_RAIL: Array<{ label: string; symbol: string; pshape: PointShape; kin
   { label: 'Square', symbol: 'kind-rectangle', pshape: 'square', kind: 'square' },
 ]
 
+// Which toolbar tool/category is active is a UI preference, not diagram data —
+// persisted to localStorage (not the store/history) so it survives a reload
+// without becoming an undo step or part of the saved diagram.
+const ACTIVE_KIND_KEY = 'nesycat.editor.activeKind'
+const ACTIVE_CATEGORY_KEY = 'nesycat.editor.activeCategory'
+
+function readLocalStorage(key: string): string | null {
+  try { return localStorage.getItem(key) } catch { return null }
+}
+function writeLocalStorage(key: string, value: string) {
+  try { localStorage.setItem(key, value) } catch { /* e.g. storage disabled/full — just don't persist */ }
+}
+
 // The Name category's second pill — the whole pill is a text input that renames
 // the current selection live (one undo step, via the store's coalescing). `sig`
 // changes when the selection changes, re-seeding the field.
@@ -252,8 +265,16 @@ function Canvas() {
   const togglePointsVisible = useStore((s) => s.togglePointsVisible)
   const { screenToFlowPosition, getNodes } = useReactFlow()
 
-  const [activeKind, setActiveKind] = useState<FormKind>('triangle')
-  const [activeCategory, setActiveCategory] = useState<string>('shape')
+  const [activeKind, setActiveKind] = useState<FormKind>(() => {
+    const stored = readLocalStorage(ACTIVE_KIND_KEY)
+    return stored && SHAPE_RAIL.some((s) => s.kind === stored) ? (stored as FormKind) : 'triangle'
+  })
+  const [activeCategory, setActiveCategory] = useState<string>(() => {
+    const stored = readLocalStorage(ACTIVE_CATEGORY_KEY)
+    return stored != null && (stored === '' || CATEGORIES.some((c) => c.key === stored)) ? stored : 'shape'
+  })
+  useEffect(() => { writeLocalStorage(ACTIVE_KIND_KEY, activeKind) }, [activeKind])
+  useEffect(() => { writeLocalStorage(ACTIVE_CATEGORY_KEY, activeCategory) }, [activeCategory])
 
   // The shape shared by all selected points (for the rail highlight), if any.
   const selectedPointShape = useMemo<PointShape | undefined>(() => {
