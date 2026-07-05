@@ -28,7 +28,7 @@ The repo mirrors the project taxonomy from `_concept/02-diagram/schema.nesycat.j
   - `03-orm-schema/` — generated Drizzle `schema.ts` + SQL `migrations/` + `codegen/` tool
   - `04-data-schema/` — Supabase `config.toml`
 - **`_design/`** — visual design pipeline (sketch → wireframe → mockup → prototype). HTML.
-- **`_tests/`** — manual / file (Vitest) / e2e / main / staging buckets. Runners not yet wired.
+- **`_tests/`** — manual / file (Vitest) / e2e / main buckets. Runners not yet wired.
 
 The underscore prefix sorts these meta folders to the top of file-tree listings.
 
@@ -50,8 +50,8 @@ Supabase Postgres
 The pipeline is linear: there is **no** manual `drizzle-kit migrate` step.
 Drizzle's job ends at producing SQL files. Supabase's GitHub integration
 applies those files automatically — to a per-PR preview branch on PR open,
-to the `staging` persistent branch on merge, and to production on promotion
-to `main`. See "Why there's a `supabase/` folder at root" below.
+and to production on merge to `main`. See "Why there's a `supabase/` folder
+at root" below.
 
 `lib/db/index.ts` (drizzle client + `withRLS()`) and `lib/supabase/*` (auth
 SDK clients + middleware) are the **runtime** glue — they consume what
@@ -75,8 +75,10 @@ symlinks back into `_concept/`.
 
 ## Branch + PR strategy
 
-- `staging` is the integration branch. PRs go to `staging`, then promoted to `main`.
-- Don't push directly to `main` or `staging`.
+- PRs go straight to `main` — there's no `staging` integration branch (retired;
+  each PR already gets its own Vercel preview + Supabase preview branch, which
+  covered what `staging` was for).
+- Don't push directly to `main`.
 - The repo lives at `NeSyCat/NeSyCat.Semiotics` on GitHub (origin URL still
   redirects from `cherryfunk/semiotics.nesycat` — both work).
 
