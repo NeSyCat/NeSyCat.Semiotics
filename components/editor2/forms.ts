@@ -18,6 +18,7 @@ export interface Anchor {
 export type Body =
   | { type: 'polygon'; pointsFrac: ReadonlyArray<readonly [number, number]> }
   | { type: 'circle' }
+  | { type: 'dot' } // a solid filled dot, no outline — the string-diagram "point"
 
 export interface FormGeometry {
   kind: FormKind
@@ -28,6 +29,9 @@ export interface FormGeometry {
   corners: Readonly<Record<EdgeKey, readonly [number, number]>>
   body: Body
   bodyOpacity: number
+  // Whether the form's own name renders on the canvas — off for kinds that
+  // carry no identity of their own (a functional/anonymous node).
+  showName: boolean
   nodeSize: (form: Form) => number
   pointAnchor: (edgeKey: EdgeKey, index: number, count: number, n: number) => Anchor
   // Nearest edge/corner to a normalized cursor (rx, ry) ∈ [0,1]².
@@ -107,6 +111,7 @@ const triangleGeometry: FormGeometry = {
   corners: TRI_CORNERS,
   body: { type: 'polygon', pointsFrac: [[TRI_APEX_X, 0.5], [TRI_BASE_X, 1], [TRI_BASE_X, 0]] },
   bodyOpacity: 1,
+  showName: true,
   nodeSize: sizeFor(TRI_EDGES),
   pointAnchor: (edgeKey, index, count, n) => {
     if (edgeKey in TRI_CORNERS) return cornerAnchor(TRI_CORNERS[edgeKey as keyof typeof TRI_CORNERS], index, n)
@@ -138,6 +143,7 @@ const squareGeometry: FormGeometry = {
   corners: SQ_CORNERS,
   body: { type: 'polygon', pointsFrac: [[0, 0], [1, 0], [1, 1], [0, 1]] },
   bodyOpacity: 1,
+  showName: true,
   nodeSize: sizeFor(SQUARE_EDGES),
   pointAnchor: (edgeKey, index, count, n) => {
     if (edgeKey in SQ_CORNERS) return cornerAnchor(SQ_CORNERS[edgeKey as keyof typeof SQ_CORNERS], index, n)
@@ -178,6 +184,7 @@ const circleGeometry: FormGeometry = {
   corners: {},
   body: { type: 'circle' },
   bodyOpacity: 1,
+  showName: true,
   nodeSize: sizeFor(CIRCLE_EDGES),
   pointAnchor: (edgeKey, index, count, n) => {
     const t = (index + 1) / (count + 1)
@@ -214,6 +221,7 @@ const rhombusGeometry: FormGeometry = {
   corners: RHOMBUS_CORNERS,
   body: { type: 'polygon', pointsFrac: [[0.5, 0], [1, 0.5], [0.5, 1], [0, 0.5]] },
   bodyOpacity: 1,
+  showName: true,
   nodeSize: sizeFor(RHOMBUS_EDGES),
   pointAnchor: (edgeKey, index, count, n) => {
     if (edgeKey in RHOMBUS_CORNERS) return cornerAnchor(RHOMBUS_CORNERS[edgeKey as keyof typeof RHOMBUS_CORNERS], index, n)
@@ -236,16 +244,18 @@ const rhombusGeometry: FormGeometry = {
   },
 }
 
-// ── POINT — a standalone atomic form: the string-diagram "copy" node. Its
-// single 'self' edge takes an unbounded list of points, fanned evenly around
-// the dot's own circumference (unlike other kinds, ANY spot on the body
-// resolves to the same edge — the whole point is one shared attachment, so
-// every wire touching it is a copy of the same value).
+// ── POINT — a standalone atomic form: the string-diagram "copy" node. It's a
+// pure, anonymous, functional thing (no name shown — it still has an id
+// underneath for bookkeeping, just nothing rendered). Its single 'self' edge
+// takes an unbounded list of points, fanned evenly around the dot's own
+// circumference (unlike other kinds, ANY spot on the body resolves to the
+// same edge — the whole point is one shared attachment, so every wire
+// touching it is a copy of the same value).
 const POINT_EDGE = 'self'
-const POINT_SIZE = 40
+const POINT_SIZE = 22
 // Past 4 attached points, grow the dot a little so the fan doesn't crowd.
 const FAN_CROWD_THRESHOLD = 4
-const FAN_GROWTH_PER_POINT = 6
+const FAN_GROWTH_PER_POINT = 5
 
 function cardinal(theta: number): Position {
   if (theta > Math.PI / 4 && theta <= (3 * Math.PI) / 4) return Position.Top
@@ -259,8 +269,9 @@ const pointGeometry: FormGeometry = {
   displayName: 'Point',
   edgeKeys: [POINT_EDGE],
   corners: {},
-  body: { type: 'circle' },
+  body: { type: 'dot' },
   bodyOpacity: 1,
+  showName: false,
   nodeSize: (form) => {
     const count = form.edges[POINT_EDGE]?.length ?? 0
     return POINT_SIZE + Math.max(0, count - FAN_CROWD_THRESHOLD) * FAN_GROWTH_PER_POINT
@@ -276,7 +287,7 @@ const pointGeometry: FormGeometry = {
 
 const emptyGeometry: FormGeometry = {
   kind: 'empty', displayName: 'Empty', edgeKeys: [], corners: {},
-  body: { type: 'circle' }, bodyOpacity: 0, nodeSize: () => BASE_SIZE / 2,
+  body: { type: 'circle' }, bodyOpacity: 0, showName: false, nodeSize: () => BASE_SIZE / 2,
   pointAnchor: (_e, _i, _c, n) => ({ x: n / 2, y: n / 2, position: Position.Top }),
   edgeAt: () => undefined,
 }

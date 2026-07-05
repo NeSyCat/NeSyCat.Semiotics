@@ -22,7 +22,7 @@ const POINT_NAME_SIZE = 12 // points a little smaller
 // Visual centre of a form body — for centring its name label. A triangle's
 // centroid is not its bounding-box centre.
 function bodyCentroid(body: Body): [number, number] {
-  if (body.type === 'circle') return [0.5, 0.5]
+  if (body.type === 'circle' || body.type === 'dot') return [0.5, 0.5]
   const pts = body.pointsFrac
   let sx = 0, sy = 0
   for (const [x, y] of pts) { sx += x; sy += y }
@@ -69,6 +69,16 @@ function BodyView({ body, n, accent, selected, bodyOpacity }: {
         position: 'absolute', inset: 0, borderRadius: '50%',
         background: bg, outline: `1.5px solid ${border}`, outlineOffset: -0.75,
         transition: 'background 0.15s ease, outline-color 0.15s ease',
+      }} />
+    )
+  }
+  if (body.type === 'dot') {
+    const fill = accent ? `rgb(${accent})` : theme.text.ink
+    return (
+      <div style={{
+        position: 'absolute', inset: 0, borderRadius: '50%', background: fill,
+        boxShadow: selected ? `0 0 0 3px rgba(${theme.node.accentBlue}, 0.45)` : 'none',
+        transition: 'background 0.15s ease, box-shadow 0.15s ease',
       }} />
     )
   }
@@ -167,7 +177,7 @@ function FormNode({ data, selected }: NodeProps) {
   return (
     <div style={{ position: 'relative', width: n, height: n, cursor: 'pointer' }}>
       <BodyView body={geom.body} n={n} accent={accent} selected={!!selected} bodyOpacity={geom.bodyOpacity} />
-      {geom.bodyOpacity > 0 && (
+      {geom.bodyOpacity > 0 && geom.showName && (
         <div style={{
           position: 'absolute', left: centroid[0] * n, top: centroid[1] * n,
           transform: 'translate(-50%, -50%)', pointerEvents: 'none', zIndex: 3,
