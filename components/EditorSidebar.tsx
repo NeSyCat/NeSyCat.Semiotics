@@ -46,6 +46,22 @@ function XIcon() {
   )
 }
 
+function ChevronLeftIcon() {
+  return (
+    <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M15 6l-6 6 6 6" />
+    </svg>
+  )
+}
+
+function ChevronRightIcon() {
+  return (
+    <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9 6l6 6-6 6" />
+    </svg>
+  )
+}
+
 function Spinner() {
   return (
     <svg width={12} height={12} viewBox="0 0 24 24" fill="none" aria-hidden style={{ animation: 'spin 0.9s linear infinite' }}>
@@ -415,7 +431,7 @@ export default function EditorSidebar({ diagrams }: { diagrams: Diagram[] }) {
             className="btn btn-icon"
             style={{ color: 'var(--color-muted-foreground)' }}
           >
-            <span style={{ fontSize: 18, lineHeight: 1 }}>‹</span>
+            <ChevronLeftIcon />
           </button>
         </div>
       )}
@@ -432,7 +448,7 @@ export default function EditorSidebar({ diagrams }: { diagrams: Diagram[] }) {
             className="btn btn-icon"
             style={{ color: 'var(--color-muted-foreground)' }}
           >
-            <span style={{ fontSize: 18, lineHeight: 1 }}>›</span>
+            <ChevronRightIcon />
           </button>
         </div>
       )}
