@@ -60,7 +60,7 @@ function BodyView({ body, n, accent, selected, bodyOpacity }: {
   const fillOpacity = (selected ? theme.node.selectedFillOpacity : theme.node.fillOpacity) * bodyOpacity
   const bg = accent
     ? `rgba(${accent}, ${fillOpacity})`
-    : (selected ? `rgba(${theme.node.accentBlue}, 0.10)` : 'transparent')
+    : (selected ? `rgba(${theme.node.accentBlue}, ${0.10 * bodyOpacity})` : 'transparent')
   const border = `rgba(0, 0, 0, ${bodyOpacity})` // pure black (transparent only for the empty form)
 
   if (body.type === 'circle') {

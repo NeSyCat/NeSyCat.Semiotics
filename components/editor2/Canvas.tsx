@@ -135,7 +135,7 @@ const CATEGORIES: Array<{ key: string; label: string; content: React.ReactNode }
 // with a `kind` are functional; the rest are point-only placeholders (but all
 // 9 are valid point shapes).
 const SHAPE_RAIL: Array<{ label: string; symbol: string; pshape: PointShape; kind?: FormKind }> = [
-  { label: 'Empty', symbol: 'kind-empty', pshape: 'empty' },
+  { label: 'Empty', symbol: 'kind-empty', pshape: 'empty', kind: 'empty' },
   { label: 'Point', symbol: 'kind-point', pshape: 'point', kind: 'point' },
   { label: 'Line', symbol: 'kind-line', pshape: 'line' },
   { label: 'Triangle', symbol: 'kind-triangle', pshape: 'triangle', kind: 'triangle' },
