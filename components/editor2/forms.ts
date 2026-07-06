@@ -97,6 +97,24 @@ function nearestCorner(rx: number, ry: number, corners: Readonly<Record<EdgeKey,
   return best
 }
 
+function cardinal(theta: number): Position {
+  if (theta > Math.PI / 4 && theta <= (3 * Math.PI) / 4) return Position.Top
+  if (theta > -Math.PI / 4 && theta <= Math.PI / 4) return Position.Right
+  if (theta > -(3 * Math.PI) / 4 && theta <= -Math.PI / 4) return Position.Bottom
+  return Position.Left
+}
+
+// Evenly spaced around a shared point's own circumference — used by kinds
+// whose whole body is one attachment (point, empty), where ANY spot on the
+// body resolves to the same edge and multiple points fan out around it
+// rather than sitting on named sides.
+function radialFanAnchor(index: number, count: number, n: number): Anchor {
+  const raw = (index / count) * 2 * Math.PI
+  const theta = raw > Math.PI ? raw - 2 * Math.PI : raw
+  const r = n / 2
+  return { x: n / 2 + r * Math.cos(theta), y: n / 2 - r * Math.sin(theta), position: cardinal(theta) }
+}
+
 // ── TRIANGLE — apex points RIGHT (the standard orientation). Sides:
 //   a = top slant (top-left → apex), b = bottom slant (bottom-left → apex),
 //   c = left side (top-left → bottom-left, vertical).
@@ -268,13 +286,6 @@ const POINT_SIZE = 22
 const FAN_CROWD_THRESHOLD = 4
 const FAN_GROWTH_PER_POINT = 5
 
-function cardinal(theta: number): Position {
-  if (theta > Math.PI / 4 && theta <= (3 * Math.PI) / 4) return Position.Top
-  if (theta > -Math.PI / 4 && theta <= Math.PI / 4) return Position.Right
-  if (theta > -(3 * Math.PI) / 4 && theta <= -Math.PI / 4) return Position.Bottom
-  return Position.Left
-}
-
 const pointGeometry: FormGeometry = {
   kind: 'point',
   displayName: 'Point',
@@ -287,20 +298,27 @@ const pointGeometry: FormGeometry = {
     const count = form.edges[POINT_EDGE]?.length ?? 0
     return POINT_SIZE + Math.max(0, count - FAN_CROWD_THRESHOLD) * FAN_GROWTH_PER_POINT
   },
-  pointAnchor: (_edgeKey, index, count, n) => {
-    const raw = (index / count) * 2 * Math.PI
-    const theta = raw > Math.PI ? raw - 2 * Math.PI : raw
-    const r = n / 2
-    return { x: n / 2 + r * Math.cos(theta), y: n / 2 - r * Math.sin(theta), position: cardinal(theta) }
-  },
+  pointAnchor: (_edgeKey, index, count, n) => radialFanAnchor(index, count, n),
   edgeAt: () => POINT_EDGE,
 }
 
+// ── EMPTY — an invisible carrier form (bodyOpacity 0, no name of its own).
+// Same "one shared attachment, fanned around it" edge as POINT, just with
+// nothing drawn — a wire dragged out into empty canvas space auto-creates
+// one of these to land on (see Canvas.tsx's onConnectEnd).
+const EMPTY_EDGE = 'self'
+
 const emptyGeometry: FormGeometry = {
-  kind: 'empty', displayName: 'Empty', edgeKeys: [], corners: {},
-  body: { type: 'circle' }, bodyOpacity: 0, showName: false, nodeSize: () => BASE_SIZE / 2,
-  pointAnchor: (_e, _i, _c, n) => ({ x: n / 2, y: n / 2, position: Position.Top }),
-  edgeAt: () => undefined,
+  kind: 'empty',
+  displayName: 'Empty',
+  edgeKeys: [EMPTY_EDGE],
+  corners: {},
+  body: { type: 'circle' },
+  bodyOpacity: 0,
+  showName: false,
+  nodeSize: () => BASE_SIZE / 2,
+  pointAnchor: (_edgeKey, index, count, n) => radialFanAnchor(index, count, n),
+  edgeAt: () => EMPTY_EDGE,
 }
 
 // ── Registry ─────────────────────────────────────────────────────────

@@ -19,7 +19,7 @@ import FormNode from './FormNode'
 import LineEdge from './LineEdge'
 import { useStore, initStore } from './store'
 import { useAutosave } from './save'
-import { geometryFor, pointIdsAt } from './forms'
+import { geometryFor, pointIdsAt, BASE_SIZE } from './forms'
 import { encodeHandle, decodeHandle } from './handles'
 import theme from './theme'
 import type { Diagram, FormKind, PointShape } from './types'
@@ -500,7 +500,20 @@ function Canvas() {
         position.y >= node.position.y && position.y <= node.position.y + h
       )
     })
-    if (!dropTarget) return
+    if (!dropTarget) {
+      // Dropped on empty canvas — spin up an anonymous "empty" carrier form
+      // with its own point right there, and wire the dragged connection to
+      // it. Lets you draw a wire out into space instead of placing a shape
+      // first and connecting to it as a second step.
+      const size = BASE_SIZE / 2 // matches emptyGeometry's nodeSize
+      const newFormId = useStore.getState().addForm('empty', { x: position.x - size / 2, y: position.y - size / 2 })
+      const newPtId = useStore.getState().addPoint(newFormId, 'self')
+      if (!newPtId) return
+      const srcLine = d.lines.find((l) => l.source === fromPointId)
+      if (srcLine && connectionState.fromHandle.type === 'source') useStore.getState().addLineTarget(srcLine.id, newPtId)
+      else useStore.getState().addLine(fromPointId, newPtId)
+      return
+    }
     const targetForm = d.forms.find((f) => f.id === dropTarget.id)
     if (!targetForm) return
     const geom = geometryFor(targetForm.kind)
