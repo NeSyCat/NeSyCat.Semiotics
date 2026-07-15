@@ -40,13 +40,19 @@ async function inflate(bytes: Uint8Array): Promise<Uint8Array> {
   return new Uint8Array(buf)
 }
 
-export async function encodeDiagramToFragment(d: Diagram): Promise<string> {
-  const bytes = new TextEncoder().encode(JSON.stringify(d))
+// From an already-stringified diagram — the autosave sink has the JSON in
+// hand, so URL sync shouldn't pay a second stringify.
+export async function encodeJsonToFragment(json: string): Promise<string> {
+  const bytes = new TextEncoder().encode(json)
   if (typeof CompressionStream === 'undefined') {
     return `${PREFIX}0.${base64UrlEncode(bytes)}`
   }
   const compressed = await deflate(bytes)
   return `${PREFIX}1.${base64UrlEncode(compressed)}`
+}
+
+export async function encodeDiagramToFragment(d: Diagram): Promise<string> {
+  return encodeJsonToFragment(JSON.stringify(d))
 }
 
 export async function decodeDiagramFromFragment(hash: string): Promise<Diagram | null> {
