@@ -15,14 +15,14 @@ import {
   type EdgeTypes,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
-import FormNode from './FormNode'
+import FormNode, { DRAG_HANDLE_CLASS } from './FormNode'
 import LineEdge from './LineEdge'
 import { useStore, initStore } from './store'
 import { useAutosave, useLocalAutosave } from './save'
-import { geometryFor, pointIdsAt, BASE_SIZE } from './forms'
-import { encodeHandle, decodeHandle } from './handles'
+import { geometryFor, pointIdsAt, isInsideBody, isInCenterZone, BASE_SIZE, type FormGeometry } from './forms'
+import { encodeHandle, decodeHandle, decodePhantomHandle } from './handles'
 import theme from './theme'
-import type { Diagram, FormKind, PointShape } from './types'
+import type { Diagram, Form, FormKind, PointShape } from './types'
 
 const nodeTypes: NodeTypes = { form: FormNode }
 const edgeTypes: EdgeTypes = { line: LineEdge }
@@ -44,6 +44,73 @@ function unrotateLocal(localX: number, localY: number, w: number, h: number, rot
   return [cx + ux, cy + uy]
 }
 
+// Radius (local/unrotated px) within which an existing point's own drag
+// handle takes priority over the form's region/center hover — see
+// nearestPointWithin below.
+const POINT_HOVER_RADIUS = 14
+
+// The closest existing point on `form` to a local pixel (lx, ly), if within
+// POINT_HOVER_RADIUS — checked BEFORE any inside/outside or center-zone
+// test, since a point's own anchor sits ON the body's boundary and its
+// hit-circle straddles both sides of it.
+function nearestPointWithin(form: Form, geom: FormGeometry, lx: number, ly: number, n: number): string | null {
+  let best: string | null = null
+  let bestDist = POINT_HOVER_RADIUS
+  for (const edgeKey of geom.edgeKeys) {
+    const ids = pointIdsAt(form, edgeKey)
+    ids.forEach((pid, index) => {
+      const a = geom.pointAnchor(edgeKey, index, ids.length, n)
+      const dist = Math.hypot(lx - a.x, ly - a.y)
+      if (dist < bestDist) { bestDist = dist; best = pid }
+    })
+  }
+  return best
+}
+
+// Resolves a screen drop position into a point id — an existing form under
+// the cursor gets a NEW point at its nearest edge/corner; empty canvas spins
+// up a fresh "empty" carrier (with its own point) to land on, so pulling a
+// wire out into space works without placing a shape first. Shared by the
+// Handle-based connection drag (onConnectEnd) and the ring-drag (pulling a
+// line straight out of a point-creation region that has no point yet).
+function resolveDropPoint(
+  clientX: number, clientY: number, excludeFormId: string,
+  screenToFlowPosition: (p: { x: number; y: number }) => { x: number; y: number },
+  getNodes: () => Node[],
+): string | null {
+  const position = screenToFlowPosition({ x: clientX, y: clientY })
+  const dropTarget = getNodes().find((node) => {
+    if (node.id === excludeFormId || node.type !== 'form') return false
+    const w = node.measured?.width ?? node.width ?? 0
+    const h = node.measured?.height ?? node.height ?? 0
+    return (
+      position.x >= node.position.x && position.x <= node.position.x + w &&
+      position.y >= node.position.y && position.y <= node.position.y + h
+    )
+  })
+  if (!dropTarget) {
+    const size = BASE_SIZE / 2 // matches emptyGeometry's nodeSize
+    const newFormId = useStore.getState().addForm('empty', { x: position.x - size / 2, y: position.y - size / 2 })
+    return useStore.getState().addPoint(newFormId, 'self') || null
+  }
+  const d = useStore.getState().diagram
+  const targetForm = d.forms.find((f) => f.id === dropTarget.id)
+  if (!targetForm) return null
+  const geom = geometryFor(targetForm.kind)
+  const w = dropTarget.measured?.width ?? dropTarget.width ?? 1
+  const h = dropTarget.measured?.height ?? dropTarget.height ?? 1
+  const [lx, ly] = unrotateLocal(position.x - dropTarget.position.x, position.y - dropTarget.position.y, w, h, targetForm.rotation ?? 0)
+  const rx = lx / w
+  const ry = ly / h
+  // Dropped in the center zone — that's the whole-form-selection region, not
+  // point-creation territory, so this is a no-op, same as a center-zone
+  // double-click.
+  if (geom.hasCenterZone && isInCenterZone(geom.body, rx, ry)) return null
+  const edgeKey = geom.edgeAt(clamp01(rx), clamp01(ry))
+  if (!edgeKey) return null
+  return useStore.getState().addPoint(dropTarget.id, edgeKey) || null
+}
+
 // point id -> { nodeId, handleId } (the form it sits on + its handle).
 function pointToHandle(d: Diagram, pointId: string): { nodeId: string; handleId: string } | undefined {
   const pt = d.points[pointId]
@@ -61,6 +128,18 @@ function handleToPointId(d: Diagram, nodeId: string, handleId: string): string |
   if (!form) return undefined
   const { edgeKey, index } = decodeHandle(handleId)
   return pointIdsAt(form, edgeKey)[index]
+}
+
+// Resolves a real OR phantom handle into a point id — a phantom handle (the
+// point-creation ring's hover-only placeholder, no point there yet) gets a
+// real point created on the spot via addPoint, the same mutation double-
+// click uses. Reads the diagram fresh each time since creating one phantom
+// point (in a source+target pair, e.g. two ring positions on the same form)
+// must not resolve the other end against a stale pre-creation snapshot.
+function resolvePointForHandle(nodeId: string, handleId: string): string | undefined {
+  const phantomEdgeKey = decodePhantomHandle(handleId)
+  if (phantomEdgeKey) return useStore.getState().addPoint(nodeId, phantomEdgeKey) || undefined
+  return handleToPointId(useStore.getState().diagram, nodeId, handleId)
 }
 
 // SVG sprite — copied verbatim from _design/04-prototype (the mockup). The DS
@@ -297,6 +376,11 @@ function Canvas({ topRight }: CanvasContentProps) {
       type: 'form',
       position: form.position,
       data: { form, points: diagram.points },
+      // Native dragging only from the center zone (FormNode's always-present
+      // DragHandleZone) — the ring is exclusively point-creation/line-pulling
+      // territory. Kinds with no center zone (point/empty) keep the whole
+      // node draggable, matching their existing "one shared region" model.
+      ...(geometryFor(form.kind).hasCenterZone ? { dragHandle: `.${DRAG_HANDLE_CLASS}` } : {}),
     }))
   }, [diagram])
 
@@ -465,92 +549,145 @@ function Canvas({ topRight }: CanvasContentProps) {
     }
   }, [])
 
-  // ── Lines: drag handle → handle ────────────────────────────────────
+  // ── Lines: drag handle → handle. A phantom handle (the point-creation
+  // ring's hover-only placeholder) is "valid" sight unseen — it always
+  // resolves to a real point on connect, so the drag renders normally
+  // instead of the invalid/red state React Flow shows for a rejected target.
   const isValidConnection = useCallback((c: Connection | Edge) => {
     const { source, target, sourceHandle, targetHandle } = c
     if (!source || !target || !sourceHandle || !targetHandle) return false
     if (source === target && sourceHandle === targetHandle) return false
     const d = useStore.getState().diagram
-    return !!handleToPointId(d, source, sourceHandle) && !!handleToPointId(d, target, targetHandle)
+    const sourceOk = !!decodePhantomHandle(sourceHandle) || !!handleToPointId(d, source, sourceHandle)
+    const targetOk = !!decodePhantomHandle(targetHandle) || !!handleToPointId(d, target, targetHandle)
+    return sourceOk && targetOk
   }, [])
 
   const onConnect = useCallback((params: Connection) => {
     if (!params.source || !params.target || !params.sourceHandle || !params.targetHandle) return
-    const d = useStore.getState().diagram
-    const src = handleToPointId(d, params.source, params.sourceHandle)
-    const tgt = handleToPointId(d, params.target, params.targetHandle)
+    const src = resolvePointForHandle(params.source, params.sourceHandle)
+    const tgt = resolvePointForHandle(params.target, params.targetHandle)
     if (!src || !tgt || src === tgt) return
-    const existing = d.lines.find((l) => l.source === src)
+    const existing = useStore.getState().diagram.lines.find((l) => l.source === src)
     if (existing) useStore.getState().addLineTarget(existing.id, tgt)
     else useStore.getState().addLine(src, tgt)
   }, [])
 
-  // ── Drag from a point handle onto a form body → attach to nearest edge ─
+  // ── Drag from a point (or phantom) handle onto a form body → attach to
+  // nearest edge ──────────────────────────────────────────────────────────
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const onConnectEnd = useCallback((event: MouseEvent | TouchEvent, connectionState: any) => {
     if (connectionState.isValid || !connectionState.fromNode || !connectionState.fromHandle?.id) return
-    const d = useStore.getState().diagram
-    const fromPointId = handleToPointId(d, connectionState.fromNode.id, connectionState.fromHandle.id)
+    const fromPointId = resolvePointForHandle(connectionState.fromNode.id, connectionState.fromHandle.id)
     if (!fromPointId) return
+    const d = useStore.getState().diagram
     const { clientX, clientY } = 'changedTouches' in event ? (event as TouchEvent).changedTouches[0] : (event as MouseEvent)
-    const position = screenToFlowPosition({ x: clientX, y: clientY })
-
-    const dropTarget = getNodes().find((node) => {
-      if (node.id === connectionState.fromNode.id || node.type !== 'form') return false
-      const w = node.measured?.width ?? node.width ?? 0
-      const h = node.measured?.height ?? node.height ?? 0
-      return (
-        position.x >= node.position.x && position.x <= node.position.x + w &&
-        position.y >= node.position.y && position.y <= node.position.y + h
-      )
-    })
-    if (!dropTarget) {
-      // Dropped on empty canvas — spin up an anonymous "empty" carrier form
-      // with its own point right there, and wire the dragged connection to
-      // it. Lets you draw a wire out into space instead of placing a shape
-      // first and connecting to it as a second step.
-      const size = BASE_SIZE / 2 // matches emptyGeometry's nodeSize
-      const newFormId = useStore.getState().addForm('empty', { x: position.x - size / 2, y: position.y - size / 2 })
-      const newPtId = useStore.getState().addPoint(newFormId, 'self')
-      if (!newPtId) return
-      const srcLine = d.lines.find((l) => l.source === fromPointId)
-      if (srcLine && connectionState.fromHandle.type === 'source') useStore.getState().addLineTarget(srcLine.id, newPtId)
-      else useStore.getState().addLine(fromPointId, newPtId)
-      return
-    }
-    const targetForm = d.forms.find((f) => f.id === dropTarget.id)
-    if (!targetForm) return
-    const geom = geometryFor(targetForm.kind)
-    const w = dropTarget.measured?.width ?? dropTarget.width ?? 1
-    const h = dropTarget.measured?.height ?? dropTarget.height ?? 1
-    const [lx, ly] = unrotateLocal(position.x - dropTarget.position.x, position.y - dropTarget.position.y, w, h, targetForm.rotation ?? 0)
-    const rx = clamp01(lx / w)
-    const ry = clamp01(ly / h)
-    const edgeKey = geom.edgeAt(rx, ry)
-    if (!edgeKey) return
-    const newPtId = useStore.getState().addPoint(dropTarget.id, edgeKey)
+    const newPtId = resolveDropPoint(clientX, clientY, connectionState.fromNode.id, screenToFlowPosition, getNodes)
     if (!newPtId) return
     const srcLine = d.lines.find((l) => l.source === fromPointId)
     if (srcLine && connectionState.fromHandle.type === 'source') useStore.getState().addLineTarget(srcLine.id, newPtId)
     else useStore.getState().addLine(fromPointId, newPtId)
   }, [screenToFlowPosition, getNodes])
 
-  // ── Add a point: double-click a form near the edge you want ────────
+  // Shared by the double-click-to-add-point handler and the hover tracker: a
+  // node-local point → normalized [0,1]² fraction PLUS the raw local pixel
+  // position, rotation-aware. The fraction is UNCLAMPED — a position
+  // above/left of the shape must stay negative and a position below/right
+  // must stay >1, or isInsideBody can't tell "genuinely outside" from
+  // "exactly on the boundary" (ray-casting's boundary convention treats the
+  // two differently for opposite edges). Callers that need a valid-edge
+  // lookup (edgeAt) clamp the fraction explicitly at the call site.
+  const formLocalPoint = useCallback((event: { clientX: number; clientY: number }, node: Node, form: Form) => {
+    const geom = geometryFor(form.kind)
+    const n = node.measured?.width ?? node.width ?? geom.nodeSize(form)
+    const flow = screenToFlowPosition({ x: event.clientX, y: event.clientY })
+    const [lx, ly] = unrotateLocal(flow.x - node.position.x, flow.y - node.position.y, n, n, form.rotation ?? 0)
+    return { rx: lx / n, ry: ly / n, lx, ly, n }
+  }, [screenToFlowPosition])
+
+  // Selecting a form only works from its center zone — root-cause fix for
+  // what used to be a select→revert flicker on double-click: the point-
+  // creation ring is exclusively the ring's territory (point creation / line
+  // pulling), so a click landing there is reverted HERE, synchronously
+  // within the SAME click that caused it (React 18 batches React Flow's own
+  // click-to-select update and this revert into one commit — no visible
+  // frame in between). This naturally covers every case: a plain click on
+  // the ring, both clicks of a double-click, and a no-op center-zone
+  // double-click — none of them were ever going to select the form anyway.
+  const onNodeClick = useCallback((event: React.MouseEvent, node: Node) => {
+    const d = useStore.getState().diagram
+    const form = d.forms.find((f) => f.id === node.id)
+    if (!form) return
+    const geom = geometryFor(form.kind)
+    const { rx, ry } = formLocalPoint(event, node, form)
+    if (!geom.hasCenterZone || isInCenterZone(geom.body, rx, ry)) return
+    setNodes((nds) => (nds.some((n) => n.selected) ? nds.map((n) => (n.selected ? { ...n, selected: false } : n)) : nds))
+  }, [formLocalPoint, setNodes])
+
+  // ── Add a point: double-click a form near the edge you want. The center
+  // zone (if this kind has one) is reserved for whole-form selection, so a
+  // double-click there is a no-op rather than sprouting a random edge point.
   const onNodeDoubleClick = useCallback((event: React.MouseEvent, node: Node) => {
     const d = useStore.getState().diagram
     const form = d.forms.find((f) => f.id === node.id)
     if (!form) return
     const geom = geometryFor(form.kind)
-    const w = node.measured?.width ?? node.width ?? geom.nodeSize(form)
-    const h = node.measured?.height ?? node.height ?? geom.nodeSize(form)
-    const flow = screenToFlowPosition({ x: event.clientX, y: event.clientY })
-    const [lx, ly] = unrotateLocal(flow.x - node.position.x, flow.y - node.position.y, w, h, form.rotation ?? 0)
-    const rx = clamp01(lx / w)
-    const ry = clamp01(ly / h)
-    const edgeKey = geom.edgeAt(rx, ry)
+    const { rx, ry, n } = formLocalPoint(event, node, form)
+    if (geom.hasCenterZone && isInCenterZone(geom.body, rx, ry)) return
+    const edgeKey = geom.edgeAt(clamp01(rx), clamp01(ry))
     if (!edgeKey) return
     useStore.getState().addPoint(node.id, edgeKey)
-  }, [screenToFlowPosition])
+  }, [formLocalPoint])
+
+  // ── Cursor territory inside a form, quiver-style — resolved centrally
+  // (only Canvas has the full diagram, so only it can check point proximity)
+  // in strict priority order: an existing point's own drag handle always
+  // wins, regardless of inside/outside the body; then the inner "select the
+  // whole form" zone; then the point-creation ring near the edges/corners;
+  // then nothing. Tracked in the store so FormNode renders exactly one
+  // highlight — never a region and a point (or two regions) at once. ───────
+  const onNodeMouseMove = useCallback((event: React.MouseEvent, node: Node) => {
+    if (node.type !== 'form') return
+    const d = useStore.getState().diagram
+    const form = d.forms.find((f) => f.id === node.id)
+    if (!form) return
+    const geom = geometryFor(form.kind)
+
+    // A point's name label extends outward by a variable amount (its own
+    // rendered text width) — no fixed proximity radius around the anchor can
+    // reliably reach it, so check the real DOM target directly: it's exactly
+    // as reliable as the label's own actual hitbox, whatever its size.
+    const labelPointId = (event.target as HTMLElement).closest?.('[data-point-id]')?.getAttribute('data-point-id')
+    if (labelPointId) {
+      useStore.getState().setHover({ kind: 'point', pointId: labelPointId })
+      return
+    }
+
+    const { rx, ry, lx, ly, n } = formLocalPoint(event, node, form)
+
+    const nearPoint = nearestPointWithin(form, geom, lx, ly, n)
+    if (nearPoint) {
+      useStore.getState().setHover({ kind: 'point', pointId: nearPoint })
+      return
+    }
+    if (!isInsideBody(geom.body, rx, ry)) {
+      useStore.getState().clearHover()
+      return
+    }
+    if (geom.hasCenterZone && isInCenterZone(geom.body, rx, ry)) {
+      useStore.getState().setHover({ kind: 'center', formId: node.id })
+      return
+    }
+    const edgeKey = geom.edgeAt(clamp01(rx), clamp01(ry))
+    if (!edgeKey) {
+      useStore.getState().clearHover()
+      return
+    }
+    useStore.getState().setHover({ kind: 'edge', formId: node.id, edgeKey })
+  }, [formLocalPoint])
+  const onNodeMouseLeave = useCallback(() => {
+    useStore.getState().clearHover()
+  }, [])
 
   // ── Move ───────────────────────────────────────────────────────────
   const onNodeDragStop = useCallback((_: unknown, node: Node, draggedNodes?: Node[]) => {
@@ -614,10 +751,15 @@ function Canvas({ topRight }: CanvasContentProps) {
         isValidConnection={isValidConnection}
         connectionMode={ConnectionMode.Loose}
         // Plain click = single-select; Cmd/Ctrl+click accumulates; Shift+drag
-        // box-selects (selectionKeyCode stays the default Shift).
+        // box-selects (selectionKeyCode stays the default Shift). Dragging a
+        // form moves it WITHOUT selecting it — selection is a click's job.
         multiSelectionKeyCode={['Meta', 'Control']}
+        selectNodesOnDrag={false}
         onNodeDragStop={onNodeDragStop}
+        onNodeClick={onNodeClick}
         onNodeDoubleClick={onNodeDoubleClick}
+        onNodeMouseMove={onNodeMouseMove}
+        onNodeMouseLeave={onNodeMouseLeave}
         onSelectionChange={onSelectionChange}
         onPaneClick={onPaneClick}
         nodeTypes={nodeTypes}

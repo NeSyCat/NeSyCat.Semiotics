@@ -15,6 +15,16 @@ export interface Anchor {
   position: Position
 }
 
+// Hover/selection overlay shape for a point-creation region (an edgeKey), in
+// form-fraction [0,1]² space — FormNode scales by node size and strokes/fills
+// it with a gray tint. 'polyline' covers both straight sides (2 points) and
+// circle arcs (sampled points) with one rendering path; 'corner' is a small
+// dot at a vertex; 'full' is the whole body (point/empty's single self-region).
+export type RegionShape =
+  | { kind: 'polyline'; points: ReadonlyArray<readonly [number, number]> }
+  | { kind: 'corner'; at: readonly [number, number] }
+  | { kind: 'full' }
+
 export type Body =
   | { type: 'polygon'; pointsFrac: ReadonlyArray<readonly [number, number]> }
   | { type: 'circle' }
@@ -32,10 +42,17 @@ export interface FormGeometry {
   // Whether the form's own name renders on the canvas — off for kinds that
   // carry no identity of their own (a functional/anonymous node).
   showName: boolean
+  // Whether this kind carves a separate inner "select the whole form" zone
+  // out of its body — off for point/empty, which are too small (and whose
+  // whole body is already one shared point-creation region) to usefully
+  // split into a ring + center.
+  hasCenterZone: boolean
   nodeSize: (form: Form) => number
   pointAnchor: (edgeKey: EdgeKey, index: number, count: number, n: number) => Anchor
   // Nearest edge/corner to a normalized cursor (rx, ry) ∈ [0,1]².
   edgeAt: (rx: number, ry: number) => EdgeKey | undefined
+  // Overlay shape for hovering/selecting this edgeKey's region.
+  regionShape: (edgeKey: EdgeKey) => RegionShape
 }
 
 // ── Shared helpers ───────────────────────────────────────────────────
@@ -68,6 +85,66 @@ function distToSeg(px: number, py: number, ax: number, ay: number, bx: number, b
   let t = ((px - ax) * dx + (py - ay) * dy) / len2
   t = Math.max(0, Math.min(1, t))
   return Math.hypot(px - (ax + t * dx), py - (ay + t * dy))
+}
+
+// Whether a normalized cursor (rx, ry) ∈ [0,1]² sits inside the form's own
+// visible body — the split between the point-creation region hover (inside)
+// and an existing point's drag-region hover (outside): a point's own anchor
+// sits ON the boundary, so this decides which highlight wins when both are
+// geometrically nearby. Ray-casting point-in-polygon for straight-sided
+// bodies; a simple radius test for circle/dot.
+export function isInsideBody(body: Body, rx: number, ry: number): boolean {
+  if (body.type === 'circle' || body.type === 'dot') {
+    return Math.hypot(rx - 0.5, ry - 0.5) <= 0.5
+  }
+  const pts = body.pointsFrac
+  let inside = false
+  for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+    const [xi, yi] = pts[i]
+    const [xj, yj] = pts[j]
+    if (yi > ry !== yj > ry && rx < ((xj - xi) * (ry - yi)) / (yj - yi) + xi) inside = !inside
+  }
+  return inside
+}
+
+// How far a form's inner "select the whole form" zone is shrunk toward its
+// centre (0.5, 0.5), relative to the true body — leaving an outer ring for
+// the point-creation edge/corner regions. Hit-test only: hovering the zone
+// highlights the form's WHOLE body (FormNode renders that separately), this
+// constant only decides where the zone's own boundary sits.
+export const CENTER_SHRINK = 0.55
+
+// Whether (rx, ry) sits inside a `shrink`-scaled copy of the body, centred at
+// (0.5, 0.5) — scale the query point OUTWARD from centre and test it against
+// the TRUE (unshrunk) body, which is equivalent to testing it against a
+// shrunk copy without needing a second isInsideBody implementation.
+export function isInCenterZone(body: Body, rx: number, ry: number, shrink: number = CENTER_SHRINK): boolean {
+  return isInsideBody(body, 0.5 + (rx - 0.5) / shrink, 0.5 + (ry - 0.5) / shrink)
+}
+
+// The shrunk body's own outline — for the invisible drag-handle hit-area
+// FormNode renders over the center zone (React Flow's dragHandle prop can
+// only target a real, always-present element, so it needs actual geometry
+// here, separate from the center-hover VISUAL which highlights the whole
+// body). null for circle/dot bodies — FormNode draws those as a plain
+// scaled circle instead.
+export function shrunkBodyPoints(body: Body, shrink: number = CENTER_SHRINK): ReadonlyArray<readonly [number, number]> | null {
+  if (body.type !== 'polygon') return null
+  return body.pointsFrac.map(([x, y]) => [0.5 + (x - 0.5) * shrink, 0.5 + (y - 0.5) * shrink] as const)
+}
+
+// Inset a straight edge's endpoints toward its midpoint by `inset` (fraction
+// units) — keeps a side's hover stripe from overlapping the corner regions at
+// either end. `inset` is capped at half the segment length so short edges
+// (e.g. a rhombus's diagonal sides) never invert into a negative-length stripe.
+function insetSegment(
+  a: readonly [number, number], b: readonly [number, number], inset: number,
+): [[number, number], [number, number]] {
+  const dx = b[0] - a[0], dy = b[1] - a[1]
+  const len = Math.hypot(dx, dy) || 1
+  const t = Math.min(inset, len / 2)
+  const ux = dx / len, uy = dy / len
+  return [[a[0] + ux * t, a[1] + uy * t], [b[0] - ux * t, b[1] - uy * t]]
 }
 
 // A point pinned at a vertex; stacks outward (away from centre) when several
@@ -141,6 +218,7 @@ const triangleGeometry: FormGeometry = {
   body: { type: 'polygon', pointsFrac: [[TRI_APEX_X, 0.5], [TRI_BASE_X, 1], [TRI_BASE_X, 0]] },
   bodyOpacity: 1,
   showName: true,
+  hasCenterZone: true,
   nodeSize: sizeFor(TRI_EDGES),
   pointAnchor: (edgeKey, index, count, n) => {
     if (edgeKey in TRI_CORNERS) return cornerAnchor(TRI_CORNERS[edgeKey as keyof typeof TRI_CORNERS], index, n)
@@ -159,6 +237,12 @@ const triangleGeometry: FormGeometry = {
     if (db <= dc) return 'b'
     return 'c'
   },
+  regionShape: (edgeKey) => {
+    if (edgeKey in TRI_CORNERS) return { kind: 'corner', at: TRI_CORNERS[edgeKey as keyof typeof TRI_CORNERS] }
+    if (edgeKey === 'a') return { kind: 'polyline', points: insetSegment([TRI_BASE_X, 0], [TRI_APEX_X, 0.5], CORNER_R) }
+    if (edgeKey === 'b') return { kind: 'polyline', points: insetSegment([TRI_BASE_X, 1], [TRI_APEX_X, 0.5], CORNER_R) }
+    return { kind: 'polyline', points: insetSegment([TRI_BASE_X, 0], [TRI_BASE_X, 1], CORNER_R) } // c
+  },
 }
 
 // ── SQUARE (4 sides + 4 corners) ─────────────────────────────────────
@@ -173,6 +257,7 @@ const squareGeometry: FormGeometry = {
   body: { type: 'polygon', pointsFrac: [[0, 0], [1, 0], [1, 1], [0, 1]] },
   bodyOpacity: 1,
   showName: true,
+  hasCenterZone: true,
   nodeSize: sizeFor(SQUARE_EDGES),
   pointAnchor: (edgeKey, index, count, n) => {
     if (edgeKey in SQ_CORNERS) return cornerAnchor(SQ_CORNERS[edgeKey as keyof typeof SQ_CORNERS], index, n)
@@ -190,6 +275,15 @@ const squareGeometry: FormGeometry = {
     const d = { top: ry, right: 1 - rx, bottom: 1 - ry, left: rx }
     return (Object.keys(d) as Array<keyof typeof d>).reduce((a, b) => (d[b] < d[a] ? b : a))
   },
+  regionShape: (edgeKey) => {
+    if (edgeKey in SQ_CORNERS) return { kind: 'corner', at: SQ_CORNERS[edgeKey as keyof typeof SQ_CORNERS] }
+    switch (edgeKey) {
+      case 'top': return { kind: 'polyline', points: insetSegment([0, 0], [1, 0], CORNER_R) }
+      case 'right': return { kind: 'polyline', points: insetSegment([1, 0], [1, 1], CORNER_R) }
+      case 'bottom': return { kind: 'polyline', points: insetSegment([0, 1], [1, 1], CORNER_R) }
+      default: return { kind: 'polyline', points: insetSegment([0, 0], [0, 1], CORNER_R) } // left
+    }
+  },
 }
 
 // ── CIRCLE (4 cardinal arcs up/right/down/left; no vertices) ─────────
@@ -206,6 +300,17 @@ function arcPt(edgeKey: string, t: number, n: number): [number, number] {
   return [n / 2 + r * Math.cos(theta), n / 2 - r * Math.sin(theta)]
 }
 
+// Same trig as arcPt but sampled across the whole 90° quadrant, in
+// form-fraction space, for drawing a stroked arc region overlay.
+const ARC_REGION_SAMPLES = 10
+function arcRegionPoints(edgeKey: string): Array<[number, number]> {
+  return Array.from({ length: ARC_REGION_SAMPLES + 1 }, (_, i) => {
+    const t = i / ARC_REGION_SAMPLES
+    const theta = ARC_START[edgeKey] - t * (Math.PI / 2)
+    return [0.5 + 0.5 * Math.cos(theta), 0.5 - 0.5 * Math.sin(theta)]
+  })
+}
+
 const circleGeometry: FormGeometry = {
   kind: 'circle',
   displayName: 'Circle',
@@ -214,6 +319,7 @@ const circleGeometry: FormGeometry = {
   body: { type: 'circle' },
   bodyOpacity: 1,
   showName: true,
+  hasCenterZone: true,
   nodeSize: sizeFor(CIRCLE_EDGES),
   pointAnchor: (edgeKey, index, count, n) => {
     const t = (index + 1) / (count + 1)
@@ -227,6 +333,7 @@ const circleGeometry: FormGeometry = {
     if (ang > -(3 * Math.PI) / 4 && ang <= -Math.PI / 4) return 'down'
     return 'left'
   },
+  regionShape: (edgeKey) => ({ kind: 'polyline', points: arcRegionPoints(edgeKey) }),
 }
 
 // ── RHOMBUS (diamond orientation — 4 sides + 4 corners, same shape as
@@ -251,6 +358,7 @@ const rhombusGeometry: FormGeometry = {
   body: { type: 'polygon', pointsFrac: [[0.5, 0], [1, 0.5], [0.5, 1], [0, 0.5]] },
   bodyOpacity: 1,
   showName: true,
+  hasCenterZone: true,
   nodeSize: sizeFor(RHOMBUS_EDGES),
   pointAnchor: (edgeKey, index, count, n) => {
     if (edgeKey in RHOMBUS_CORNERS) return cornerAnchor(RHOMBUS_CORNERS[edgeKey as keyof typeof RHOMBUS_CORNERS], index, n)
@@ -270,6 +378,11 @@ const rhombusGeometry: FormGeometry = {
       if (d < bestDist) { bestDist = d; best = key }
     }
     return best
+  },
+  regionShape: (edgeKey) => {
+    if (edgeKey in RHOMBUS_CORNERS) return { kind: 'corner', at: RHOMBUS_CORNERS[edgeKey as keyof typeof RHOMBUS_CORNERS] }
+    const side = RHOMBUS_SIDES[edgeKey]
+    return { kind: 'polyline', points: insetSegment(side.a, side.b, CORNER_R) }
   },
 }
 
@@ -294,12 +407,14 @@ const pointGeometry: FormGeometry = {
   body: { type: 'dot' },
   bodyOpacity: 1,
   showName: false,
+  hasCenterZone: false,
   nodeSize: (form) => {
     const count = form.edges[POINT_EDGE]?.length ?? 0
     return POINT_SIZE + Math.max(0, count - FAN_CROWD_THRESHOLD) * FAN_GROWTH_PER_POINT
   },
   pointAnchor: (_edgeKey, index, count, n) => radialFanAnchor(index, count, n),
   edgeAt: () => POINT_EDGE,
+  regionShape: () => ({ kind: 'full' }),
 }
 
 // ── EMPTY — an invisible carrier form (bodyOpacity 0, no name of its own).
@@ -316,9 +431,11 @@ const emptyGeometry: FormGeometry = {
   body: { type: 'circle' },
   bodyOpacity: 0,
   showName: false,
+  hasCenterZone: false,
   nodeSize: () => BASE_SIZE / 2,
   pointAnchor: (_edgeKey, index, count, n) => radialFanAnchor(index, count, n),
   edgeAt: () => EMPTY_EDGE,
+  regionShape: () => ({ kind: 'full' }),
 }
 
 // ── Registry ─────────────────────────────────────────────────────────

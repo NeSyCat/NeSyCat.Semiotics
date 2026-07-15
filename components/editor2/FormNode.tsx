@@ -1,10 +1,10 @@
 'use client'
 
 import { memo, useEffect } from 'react'
-import { Handle, Position, useReactFlow, useUpdateNodeInternals, type NodeProps } from '@xyflow/react'
+import { Handle, Position, useConnection, useReactFlow, useUpdateNodeInternals, type NodeProps } from '@xyflow/react'
 import theme from './theme'
-import { geometryFor, pointIdsAt, type Body } from './forms'
-import { encodeHandle } from './handles'
+import { geometryFor, pointIdsAt, shrunkBodyPoints, CENTER_SHRINK, type Body, type RegionShape } from './forms'
+import { encodeHandle, encodePhantomHandle, decodePhantomHandle } from './handles'
 import { toRgbTriple } from './color'
 import { useStore } from './store'
 import { Tex } from './Tex'
@@ -46,22 +46,146 @@ function PointGlyph({ shape, color }: { shape: PointShape; color: string }) {
   )
 }
 
-// A point's hit area doubles as its connection handle — ~18px so it's easy to
-// grab and drag a line from. The glyph renders behind it (pointer-events:none).
-// Loose connection mode lets either stacked handle (source/target) start OR
-// receive a line, so a point is fully bipolar.
-const POINT_HIT = 18
+// Quiver-style point-creation region overlay: a gray-tint stripe along an
+// edge, a dot at a corner, or the whole body for point/empty's single
+// self-region. The corner-dot size doubles as a point's grab-pad size so a
+// point's draggable area coincides exactly with its visual hover circle.
+const REGION_STRIPE_WIDTH = 26
+const REGION_CORNER_SIZE = 28
+
+// The visual hover tint for a point-creation region — an INDICATOR of which
+// edge/corner the cursor's zone maps to. Purely decorative; the grabbable
+// area is RingBandHitArea below, which covers the zone itself.
+function RegionOverlay({ shape, n, color }: { shape: RegionShape; n: number; color: string }) {
+  if (shape.kind === 'full') {
+    return (
+      <div style={{
+        position: 'absolute', inset: 0, borderRadius: '50%', background: color,
+        pointerEvents: 'none', zIndex: 1,
+      }} />
+    )
+  }
+  if (shape.kind === 'corner') {
+    const [x, y] = shape.at
+    return (
+      <div style={{
+        position: 'absolute', left: x * n, top: y * n, transform: 'translate(-50%, -50%)',
+        width: REGION_CORNER_SIZE, height: REGION_CORNER_SIZE, borderRadius: '50%', background: color,
+        pointerEvents: 'none', zIndex: 1,
+      }} />
+    )
+  }
+  const pts = shape.points.map(([x, y]) => `${x * n},${y * n}`).join(' ')
+  return (
+    <svg width={n} height={n} style={{ position: 'absolute', inset: 0, overflow: 'visible', pointerEvents: 'none', zIndex: 1 }}>
+      <polyline points={pts} fill="none" stroke={color} strokeWidth={REGION_STRIPE_WIDTH} strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+// An outline of `body` scaled by `scale` about the form's centre, as SVG
+// path commands in the phantom handle's anchor-relative frame. Circle bodies
+// get a real circle path; polygons reuse pointsFrac. Both derive from the
+// SAME body data isInsideBody/isInCenterZone hit-test against.
+function bodyOutlinePath(body: Body, n: number, scale: number, anchor: { x: number; y: number }): string {
+  const c = n / 2
+  if (body.type === 'circle' || body.type === 'dot') {
+    const r = c * scale
+    const x0 = c - r - anchor.x
+    const cy = c - anchor.y
+    return `M ${x0} ${cy} a ${r} ${r} 0 1 0 ${2 * r} 0 a ${r} ${r} 0 1 0 ${-2 * r} 0 Z`
+  }
+  const pts = body.pointsFrac.map(([x, y]) => [c + (x * n - c) * scale - anchor.x, c + (y * n - c) * scale - anchor.y])
+  return `M ${pts.map(([x, y]) => `${x} ${y}`).join(' L ')} Z`
+}
+
+// The phantom handle's grabbable/droppable area: the ENTIRE point-creation
+// zone — the band between the body's boundary and the center zone (or the
+// whole body for kinds without one). Built from the SAME body + CENTER_SHRINK
+// the hover hit-test (isInsideBody && !isInCenterZone) uses, so the crosshair
+// is active exactly wherever edge-hover is active — not merely on the visual
+// indicator stripe. Even-odd fill carves the center zone out as a hole.
+// Lives as a CHILD of the tiny anchored Handle (a Handle sized to the whole
+// form makes React Flow draw connection lines from the form's middle), hence
+// the anchor-relative frame.
+function RingBandHitArea({ body, n, hasCenterZone, anchor }: {
+  body: Body; n: number; hasCenterZone: boolean; anchor: { x: number; y: number }
+}) {
+  const outer = bodyOutlinePath(body, n, 1, anchor)
+  const inner = hasCenterZone ? ' ' + bodyOutlinePath(body, n, CENTER_SHRINK, anchor) : ''
+  return (
+    // pointerEvents:none on the SVG wrapper; only the painted band itself
+    // (fill, minus the even-odd hole) is interactive — an unpainted SVG box
+    // would otherwise win hit-tests against siblings.
+    <svg width={1} height={1} style={{ position: 'absolute', left: 0, top: 0, overflow: 'visible', pointerEvents: 'none', zIndex: 1 }}>
+      <path d={outer + inner} fill="transparent" fillRule="evenodd" stroke="none" pointerEvents="fill" style={{ cursor: 'crosshair' }} />
+    </svg>
+  )
+}
+
+// Hovering the center zone (a smaller inner region — see isInCenterZone)
+// highlights the WHOLE form body, edge to edge — same outline BodyView
+// itself draws, just tinted for hover instead of selection.
+function CenterOverlay({ body, n, color }: { body: Body; n: number; color: string }) {
+  if (body.type !== 'polygon') {
+    return (
+      <div style={{
+        position: 'absolute', inset: 0, borderRadius: '50%', background: color,
+        pointerEvents: 'none', zIndex: 1,
+      }} />
+    )
+  }
+  const clip = `polygon(${body.pointsFrac.map(([x, y]) => `${(x * 100).toFixed(3)}% ${(y * 100).toFixed(3)}%`).join(', ')})`
+  return <div style={{ position: 'absolute', inset: 0, clipPath: clip, background: color, pointerEvents: 'none', zIndex: 1 }} />
+}
+
+// The CSS class React Flow's dragHandle prop targets (set on the node in
+// Canvas.tsx) — restricts native node-dragging to exactly the center zone.
+// Trying to prevent dragging by intercepting the pointerdown event ourselves
+// loses the race against React Flow's own internal (earlier-attached)
+// listener; dragHandle is the library's own first-class way to scope it.
+export const DRAG_HANDLE_CLASS = 'form-drag-handle'
+
+// Always-present (unlike CenterOverlay, which only renders on hover) — an
+// invisible hit-area shaped like the shrunk center zone, matching
+// isInCenterZone's own boundary exactly so dragging is enabled EXACTLY
+// where center-hover/selection are.
+function DragHandleZone({ body, n }: { body: Body; n: number }) {
+  const shrunk = shrunkBodyPoints(body)
+  if (shrunk) {
+    const clip = `polygon(${shrunk.map(([x, y]) => `${(x * 100).toFixed(3)}% ${(y * 100).toFixed(3)}%`).join(', ')})`
+    return <div className={DRAG_HANDLE_CLASS} style={{ position: 'absolute', inset: 0, clipPath: clip, zIndex: 2 }} />
+  }
+  // circle/dot body: shrunkBodyPoints only handles 'polygon' — same
+  // CENTER_SHRINK factor, just expressed as a smaller inscribed circle
+  // instead of a scaled point list.
+  const d = n * CENTER_SHRINK
+  return (
+    <div className={DRAG_HANDLE_CLASS} style={{
+      position: 'absolute', left: n / 2, top: n / 2, transform: 'translate(-50%, -50%)',
+      width: d, height: d, borderRadius: '50%', zIndex: 2,
+    }} />
+  )
+}
 
 // Body fill + 1.5px border. No colour → transparent fill; the border is ALWAYS
 // pure black. Selection only tints the fill.
-function BodyView({ body, n, accent, selected, bodyOpacity }: {
-  body: Body; n: number; accent: string | null; selected: boolean; bodyOpacity: number
+function BodyView({ body, n, accent, selected, bodyOpacity, hasCenterZone }: {
+  body: Body; n: number; accent: string | null; selected: boolean; bodyOpacity: number; hasCenterZone: boolean
 }) {
   const fillOpacity = (selected ? theme.node.selectedFillOpacity : theme.node.fillOpacity) * bodyOpacity
   const bg = accent
     ? `rgba(${accent}, ${fillOpacity})`
-    : (selected ? `rgba(${theme.node.accentBlue}, ${0.10 * bodyOpacity})` : 'transparent')
+    : (selected ? theme.node.regionSelected : 'transparent')
   const border = `rgba(0, 0, 0, ${bodyOpacity})` // pure black (transparent only for the empty form)
+  // Purely decorative — this was silently winning hit-tests against the
+  // DragHandleZone/phantom-handle overlays near the body's own boundary
+  // (an SVG stroke's hit region is wider than its visual width), breaking
+  // ring dragging right where it mattered most. Only kinds WITH a center
+  // zone have that always-present DragHandleZone as a fallback interactive
+  // catch-all — point/empty have none, so their body must stay clickable or
+  // basic select/drag breaks for them entirely.
+  const decorative = hasCenterZone ? ({ pointerEvents: 'none' } as const) : {}
 
   if (body.type === 'circle') {
     return (
@@ -69,6 +193,7 @@ function BodyView({ body, n, accent, selected, bodyOpacity }: {
         position: 'absolute', inset: 0, borderRadius: '50%',
         background: bg, outline: `1.5px solid ${border}`, outlineOffset: -0.75,
         transition: 'background 0.15s ease, outline-color 0.15s ease',
+        ...decorative,
       }} />
     )
   }
@@ -77,8 +202,9 @@ function BodyView({ body, n, accent, selected, bodyOpacity }: {
     return (
       <div style={{
         position: 'absolute', inset: 0, borderRadius: '50%', background: fill,
-        boxShadow: selected ? `0 0 0 3px rgba(${theme.node.accentBlue}, 0.45)` : 'none',
+        boxShadow: selected ? `0 0 0 3px ${theme.node.regionSelected}` : 'none',
         transition: 'background 0.15s ease, box-shadow 0.15s ease',
+        ...decorative,
       }} />
     )
   }
@@ -87,8 +213,8 @@ function BodyView({ body, n, accent, selected, bodyOpacity }: {
   const polyPts = pts.map(([x, y]) => `${x * n},${y * n}`).join(' ')
   return (
     <>
-      <div style={{ position: 'absolute', inset: 0, clipPath: clip, background: bg, transition: 'background 0.15s ease' }} />
-      <svg width={n} height={n} style={{ position: 'absolute', inset: 0, overflow: 'visible' }}>
+      <div style={{ position: 'absolute', inset: 0, clipPath: clip, background: bg, transition: 'background 0.15s ease', ...decorative }} />
+      <svg width={n} height={n} style={{ position: 'absolute', inset: 0, overflow: 'visible', ...decorative }}>
         <polygon points={polyPts} fill="none" stroke={border} strokeWidth={1.5} />
       </svg>
     </>
@@ -112,7 +238,32 @@ function FormNode({ id, data, selected }: NodeProps) {
   const selectedPoints = useStore((s) => s.selectedPoints)
   const setSelectedPoints = useStore((s) => s.setSelectedPoints)
   const toggleSelectedPoint = useStore((s) => s.toggleSelectedPoint)
+  // Cursor territory is resolved centrally in Canvas.tsx (point proximity >
+  // center zone > edge/corner ring); each derived value below is scoped so a
+  // hover change elsewhere doesn't re-render every FormNode/point — only the
+  // one thing that actually changed.
+  const hover = useStore((s) => s.hover)
+  const hoverEdgeKey = hover?.kind === 'edge' && hover.formId === id ? hover.edgeKey : null
+  const hoverCenter = hover?.kind === 'center' && hover.formId === id
   const { setNodes } = useReactFlow()
+
+  // The phantom handle (below) must stay mounted for the WHOLE lifetime of a
+  // connection drag that started from it — hover clears the instant the
+  // cursor leaves this form on its way to the drop target, which would
+  // otherwise unmount the very Handle React Flow is mid-drag from. Falling
+  // back to the in-progress connection's own fromHandle (decoded) keeps it
+  // rendered, at its original edge, for exactly as long as the drag lasts.
+  const activeConnectionFromHandle = useConnection((c) =>
+    c.inProgress && c.fromNode?.id === id ? (c.fromHandle?.id ?? null) : null,
+  )
+  const phantomEdgeKey = hoverEdgeKey ?? (activeConnectionFromHandle ? decodePhantomHandle(activeConnectionFromHandle) : null)
+  // The phantom Handle mounts/unmounts/moves on every hover change — React
+  // Flow only re-measures handle bounds via a ResizeObserver on the node's
+  // overall box, which a child appearing/disappearing doesn't trigger (the
+  // node's own n×n size never changes), so a just-mounted phantom is
+  // invisible to React Flow's own connection-start hit-testing until this
+  // nudges it to re-scan. Same fix rotation already needed above.
+  useEffect(() => { updateNodeInternals(id) }, [id, phantomEdgeKey, updateNodeInternals])
 
   // Select a point (from its glyph/grab handle OR its name): exclusive with form
   // selection; Cmd/Ctrl+click accumulates, plain click single-selects.
@@ -152,14 +303,20 @@ function FormNode({ id, data, selected }: NodeProps) {
         position: 'absolute', top: anchor.y, left: anchor.x, transform: 'translate(-50%, -50%)',
         width: 1, height: 1, minWidth: 1, minHeight: 1, background: 'transparent', border: 'none', padding: 0, zIndex: 5,
       }
+      // A point's own drag-region hover always wins over the form's
+      // region/center hover (decided centrally in Canvas.tsx's
+      // nearestPointWithin) — a selected point gets the darker tint instead,
+      // quiver's hover/select language, not the blue form-selection accent.
+      const isHovered = hover?.kind === 'point' && hover.pointId === pid
+      const regionTint = isSel ? theme.node.regionSelected : isHovered ? theme.node.regionHover : null
       pointVisuals.push(
         <span key={`pt-${pid}`}>
-          {/* selection ring — a consistent circle for ALL points (incl. empty) */}
-          {isSel && (
+          {/* drag-region tint — a consistent circle for ALL points (incl. empty) */}
+          {regionTint && (
             <div style={{
               position: 'absolute', top: anchor.y, left: anchor.x, transform: 'translate(-50%, -50%)',
-              width: 15, height: 15, borderRadius: '50%', zIndex: 3, pointerEvents: 'none',
-              boxShadow: `0 0 0 2px rgba(${theme.node.accentBlue}, 0.45)`,
+              width: REGION_CORNER_SIZE, height: REGION_CORNER_SIZE, borderRadius: '50%', zIndex: 3, pointerEvents: 'none',
+              background: regionTint,
             }} />
           )}
           {/* glyph: visual only, behind the handles */}
@@ -172,11 +329,20 @@ function FormNode({ id, data, selected }: NodeProps) {
           <Handle type="target" position={anchor.position} id={hid} style={dotStyle} />
           <Handle type="source" position={anchor.position} id={hid} style={dotStyle} onClick={(e) => selectPoint(e, pid)}>
             {/* grab pad — easy to grab; events bubble to the handle above */}
-            <span style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%, -50%)', width: POINT_HIT, height: POINT_HIT, borderRadius: '50%', cursor: 'crosshair', display: 'block' }} />
+            <span style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%, -50%)', width: REGION_CORNER_SIZE, height: REGION_CORNER_SIZE, borderRadius: '50%', cursor: 'crosshair', display: 'block' }} />
           </Handle>
           {/* point name — click it to select the point too; hidden via .points-hidden
-              (see globals.css) when the Points toggle is off */}
-          <div className="point-label" onClick={(e) => selectPoint(e, pid)} style={{ position: 'absolute', ...lblPos, zIndex: 4, cursor: 'pointer' }}>
+              (see globals.css) when the Points toggle is off. data-point-id lets
+              Canvas.tsx's onNodeMouseMove recognize a real hover here directly
+              from the DOM event target — the label's rendered width varies with
+              the name text, so a fixed proximity radius around the anchor alone
+              can't reliably reach it. */}
+          <div
+            className="point-label"
+            data-point-id={pid}
+            onClick={(e) => selectPoint(e, pid)}
+            style={{ position: 'absolute', ...lblPos, zIndex: 4, cursor: 'pointer' }}
+          >
             <Tex fontSize={POINT_NAME_SIZE} color={theme.text.ink}>{pt.name ?? pid}</Tex>
           </div>
         </span>,
@@ -189,7 +355,49 @@ function FormNode({ id, data, selected }: NodeProps) {
       position: 'relative', width: n, height: n, cursor: 'pointer',
       transform: form.rotation ? `rotate(${form.rotation}deg)` : undefined,
     }}>
-      <BodyView body={geom.body} n={n} accent={accent} selected={!!selected} bodyOpacity={geom.bodyOpacity} />
+      <BodyView body={geom.body} n={n} accent={accent} selected={!!selected} bodyOpacity={geom.bodyOpacity} hasCenterZone={geom.hasCenterZone} />
+      {/* dragHandle hit-area (see Canvas.tsx's node-building) — kinds with no
+          center zone (point/empty) stay draggable from anywhere, matching
+          their existing "whole body is one region" behavior. */}
+      {geom.hasCenterZone && <DragHandleZone body={geom.body} n={n} />}
+      {/* point-creation region hover — quiver-style: shows which edge/corner a
+          double-click would land a new point on */}
+      {hoverEdgeKey && <RegionOverlay shape={geom.regionShape(hoverEdgeKey)} n={n} color={theme.node.regionHover} />}
+      {/* Phantom handle — kept TINY and anchored exactly like a real point's
+          dotStyle (a Handle sized to the whole form makes React Flow draw
+          the connection line from the form's middle instead of the edge —
+          confirmed the hard way). Its grabbable/droppable area is a CHILD
+          RingBandHitArea covering the ENTIRE point-creation zone (the band
+          the hover hit-test fires in), so the crosshair works wherever the
+          hover is active — the tint stripe is only the indicator of which
+          edge that zone maps to. As the cursor crosses into a different
+          edge's territory, hover updates and this phantom re-anchors there,
+          so a press ALWAYS starts from the currently-indicated edge.
+          Pulling a line out of the band goes through React Flow's own
+          native connection-drag (same as dragging from a real point); the
+          phantom id resolves into a real point (addPoint) in Canvas.tsx's
+          onConnect(End) the moment a connection actually completes. */}
+      {phantomEdgeKey && (() => {
+        const count = pointIdsAt(form, phantomEdgeKey).length
+        const anchor = geom.pointAnchor(phantomEdgeKey, count, count + 1, n)
+        const hid = encodePhantomHandle(phantomEdgeKey)
+        const dotStyle: React.CSSProperties = {
+          position: 'absolute', top: anchor.y, left: anchor.x, transform: 'translate(-50%, -50%)',
+          width: 1, height: 1, minWidth: 1, minHeight: 1, background: 'transparent', border: 'none', padding: 0, zIndex: 5,
+        }
+        return (
+          <span key="phantom">
+            <Handle type="target" position={anchor.position} id={hid} style={dotStyle}>
+              <RingBandHitArea body={geom.body} n={n} hasCenterZone={geom.hasCenterZone} anchor={anchor} />
+            </Handle>
+            <Handle type="source" position={anchor.position} id={hid} style={dotStyle}>
+              <RingBandHitArea body={geom.body} n={n} hasCenterZone={geom.hasCenterZone} anchor={anchor} />
+            </Handle>
+          </span>
+        )
+      })()}
+      {/* center hover — shows that a plain click here selects the whole form */}
+      {hoverCenter && <CenterOverlay body={geom.body} n={n} color={theme.node.regionHover} />}
       {geom.bodyOpacity > 0 && geom.showName && (
         <div style={{
           position: 'absolute', left: centroid[0] * n, top: centroid[1] * n,

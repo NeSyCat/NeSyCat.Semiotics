@@ -10,11 +10,25 @@ let coalesceTag: string | null = null
 
 export type EdgePathMode = 'straight' | 'smoothstep'
 
+// A form's cursor territory splits into three zones, decided centrally in
+// Canvas.tsx (the only place with enough context — full diagram + geometry —
+// to resolve them with a single priority order): an existing point's own
+// drag handle always wins regardless of inside/outside the body; failing
+// that, an inner "select the whole form" zone; failing that, the point-
+// creation ring near the edges/corners. Never more than one is active.
+export type HoverTarget =
+  | { kind: 'point'; pointId: string }
+  | { kind: 'center'; formId: string }
+  | { kind: 'edge'; formId: string; edgeKey: string }
+  | null
+
 interface State {
   diagram: Diagram
   selectedPoints: string[] // point ids
   edgePath: EdgePathMode
   pointsVisible: boolean
+  // Quiver-style hover highlight — transient UI state, not part of undo history.
+  hover: HoverTarget
 
   history: Diagram[]
   historyIndex: number
@@ -26,6 +40,8 @@ interface State {
   setSelectedPoints: (ids: string[]) => void
   toggleSelectedPoint: (id: string) => void
   clearSelection: () => void
+  setHover: (target: Exclude<HoverTarget, null>) => void
+  clearHover: () => void
 
   // Mutations (delegate to pure functions; one history entry each)
   addForm: (kind: FormKind, position: { x: number; y: number }) => string
@@ -71,6 +87,7 @@ export const useStore = create<State>((set, get) => {
     selectedPoints: [],
     edgePath: 'straight',
     pointsVisible: true,
+    hover: null,
     history: [emptyDiagram],
     historyIndex: 0,
 
@@ -99,6 +116,23 @@ export const useStore = create<State>((set, get) => {
     },
     clearSelection: () => {
       if (get().selectedPoints.length > 0) set({ selectedPoints: [] })
+    },
+
+    // Deduped so mousemove (fired on every pixel) only triggers a state
+    // update — and downstream re-render — when the hovered target actually
+    // changes, not on every frame within the same target.
+    setHover: (target) => {
+      const cur = get().hover
+      const same = cur && cur.kind === target.kind && (
+        (cur.kind === 'point' && target.kind === 'point' && cur.pointId === target.pointId) ||
+        (cur.kind === 'center' && target.kind === 'center' && cur.formId === target.formId) ||
+        (cur.kind === 'edge' && target.kind === 'edge' && cur.formId === target.formId && cur.edgeKey === target.edgeKey)
+      )
+      if (same) return
+      set({ hover: target })
+    },
+    clearHover: () => {
+      if (get().hover) set({ hover: null })
     },
 
     addForm: (kind, position) => {
