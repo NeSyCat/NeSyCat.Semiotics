@@ -1,0 +1,5 @@
+# GitHub Linguist overrides. The _design/ pipeline is static HTML/CSS/JS
+# prototype artifacts, not app code — keep it out of the language stats.
+# linguist-detectable=false only affects stats; the files stay tracked and
+# diff/search behavior is untouched.
+_design/** linguist-detectable=false
