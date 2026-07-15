@@ -3,11 +3,7 @@
 A web editor for category-theoretic **string diagrams**. Compose shapes,
 wire their points, and round-trip the whole diagram as JSON.
 
-This repo is just the editor. The umbrella site for the NeSyCat project
-(theory paper, HaskTorch implementation, project context) lives at
-**[nesycat.com](https://nesycat.com)**.
-
-Editor live at **[semiotics.nesycat.com](https://semiotics.nesycat.com)** —
+Editor live at **[semiotics.nesycat.org](https://semiotics.nesycat.org)** —
 sign in with GitHub and start drawing.
 
 ## What you can draw
