@@ -1,0 +1,13 @@
+# GitHub Linguist overrides — the language bar should reflect the app itself
+# (TypeScript). linguist-detectable=false only affects language stats; the
+# files stay tracked and diff/search behavior is untouched.
+
+# Design pipeline artifacts (static HTML/CSS/JS prototypes)
+_design/** linguist-detectable=false
+
+# Tooling configs pinned to .mjs by Next.js / ESLint conventions
+*.mjs linguist-detectable=false
+
+# Stylesheets and CI shell glue
+*.css linguist-detectable=false
+*.sh linguist-detectable=false
