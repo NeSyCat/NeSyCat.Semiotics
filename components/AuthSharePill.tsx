@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useStore } from '@/components/editor2/store'
 import { encodeDiagramToFragment } from '@/components/editor2/share'
 import { createClient } from '@/lib/supabase/client'
-import { GitHubIcon, startGitHubSignIn } from '@/components/SignInButton'
+import { startGitHubSignIn } from '@/components/SignInButton'
 
 interface Props {
   isSignedIn: boolean
@@ -27,6 +27,15 @@ function CheckIcon() {
   return (
     <svg width={24} height={24} viewBox="0 0 24 24" fill="none" aria-hidden="true">
       <path d="M5 12.5l4.5 4.5L19 7" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+function SignInIcon() {
+  return (
+    <svg width={24} height={24} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M9 4h8a2 2 0 012 2v12a2 2 0 01-2 2H9" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M3 12h11m0 0l-3.5-3.5M14 12l-3.5 3.5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   )
 }
@@ -88,7 +97,7 @@ export default function AuthSharePill({ isSignedIn, callbackUrl, shareBase }: Pr
           aria-label="Sign in with GitHub"
           onClick={() => startGitHubSignIn(callbackUrl)}
         >
-          <GitHubIcon size={24} style={{ fill: 'currentColor', stroke: 'none' }} />
+          <SignInIcon />
         </button>
       )}
     </div>
