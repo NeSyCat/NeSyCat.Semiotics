@@ -86,7 +86,12 @@ function syncHashFragment(json: string, snapshot: Diagram) {
   const isEmpty =
     snapshot.forms.length === 0 && snapshot.lines.length === 0 && Object.keys(snapshot.points).length === 0
   if (isEmpty) {
-    history.replaceState(null, '', location.pathname + location.search)
+    try {
+      history.replaceState(null, '', location.pathname + location.search)
+    } catch {
+      // Safari rate-limits replaceState (SecurityError) — skip this write;
+      // the next debounced edit retries and the draft is unaffected.
+    }
     return
   }
   encodeJsonToFragment(json)
