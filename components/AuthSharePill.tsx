@@ -69,24 +69,26 @@ export default function AuthSharePill({ isSignedIn, callbackUrl, shareBase }: Pr
 
   return (
     <div className="pill editor-pill">
-      <button className="btn" title="Copy share link" aria-label="Copy share link" onClick={onShare}>
+      <button
+        className="btn btn-icon"
+        title={copied ? 'Copied' : 'Copy share link'}
+        aria-label="Copy share link"
+        onClick={onShare}
+      >
         {copied ? <CheckIcon /> : <ShareIcon />}
-        {copied ? 'Copied' : 'Share'}
       </button>
       {isSignedIn ? (
-        <button className="btn" title="Sign out" aria-label="Sign out" onClick={onSignOut}>
+        <button className="btn btn-icon" title="Sign out" aria-label="Sign out" onClick={onSignOut}>
           <SignOutIcon />
-          Sign out
         </button>
       ) : (
         <button
-          className="btn"
+          className="btn btn-icon"
           title="Sign in with GitHub"
           aria-label="Sign in with GitHub"
           onClick={() => startGitHubSignIn(callbackUrl)}
         >
           <GitHubIcon size={24} style={{ fill: 'currentColor', stroke: 'none' }} />
-          Sign in
         </button>
       )}
     </div>
