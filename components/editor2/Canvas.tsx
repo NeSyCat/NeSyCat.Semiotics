@@ -750,6 +750,11 @@ function Canvas({ topRight }: CanvasContentProps) {
         onConnectEnd={onConnectEnd}
         isValidConnection={isValidConnection}
         connectionMode={ConnectionMode.Loose}
+        // React Flow's click-to-connect (on by default) completes a
+        // connection from two successive handle CLICKS — with the phantom
+        // handles covering every ring band, clicking two side zones silently
+        // drew a line between them. Lines are created by DRAGGING, only.
+        connectOnClick={false}
         // Plain click = single-select; Cmd/Ctrl+click accumulates; Shift+drag
         // box-selects (selectionKeyCode stays the default Shift). Dragging a
         // form moves it WITHOUT selecting it — selection is a click's job.
