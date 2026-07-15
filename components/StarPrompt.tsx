@@ -99,8 +99,7 @@ export default function StarPrompt({ repoUrl }: { repoUrl: string }) {
           Enjoying NeSyCat?
         </h2>
         <p className="t-body">
-          If the editor is useful to you, a GitHub star would mean a lot — it helps others
-          discover the project.
+          If the editor is useful to you, a star on GitHub helps others find it.
         </p>
         <div className="flex w-full justify-end gap-2">
           <Button variant="ghost" onClick={dismiss}>

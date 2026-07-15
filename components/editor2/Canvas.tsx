@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useCallback, useRef, useEffect, useLayoutEffect } from 'react'
+import { useState, useMemo, useCallback, useRef, useEffect, useLayoutEffect, type ReactNode } from 'react'
 import {
   ReactFlow,
   ReactFlowProvider,
@@ -18,7 +18,7 @@ import '@xyflow/react/dist/style.css'
 import FormNode from './FormNode'
 import LineEdge from './LineEdge'
 import { useStore, initStore } from './store'
-import { useAutosave } from './save'
+import { useAutosave, useLocalAutosave } from './save'
 import { geometryFor, pointIdsAt, BASE_SIZE } from './forms'
 import { encodeHandle, decodeHandle } from './handles'
 import theme from './theme'
@@ -254,7 +254,11 @@ function RotationField({ sig, initial, disabled, onChange }: {
   )
 }
 
-function Canvas() {
+interface CanvasContentProps {
+  topRight?: ReactNode
+}
+
+function Canvas({ topRight }: CanvasContentProps) {
   const diagram = useStore((s) => s.diagram)
   const clearSelection = useStore((s) => s.clearSelection)
   const renameForms = useStore((s) => s.renameForms)
@@ -631,17 +635,21 @@ function Canvas() {
       <ToolbarSprite />
 
       {/* Points-visibility toggle — a single-button pill in the canvas's top-right
-          corner, mirroring the sidebar's collapse pill on the opposite side. */}
+          corner, mirroring the sidebar's collapse pill on the opposite side.
+          `topRight` (the auth/share pill) joins it in a pill-cluster. */}
       <div style={{ position: 'absolute', top: 16, right: 16, zIndex: 10 }}>
-        <div className="pill editor-pill">
-          <button
-            className={`btn btn-icon${pointsVisible ? '' : ' is-active'}`}
-            title={pointsVisible ? 'Hide point names' : 'Show point names'}
-            aria-label={pointsVisible ? 'Hide point names' : 'Show point names'}
-            onClick={togglePointsVisible}
-          >
-            <svg aria-hidden="true"><use href={`#${pointsVisible ? 'ic-eye' : 'ic-eye-off'}`} /></svg>
-          </button>
+        <div className="pill-cluster">
+          <div className="pill editor-pill">
+            <button
+              className={`btn btn-icon${pointsVisible ? '' : ' is-active'}`}
+              title={pointsVisible ? 'Hide point names' : 'Show point names'}
+              aria-label={pointsVisible ? 'Hide point names' : 'Show point names'}
+              onClick={togglePointsVisible}
+            >
+              <svg aria-hidden="true"><use href={`#${pointsVisible ? 'ic-eye' : 'ic-eye-off'}`} /></svg>
+            </button>
+          </div>
+          {topRight}
         </div>
       </div>
 
@@ -721,20 +729,23 @@ function Canvas() {
 interface CanvasProps {
   diagramId: string | null
   initialData: Diagram
+  topRight?: ReactNode
+  localDraft?: boolean
 }
 
-export default function CanvasRoot({ diagramId, initialData }: CanvasProps) {
+export default function CanvasRoot({ diagramId, initialData, topRight, localDraft }: CanvasProps) {
   const [ready, setReady] = useState(false)
   useLayoutEffect(() => {
     initStore(initialData)
     setReady(true)
   }, [initialData])
   useAutosave(ready ? diagramId : null)
+  useLocalAutosave(ready && !!localDraft)
   if (!ready) return null
   return (
     <div style={{ width: '100%', height: '100%', position: 'relative' }}>
       <ReactFlowProvider>
-        <Canvas />
+        <Canvas topRight={topRight} />
       </ReactFlowProvider>
     </div>
   )

@@ -8,11 +8,13 @@ type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
 }
 
 const BASE =
-  'inline-flex items-center justify-center h-[30px] px-4 text-[13px] font-semibold text-[color:var(--color-text-primary)] rounded-[var(--radius-sm)] transition-colors cursor-pointer'
+  'inline-flex items-center justify-center h-[30px] px-4 text-[13px] font-semibold rounded-[var(--radius-sm)] transition-colors cursor-pointer'
 
+// Text color lives with the variant: on the primary fill it must be the DS's
+// on-primary token (white), same as the vendored .btn--primary.
 const VARIANT: Record<ButtonVariant, string> = {
-  primary: 'bg-[color:var(--color-primary)] hover:opacity-90',
-  ghost:   'border border-[color:var(--color-border)] hover:bg-[color:var(--color-surface)]',
+  primary: 'bg-[color:var(--color-primary)] text-[color:var(--color-primary-foreground)] hover:opacity-90',
+  ghost:   'border border-[color:var(--color-border)] text-[color:var(--color-text-primary)] hover:bg-[color:var(--color-surface)]',
 }
 
 const FIGMA_NODE: Record<ButtonVariant, string> = {
