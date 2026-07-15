@@ -48,7 +48,9 @@ export default function ImportSharedHash({ editorHrefBase }: Props) {
       const row = await createDiagram('Shared diagram')
       await saveDiagram(row.id, decoded)
       router.replace(hrefFor(editorHrefBase, row.id))
-    })()
+    })().catch((err) => {
+      console.error('shared-diagram import failed', err)
+    })
   }, [editorHrefBase, router])
 
   return null
