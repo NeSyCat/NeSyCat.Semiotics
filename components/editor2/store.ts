@@ -29,6 +29,10 @@ interface State {
   pointsVisible: boolean
   // Quiver-style hover highlight — transient UI state, not part of undo history.
   hover: HoverTarget
+  // Hovered wire (React Flow edge id) — transient UI state like `hover`. Lives
+  // here (not CSS :hover) because the edge label is portalled outside the edge
+  // group and must tint in sync with the band.
+  hoveredEdgeId: string | null
 
   history: Diagram[]
   historyIndex: number
@@ -42,6 +46,7 @@ interface State {
   clearSelection: () => void
   setHover: (target: Exclude<HoverTarget, null>) => void
   clearHover: () => void
+  setHoveredEdgeId: (id: string | null) => void
 
   // Mutations (delegate to pure functions; one history entry each)
   addForm: (kind: FormKind, position: { x: number; y: number }) => string
@@ -89,6 +94,7 @@ export const useStore = create<State>((set, get) => {
     edgePath: 'straight',
     pointsVisible: true,
     hover: null,
+    hoveredEdgeId: null,
     history: [emptyDiagram],
     historyIndex: 0,
 
@@ -134,6 +140,9 @@ export const useStore = create<State>((set, get) => {
     },
     clearHover: () => {
       if (get().hover) set({ hover: null })
+    },
+    setHoveredEdgeId: (id) => {
+      if (get().hoveredEdgeId !== id) set({ hoveredEdgeId: id })
     },
 
     addForm: (kind, position) => {

@@ -4,6 +4,7 @@ import { memo, useMemo } from 'react'
 import {
   BaseEdge,
   EdgeLabelRenderer,
+  ViewportPortal,
   getStraightPath,
   getSmoothStepPath,
   type EdgeProps,
@@ -33,6 +34,7 @@ function LineEdge({
 }: EdgeProps) {
   const d = data as unknown as LineEdgeData
   const mode = useStore((s) => s.edgePath)
+  const hovered = useStore((s) => s.hoveredEdgeId === id)
 
   const [edgePath, labelX, labelY] = mode === 'smoothstep'
     ? getSmoothStepPath({ sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition })
@@ -41,19 +43,47 @@ function LineEdge({
   const lineColor = d.color ? `rgb(${toRgbTriple(d.color)})` : '#000000' // no colour → black
   const edgeStyle = useMemo(
     () => ({
-      stroke: selected ? `rgb(${theme.node.accentBlue})` : lineColor, // blue when selected
-      strokeWidth: selected ? 2.5 : 1.5,
-      transition: 'stroke 0.15s ease, stroke-width 0.15s ease',
+      stroke: lineColor, // wire always keeps its own color — selection is shown via the band, not a stroke swap
+      strokeWidth: 1.5,
+      transition: 'stroke 0.15s ease',
     }),
-    [selected, lineColor],
+    [lineColor],
   )
+
+  // Hover/selection tint — the DS interaction tokens, same as the forms' zones.
+  const tint = selected ? 'var(--color-selected)' : hovered ? 'var(--color-hover)' : null
 
   return (
     <>
       <BaseEdge id={id} path={edgePath} markerEnd={markerEnd} style={edgeStyle} />
+      {/* Hover/selection band — a translucent grey sweep along the whole wire,
+          invisible until the wire is hovered (store.hoveredEdgeId) or selected.
+          Rendered in the ViewportPortal, the topmost viewport layer, so it
+          draws straight through the line/point name masks (which live in lower
+          layers and exist only to keep the wire's dashes from striking through
+          the text). Same tint idiom as forms' quiver-style zones. */}
+      <ViewportPortal>
+        <svg
+          aria-hidden="true"
+          width="1"
+          height="1"
+          style={{ position: 'absolute', top: 0, left: 0, overflow: 'visible', pointerEvents: 'none' }}
+        >
+          <path
+            d={edgePath}
+            className="line-band"
+            fill="none"
+            strokeWidth={14}
+            strokeLinecap="round"
+            style={{ stroke: tint ?? 'transparent', transition: 'stroke 0.15s ease' }}
+          />
+        </svg>
+      </ViewportPortal>
       <EdgeLabelRenderer>
         {/* Read-only LaTeX label (edited only in the Name field). No box — just a
-            small canvas-coloured mask so the line doesn't strike through it. */}
+            small canvas-coloured mask so the line doesn't strike through it. The
+            hover/selection band paints OVER this mask (viewport portal), so the
+            highlight passes through the name without a gap. */}
         <div
           className="nodrag nopan"
           style={{

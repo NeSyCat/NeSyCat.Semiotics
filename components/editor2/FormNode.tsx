@@ -340,6 +340,27 @@ function FormNode({ id, data, selected }: NodeProps) {
               from the DOM event target — the label's rendered width varies with
               the name text, so a fixed proximity radius around the anchor alone
               can't reliably reach it. */}
+          {/* Canvas-coloured mask so wires don't strike through the name — same
+              idea as the line label's mask (LineEdge.tsx). A SEPARATE inert
+              sibling at zIndex 0: above the edges layer (masks the wire) but
+              below every tint overlay (zIndex 1+), so form hover/selection
+              states sweep straight across the name instead of being notched.
+              It sizes itself with a hidden copy of the label text; box-shadow
+              instead of padding so the anchored position matches exactly. */}
+          <div
+            className="point-label"
+            aria-hidden="true"
+            style={{
+              position: 'absolute', ...lblPos, zIndex: 0, pointerEvents: 'none',
+              background: theme.canvas.background,
+              boxShadow: `0 0 0 4px ${theme.canvas.background}`,
+              borderRadius: 6,
+            }}
+          >
+            <span style={{ visibility: 'hidden' }}>
+              <Tex fontSize={POINT_NAME_SIZE} color={theme.text.ink}>{pt.name ?? pid}</Tex>
+            </span>
+          </div>
           <div
             className="point-label"
             data-point-id={pid}
