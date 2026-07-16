@@ -195,32 +195,29 @@ function ToolbarSprite() {
   )
 }
 
-// Top Spine pill — the mockup's 9 categories (exact symbols / value glyphs).
+// Top Spine pill — the mockup's categories (exact symbols / value glyphs).
 // Only "shape" opens a working second toolbar; the rest are placeholders.
+// Direction/Weight/Order are disabled for now — kept out of this list so
+// they don't render in the pill.
 const CATEGORIES: Array<{ key: string; label: string; content: React.ReactNode }> = [
-  { key: 'direction', label: 'Direction', content: <svg aria-hidden="true"><use href="#ic-direction-center" /></svg> },
-  { key: 'weight', label: 'Weight', content: <svg aria-hidden="true"><use href="#ic-weight" /></svg> },
   { key: 'scale', label: 'Scale', content: <svg aria-hidden="true"><use href="#ic-scale" /></svg> },
   { key: 'rotation', label: 'Rotation', content: <svg aria-hidden="true"><use href="#ic-rotation" /></svg> },
   { key: 'location', label: 'Location', content: <svg aria-hidden="true"><use href="#ic-location" /></svg> },
-  { key: 'order', label: 'Order', content: <span style={{ fontWeight: 600, fontSize: 14 }}>5</span> },
   { key: 'color', label: 'Color', content: <span style={{ width: 18, height: 18, borderRadius: '50%', background: '#0080ff', display: 'block' }} /> },
   { key: 'shape', label: 'Shape', content: <svg aria-hidden="true"><use href="#kind-hexagon" /></svg> },
   { key: 'name', label: 'Name', content: <span style={{ fontWeight: 600, fontSize: 14, fontFamily: 'var(--font-sans, system-ui, sans-serif)' }}>Aa</span> },
 ]
 
-// Second toolbar — the Shape rail. SAME 9 slots as the Spine (equal length).
-// Every tile sets the shape of the SELECTED POINT(S). For FORMS, only tiles
-// with a `kind` are functional; the rest are point-only placeholders (but all
-// 9 are valid point shapes).
+// Second toolbar — the Shape rail. Every tile sets the shape of the SELECTED
+// POINT(S). For FORMS, only tiles with a `kind` are functional; the rest are
+// point-only placeholders. Line/Pentagon/Hexagon are disabled for now — kept
+// out of this list so they don't render in the pill, but PointShape in
+// types.ts still includes them so pre-existing diagram data isn't affected.
 const SHAPE_RAIL: Array<{ label: string; symbol: string; pshape: PointShape; kind?: FormKind }> = [
   { label: 'Empty', symbol: 'kind-empty', pshape: 'empty', kind: 'empty' },
   { label: 'Point', symbol: 'kind-point', pshape: 'point', kind: 'point' },
-  { label: 'Line', symbol: 'kind-line', pshape: 'line' },
   { label: 'Triangle', symbol: 'kind-triangle', pshape: 'triangle', kind: 'triangle' },
   { label: 'Rhombus', symbol: 'kind-rhombus', pshape: 'rhombus', kind: 'rhombus' },
-  { label: 'Pentagon', symbol: 'kind-pentagon', pshape: 'pentagon' },
-  { label: 'Hexagon', symbol: 'kind-hexagon', pshape: 'hexagon' },
   { label: 'Circle', symbol: 'kind-circle', pshape: 'circle', kind: 'circle' },
   { label: 'Square', symbol: 'kind-rectangle', pshape: 'square', kind: 'square' },
 ]
@@ -820,8 +817,7 @@ function Canvas({ topRight }: CanvasContentProps) {
         </div>
       </div>
 
-      {/* Second toolbar — the Shape rail. SAME 9 slots as the Spine, so both
-          pills are always the same length. Only triangle/circle/square work. */}
+      {/* Second toolbar — the Shape rail. Only triangle/circle/square work. */}
       {activeCategory === 'shape' && (
         <div style={{ position: 'absolute', top: 70, left: 'calc(50% + (var(--sidebar-offset, 0px) / 2))', transform: 'translateX(-50%)', zIndex: 10, transition: 'left 200ms' }}>
           <div className="pill editor-pill" role="group" aria-label="Shape">
