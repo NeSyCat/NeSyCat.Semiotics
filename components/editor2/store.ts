@@ -49,7 +49,7 @@ interface State {
   setHoveredEdgeId: (id: string | null) => void
 
   // Mutations (delegate to pure functions; one history entry each)
-  addForm: (kind: FormKind, position: { x: number; y: number }) => string
+  addForm: (kind: FormKind, position: { x: number; y: number }, color?: Color | null) => string
   deleteForm: (id: string) => void
   moveForm: (id: string, position: { x: number; y: number }) => void
   moveForms: (updates: Array<{ id: string; position: { x: number; y: number } }>) => void
@@ -148,8 +148,8 @@ export const useStore = create<State>((set, get) => {
       if (get().hoveredEdgeId !== id) set({ hoveredEdgeId: id })
     },
 
-    addForm: (kind, position) => {
-      const [d, id] = M.addForm(get().diagram, kind, position)
+    addForm: (kind, position, color) => {
+      const [d, id] = M.addForm(get().diagram, kind, position, color)
       setCur(d)
       return id
     },

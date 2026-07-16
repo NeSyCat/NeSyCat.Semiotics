@@ -270,6 +270,7 @@ function swatchStyle(color: Color | null | undefined, active: boolean, size: num
 // persisted to localStorage (not the store/history) so it survives a reload
 // without becoming an undo step or part of the saved diagram.
 const ACTIVE_KIND_KEY = 'nesycat.editor.activeKind'
+const ACTIVE_COLOR_KEY = 'nesycat.editor.activeColor'
 const ACTIVE_CATEGORY_KEY = 'nesycat.editor.activeCategory'
 
 function readLocalStorage(key: string): string | null {
@@ -477,6 +478,20 @@ function Canvas({ topRight }: CanvasContentProps) {
     return stored != null && (stored === '' || CATEGORIES.some((c) => c.key === stored)) ? stored : 'shape'
   })
   useEffect(() => { writeLocalStorage(ACTIVE_KIND_KEY, activeKind) }, [activeKind])
+
+  // The active color — the creation default, exactly like activeKind: new
+  // forms are born with it, and the Color rail edits it when nothing is
+  // selected. null = the White default.
+  const [activeColor, setActiveColor] = useState<Color | null>(() => {
+    const stored = readLocalStorage(ACTIVE_COLOR_KEY)
+    if (!stored) return null
+    try {
+      const v = JSON.parse(stored)
+      if (Array.isArray(v) && v.length === 3 && v.every((n) => Number.isFinite(n) && n >= 0 && n <= 1)) return v as Color
+    } catch { /* malformed — fall through to the default */ }
+    return null
+  })
+  useEffect(() => { writeLocalStorage(ACTIVE_COLOR_KEY, JSON.stringify(activeColor)) }, [activeColor])
   useEffect(() => { writeLocalStorage(ACTIVE_CATEGORY_KEY, activeCategory) }, [activeCategory])
 
   // The shape shared by all selected points (for the rail highlight), if any.
@@ -601,11 +616,17 @@ function Canvas({ topRight }: CanvasContentProps) {
     return { shared: first, isShared: colors.every((c) => sameColor(c, first)) }
   }, [selectionTarget, diagram])
 
+  // Mirrors onPickShape: point(s) selected → color just them; otherwise the
+  // click sets the ACTIVE color (the creation default) and also recolors any
+  // selected form(s)/line(s).
   const onColor = useCallback((color: Color | null) => {
-    if (!selectionTarget) return
-    if (selectionTarget.kind === 'points') useStore.getState().setPointsColor(selectionTarget.ids, color)
-    else if (selectionTarget.kind === 'forms') useStore.getState().setFormsColor(selectionTarget.ids, color)
-    else useStore.getState().setLinesColor(selectionTarget.ids, color)
+    if (selectionTarget?.kind === 'points') {
+      useStore.getState().setPointsColor(selectionTarget.ids, color)
+      return
+    }
+    setActiveColor(color)
+    if (selectionTarget?.kind === 'forms') useStore.getState().setFormsColor(selectionTarget.ids, color)
+    else if (selectionTarget?.kind === 'lines') useStore.getState().setLinesColor(selectionTarget.ids, color)
   }, [selectionTarget])
 
   // ── Rotation field target: selected FORM(s) only (points/lines have no
@@ -636,9 +657,9 @@ function Canvas({ topRight }: CanvasContentProps) {
   const createForm = useCallback(
     (kind: FormKind, flow: { x: number; y: number }) => {
       setActiveKind(kind)
-      useStore.getState().addForm(kind, flow)
+      useStore.getState().addForm(kind, flow, activeColor)
     },
-    [],
+    [activeColor],
   )
 
   // Click a Shape-rail tile. The SAME rail picks both point shapes and form
@@ -981,7 +1002,7 @@ function Canvas({ topRight }: CanvasContentProps) {
               {cat.key === 'shape'
                 ? <svg aria-hidden="true"><use href={`#${activeKindSymbol}`} /></svg>
                 : cat.key === 'color'
-                  ? <span style={swatchStyle(colorInfo.isShared ? colorInfo.shared : undefined, false, 18)} />
+                  ? <span style={swatchStyle(selectionTarget ? (colorInfo.isShared ? colorInfo.shared : undefined) : activeColor, false, 18)} />
                   : cat.content}
             </button>
           ))}
@@ -1024,13 +1045,17 @@ function Canvas({ topRight }: CanvasContentProps) {
         <div style={{ position: 'absolute', top: 70, left: 'calc(50% + (var(--sidebar-offset, 0px) / 2))', transform: 'translateX(-50%)', zIndex: 10, transition: 'left 200ms' }}>
           <div className="pill editor-pill" role="group" aria-label="Color">
             {COLOR_RAIL.map((c) => {
-              const active = colorInfo.isShared && sameColor(colorInfo.shared, c.color)
+              // With a selection, the rail reflects its shared color; without
+              // one it reflects the active (creation-default) color — same
+              // split as the Shape rail's selectedPointShape/activeKind.
+              const active = selectionTarget
+                ? colorInfo.isShared && sameColor(colorInfo.shared, c.color)
+                : sameColor(activeColor, c.color)
               return (
                 <button
                   key={c.label}
                   className={`btn btn-icon${active ? ' is-active' : ''}`}
                   title={c.label}
-                  disabled={!selectionTarget}
                   onClick={() => onColor(c.color)}
                 >
                   <span style={swatchStyle(c.color, active, 16)} />
