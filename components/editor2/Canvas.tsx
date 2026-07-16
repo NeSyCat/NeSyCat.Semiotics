@@ -22,7 +22,8 @@ import { useAutosave, useLocalAutosave } from './save'
 import { geometryFor, pointIdsAt, isInsideBody, isInCenterZone, BASE_SIZE, type FormGeometry } from './forms'
 import { encodeHandle, decodeHandle, decodePhantomHandle } from './handles'
 import theme from './theme'
-import type { Diagram, Form, FormKind, PointShape } from './types'
+import type { Diagram, Form, FormKind, PointShape, Color } from './types'
+import { toCssRgb } from './color'
 
 const nodeTypes: NodeTypes = { form: FormNode }
 const edgeTypes: EdgeTypes = { line: LineEdge }
@@ -203,7 +204,9 @@ const CATEGORIES: Array<{ key: string; label: string; content: React.ReactNode }
   { key: 'scale', label: 'Scale', content: <svg aria-hidden="true"><use href="#ic-scale" /></svg> },
   { key: 'rotation', label: 'Rotation', content: <svg aria-hidden="true"><use href="#ic-rotation" /></svg> },
   { key: 'location', label: 'Location', content: <svg aria-hidden="true"><use href="#ic-location" /></svg> },
-  { key: 'color', label: 'Color', content: <span style={{ width: 18, height: 18, borderRadius: '50%', background: '#0080ff', display: 'block' }} /> },
+  // Static fallback content — actually rendered dynamically below (the pill
+  // maps 'color' to a disk showing the selection's shared colour).
+  { key: 'color', label: 'Color', content: <span style={{ width: 18, height: 18, borderRadius: '50%', background: 'transparent', display: 'block' }} /> },
   { key: 'shape', label: 'Shape', content: <svg aria-hidden="true"><use href="#kind-hexagon" /></svg> },
   { key: 'name', label: 'Name', content: <span style={{ fontWeight: 600, fontSize: 14, fontFamily: 'var(--font-sans, system-ui, sans-serif)' }}>Aa</span> },
 ]
@@ -221,6 +224,47 @@ const SHAPE_RAIL: Array<{ label: string; symbol: string; pshape: PointShape; kin
   { label: 'Circle', symbol: 'kind-circle', pshape: 'circle', kind: 'circle' },
   { label: 'Square', symbol: 'kind-rectangle', pshape: 'square', kind: 'square' },
 ]
+
+// Second toolbar — the Color rail. Applies to the SELECTION (points > forms >
+// lines, same priority as the Name field). Hues are HSL 0/30/60/120/180/210/
+// 240/300 at 100% S, 50% L, per spec; White closes out the row. White IS the
+// default: it maps to `null`, clearing the target back to the undefined
+// default (transparent form fill / ink glyphs / black lines) — an uncolored
+// target reads as White in the rail and the top-pill icon.
+const COLOR_RAIL: Array<{ label: string; color: Color | null }> = [
+  { label: 'Red', color: [1, 0, 0] },
+  { label: 'Orange', color: [1, 0.5, 0] },
+  { label: 'Yellow', color: [1, 1, 0] },
+  { label: 'Green', color: [0, 1, 0] },
+  { label: 'Cyan', color: [0, 1, 1] },
+  { label: 'Azure', color: [0, 0.5, 1] },
+  { label: 'Blue', color: [0, 0, 1] },
+  { label: 'Magenta', color: [1, 0, 1] },
+  { label: 'White', color: null },
+]
+
+// Value-compares two colors — null/undefined both mean the White default and
+// count as equal, so a mixed selection of one never-coloured form and one
+// White-reset point still reads as a shared default state.
+function sameColor(a: Color | null | undefined, b: Color | null | undefined): boolean {
+  if (!a || !b) return !a && !b
+  return a[0] === b[0] && a[1] === b[1] && a[2] === b[2]
+}
+
+// Shared disk styling for both the Color-rail swatches and the top-pill
+// Color icon — no color means the White default, so the disk is never
+// anything but a plain color. `active` swaps the inset ring to white so it
+// stays visible against the .is-active button's primary-blue fill.
+function swatchStyle(color: Color | null | undefined, active: boolean, size: number): React.CSSProperties {
+  return {
+    width: size,
+    height: size,
+    borderRadius: '50%',
+    display: 'block',
+    background: color ? toCssRgb(color) : '#ffffff',
+    boxShadow: active ? 'inset 0 0 0 1px rgba(255,255,255,0.85)' : 'inset 0 0 0 1px rgba(0,0,0,0.12)',
+  }
+}
 
 // Which toolbar tool/category is active is a UI preference, not diagram data —
 // persisted to localStorage (not the store/history) so it survives a reload
@@ -426,7 +470,7 @@ function Canvas({ topRight }: CanvasContentProps) {
 
   const [activeKind, setActiveKind] = useState<FormKind>(() => {
     const stored = readLocalStorage(ACTIVE_KIND_KEY)
-    return stored && SHAPE_RAIL.some((s) => s.kind === stored) ? (stored as FormKind) : 'triangle'
+    return stored && SHAPE_RAIL.some((s) => s.kind === stored) ? (stored as FormKind) : 'square'
   })
   const [activeCategory, setActiveCategory] = useState<string>(() => {
     const stored = readLocalStorage(ACTIVE_CATEGORY_KEY)
@@ -509,8 +553,10 @@ function Canvas({ topRight }: CanvasContentProps) {
     })
   }, [builtEdges, setEdges])
 
-  // ── Name field target: the current selection (points > forms > lines) ──
-  const nameTarget = useMemo(() => {
+  // ── Selection target: the current selection (points > forms > lines).
+  // Pure selection state — shared by the Name field AND the Color rail,
+  // whose targeting is identical. ─────────────────────────────────────
+  const selectionTarget = useMemo(() => {
     const formIds = nodes.filter((n) => n.selected).map((n) => n.id)
     const lineIds = [...new Set(edges.filter((e) => e.selected).map((e) => String(e.id).split('#')[0]))]
     if (selectedPoints.length) return { kind: 'points' as const, ids: selectedPoints }
@@ -520,25 +566,47 @@ function Canvas({ topRight }: CanvasContentProps) {
   }, [nodes, edges, selectedPoints])
 
   const nameInfo = useMemo(() => {
-    if (!nameTarget) return { value: '', placeholder: 'Select a form, point, or line', sig: '' }
-    const id0 = nameTarget.ids[0]
-    const single = nameTarget.ids.length === 1
-    const name = nameTarget.kind === 'points' ? diagram.points[id0]?.name
-      : nameTarget.kind === 'forms' ? diagram.forms.find((f) => f.id === id0)?.name
+    if (!selectionTarget) return { value: '', placeholder: 'Select a form, point, or line', sig: '' }
+    const id0 = selectionTarget.ids[0]
+    const single = selectionTarget.ids.length === 1
+    const name = selectionTarget.kind === 'points' ? diagram.points[id0]?.name
+      : selectionTarget.kind === 'forms' ? diagram.forms.find((f) => f.id === id0)?.name
         : diagram.lines.find((l) => l.id === id0)?.name
     return {
       value: single ? (name ?? '') : '',
-      placeholder: single ? id0 : `${nameTarget.ids.length} ${nameTarget.kind}`,
-      sig: nameTarget.kind + ':' + nameTarget.ids.join(','),
+      placeholder: single ? id0 : `${selectionTarget.ids.length} ${selectionTarget.kind}`,
+      sig: selectionTarget.kind + ':' + selectionTarget.ids.join(','),
     }
-  }, [nameTarget, diagram])
+  }, [selectionTarget, diagram])
 
   const onName = useCallback((value: string) => {
-    if (!nameTarget) return
-    if (nameTarget.kind === 'points') renamePoints(nameTarget.ids, value)
-    else if (nameTarget.kind === 'forms') renameForms(nameTarget.ids, value)
-    else renameLines(nameTarget.ids, value)
-  }, [nameTarget, renamePoints, renameForms, renameLines])
+    if (!selectionTarget) return
+    if (selectionTarget.kind === 'points') renamePoints(selectionTarget.ids, value)
+    else if (selectionTarget.kind === 'forms') renameForms(selectionTarget.ids, value)
+    else renameLines(selectionTarget.ids, value)
+  }, [selectionTarget, renamePoints, renameForms, renameLines])
+
+  // ── Color rail: same target as the Name field (points > forms > lines).
+  // `colorInfo.isShared` tells the rail (and the top-pill icon) whether the
+  // whole target agrees on one color (incl. all-uncolored) — that's the
+  // active swatch; a mixed selection has none. ──────────────────────────
+  const colorInfo = useMemo(() => {
+    if (!selectionTarget) return { shared: undefined as Color | undefined, isShared: false }
+    const colors = selectionTarget.ids.map((id) =>
+      selectionTarget.kind === 'points' ? diagram.points[id]?.color
+        : selectionTarget.kind === 'forms' ? diagram.forms.find((f) => f.id === id)?.color
+          : diagram.lines.find((l) => l.id === id)?.color,
+    )
+    const first = colors[0]
+    return { shared: first, isShared: colors.every((c) => sameColor(c, first)) }
+  }, [selectionTarget, diagram])
+
+  const onColor = useCallback((color: Color | null) => {
+    if (!selectionTarget) return
+    if (selectionTarget.kind === 'points') useStore.getState().setPointsColor(selectionTarget.ids, color)
+    else if (selectionTarget.kind === 'forms') useStore.getState().setFormsColor(selectionTarget.ids, color)
+    else useStore.getState().setLinesColor(selectionTarget.ids, color)
+  }, [selectionTarget])
 
   // ── Rotation field target: selected FORM(s) only (points/lines have no
   // body to rotate) ───────────────────────────────────────────────────
@@ -912,7 +980,9 @@ function Canvas({ topRight }: CanvasContentProps) {
             >
               {cat.key === 'shape'
                 ? <svg aria-hidden="true"><use href={`#${activeKindSymbol}`} /></svg>
-                : cat.content}
+                : cat.key === 'color'
+                  ? <span style={swatchStyle(colorInfo.isShared ? colorInfo.shared : undefined, false, 18)} />
+                  : cat.content}
             </button>
           ))}
         </div>
@@ -947,12 +1017,36 @@ function Canvas({ topRight }: CanvasContentProps) {
         </div>
       )}
 
+      {/* Second toolbar — the Color rail. Same target as the Name field
+          (points > forms > lines); White resets to the default. Sizes to
+          content, like the Shape rail. */}
+      {activeCategory === 'color' && (
+        <div style={{ position: 'absolute', top: 70, left: 'calc(50% + (var(--sidebar-offset, 0px) / 2))', transform: 'translateX(-50%)', zIndex: 10, transition: 'left 200ms' }}>
+          <div className="pill editor-pill" role="group" aria-label="Color">
+            {COLOR_RAIL.map((c) => {
+              const active = colorInfo.isShared && sameColor(colorInfo.shared, c.color)
+              return (
+                <button
+                  key={c.label}
+                  className={`btn btn-icon${active ? ' is-active' : ''}`}
+                  title={c.label}
+                  disabled={!selectionTarget}
+                  onClick={() => onColor(c.color)}
+                >
+                  <span style={swatchStyle(c.color, active, 16)} />
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Name field — the whole pill is a text input renaming the current
           selection (points > forms > lines). Same width as the Shape rail. */}
       {activeCategory === 'name' && (
         <div style={{ position: 'absolute', top: 70, left: 'calc(50% + (var(--sidebar-offset, 0px) / 2))', transform: 'translateX(-50%)', zIndex: 10, transition: 'left 200ms' }}>
           <div className="pill editor-pill" style={{ width: 360, padding: '0 4px' }}>
-            <NameField sig={nameInfo.sig} initial={nameInfo.value} placeholder={nameInfo.placeholder} disabled={!nameTarget} onChange={onName} />
+            <NameField sig={nameInfo.sig} initial={nameInfo.value} placeholder={nameInfo.placeholder} disabled={!selectionTarget} onChange={onName} />
           </div>
         </div>
       )}

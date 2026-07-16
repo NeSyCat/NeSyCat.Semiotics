@@ -1,4 +1,4 @@
-import type { Diagram, Form, Point, Line, FormKind, EdgeKey, PointShape } from './types'
+import type { Diagram, Form, Point, Line, FormKind, EdgeKey, PointShape, Color } from './types'
 import { newFormId, newPointId, newLineId } from './ids'
 import { geometryFor } from './forms'
 
@@ -96,6 +96,12 @@ export function setFormsScale(d: Diagram, ids: string[], scale: number): Diagram
   return { ...d, forms: d.forms.map((f) => (set.has(f.id) ? { ...f, scale: s === 1 ? undefined : s } : f)) }
 }
 
+// Color rail — null clears back to the undefined default (no colour).
+export function setFormsColor(d: Diagram, ids: string[], color: Color | null): Diagram {
+  const set = new Set(ids)
+  return { ...d, forms: d.forms.map((f) => (set.has(f.id) ? { ...f, color: color ?? undefined } : f)) }
+}
+
 // ── Points ───────────────────────────────────────────────────────────
 // A corner is a single slot: if it's already occupied, refuse (returns the id
 // as '' — same "no-op" signal as "form not found") rather than stacking a
@@ -156,6 +162,18 @@ export function setPointsShape(d: Diagram, ids: string[], shape: PointShape): Di
   return changed ? { ...d, points } : d
 }
 
+// Color rail — null clears back to the undefined default (no colour).
+export function setPointsColor(d: Diagram, ids: string[], color: Color | null): Diagram {
+  const points = { ...d.points }
+  const c = color ?? undefined
+  let changed = false
+  for (const id of ids) {
+    const pt = points[id]
+    if (pt && pt.color !== c) { points[id] = { ...pt, color: c }; changed = true }
+  }
+  return changed ? { ...d, points } : d
+}
+
 // ── Lines ────────────────────────────────────────────────────────────
 export function addLine(d: Diagram, sourcePtId: string, targetPtId: string): [Diagram, string] {
   const id = newLineId(d)
@@ -193,6 +211,12 @@ export function renameLines(d: Diagram, ids: string[], name: string): Diagram {
   const set = new Set(ids)
   const nm = name === '' ? undefined : name
   return { ...d, lines: d.lines.map((l) => (set.has(l.id) ? { ...l, name: nm } : l)) }
+}
+
+// Color rail — null clears back to the undefined default (no colour).
+export function setLinesColor(d: Diagram, ids: string[], color: Color | null): Diagram {
+  const set = new Set(ids)
+  return { ...d, lines: d.lines.map((l) => (set.has(l.id) ? { ...l, color: color ?? undefined } : l)) }
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────
