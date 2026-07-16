@@ -776,6 +776,15 @@ function Canvas({ topRight }: CanvasContentProps) {
     useStore.getState().clearHover()
   }, [])
 
+  // Wire hover — tracked in the store (not CSS :hover) so LineEdge can tint
+  // its band AND its portalled label in sync (see store.hoveredEdgeId).
+  const onEdgeMouseEnter = useCallback((_: React.MouseEvent, edge: Edge) => {
+    useStore.getState().setHoveredEdgeId(edge.id)
+  }, [])
+  const onEdgeMouseLeave = useCallback(() => {
+    useStore.getState().setHoveredEdgeId(null)
+  }, [])
+
   // ── Move ───────────────────────────────────────────────────────────
   const onNodeDragStop = useCallback((_: unknown, node: Node, draggedNodes?: Node[]) => {
     const all = draggedNodes && draggedNodes.length > 0 ? draggedNodes : [node]
@@ -852,6 +861,8 @@ function Canvas({ topRight }: CanvasContentProps) {
         onNodeDoubleClick={onNodeDoubleClick}
         onNodeMouseMove={onNodeMouseMove}
         onNodeMouseLeave={onNodeMouseLeave}
+        onEdgeMouseEnter={onEdgeMouseEnter}
+        onEdgeMouseLeave={onEdgeMouseLeave}
         onSelectionChange={onSelectionChange}
         onPaneClick={onPaneClick}
         nodeTypes={nodeTypes}

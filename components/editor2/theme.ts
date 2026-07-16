@@ -12,15 +12,15 @@ const theme = {
     borderColor: 'var(--color-border)',
   },
   node: {
-    accentBlue: '52, 120, 246', // DS --color-primary (#3478F6) as an R,G,B triple
     fillOpacity: 0.18,
     borderOpacity: 0.35,
     selectedFillOpacity: 0.35,
     selectedBorderOpacity: 0.7,
     // quiver-style neutral hover/selection tint for point-creation regions and
     // point grab areas — deliberately gray, not the blue form-selection accent.
-    regionHover: 'rgba(0, 0, 0, 0.08)',
-    regionSelected: 'rgba(0, 0, 0, 0.20)',
+    // Values come from the DS interaction-state tokens (tokens/colors.css).
+    regionHover: 'var(--color-hover)',
+    regionSelected: 'var(--color-selected)',
   },
   fontSize: 16,
   smallFontSize: 14,
