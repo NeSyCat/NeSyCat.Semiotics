@@ -41,6 +41,9 @@ function canonForm(f: Record<string, unknown>): Form {
     ...(f.name !== undefined ? { name: String(f.name) } : {}),
     ...(f.color != null ? { color: asColor(f.color) } : {}),
     ...(f.rotation != null ? { rotation: Number(f.rotation) } : {}),
+    ...(f.scale != null && Number.isFinite(Number(f.scale)) && Number(f.scale) > 0
+      ? { scale: Math.max(0.25, Math.min(4, Number(f.scale))) }
+      : {}),
     position: { x: Number(pos.x ?? 0), y: Number(pos.y ?? 0) },
     edges,
     corners,

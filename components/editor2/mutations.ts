@@ -88,6 +88,14 @@ export function setFormsRotation(d: Diagram, ids: string[], rotation: number): D
   return { ...d, forms: d.forms.map((f) => (set.has(f.id) ? { ...f, rotation: deg === 0 ? undefined : deg } : f)) }
 }
 
+// Scale as a size multiplier, clamped to [0.25, 4]; exactly 1 clears back to
+// the undefined default.
+export function setFormsScale(d: Diagram, ids: string[], scale: number): Diagram {
+  const set = new Set(ids)
+  const s = Math.max(0.25, Math.min(4, scale))
+  return { ...d, forms: d.forms.map((f) => (set.has(f.id) ? { ...f, scale: s === 1 ? undefined : s } : f)) }
+}
+
 // ── Points ───────────────────────────────────────────────────────────
 // A corner is a single slot: if it's already occupied, refuse (returns the id
 // as '' — same "no-op" signal as "form not found") rather than stacking a

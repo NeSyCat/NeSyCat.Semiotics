@@ -224,16 +224,19 @@ function BodyView({ body, n, accent, selected, bodyOpacity, hasCenterZone }: {
 function FormNode({ id, data, selected }: NodeProps) {
   const { form, points } = data as unknown as FormNodeData
   const geom = geometryFor(form.kind)
-  const n = geom.nodeSize(form)
+  // Scale is a size multiplier applied right here — every zone/anchor/handle
+  // below derives from n, so they all scale automatically along with it.
+  const n = geom.nodeSize(form) * (form.scale ?? 1)
   const centroid = bodyCentroid(geom.body)
   const accent = form.color ? toRgbTriple(form.color) : null
 
   // Rotation is a CSS transform on the whole node (body + points + name, one
   // rigid unit). Handles move with it, but React Flow only remeasures handle
   // positions on resize — a pure transform doesn't trigger that — so nudge it
-  // explicitly or connected edges keep drawing to the pre-rotation spot.
+  // explicitly or connected edges keep drawing to the pre-rotation spot. Scale
+  // changes the node's actual box size, which needs the same nudge.
   const updateNodeInternals = useUpdateNodeInternals()
-  useEffect(() => { updateNodeInternals(id) }, [id, form.rotation, updateNodeInternals])
+  useEffect(() => { updateNodeInternals(id) }, [id, form.rotation, form.scale, updateNodeInternals])
 
   const selectedPoints = useStore((s) => s.selectedPoints)
   const setSelectedPoints = useStore((s) => s.setSelectedPoints)

@@ -157,7 +157,7 @@ function ToolbarSprite() {
           <path d="M7 9h10l1.6 11H5.4z" />
         </symbol>
         <symbol id="ic-scale" viewBox="0 0 24 24" fill="none">
-          <path d="M9 4H4v5M15 20h5v-5M4 4l6 6M20 20l-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M9 4H4v5M15 20h5v-5M4 4l6 6M20 20l-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" transform="rotate(90 12 12)" />
         </symbol>
         <symbol id="ic-rotation" viewBox="0 0 24 24" fill="none">
           <path d="M19 12a7 7 0 1 1-2.05-4.95" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
@@ -263,18 +263,25 @@ function NameField({ sig, initial, placeholder, disabled, onChange }: {
 }
 
 // Slider drags snap to the right angles when within this many degrees, so
-// landing on an exact 0/90/180/270 is easy without fighting the mouse.
+// landing on an exact 0/90/180/270/360 is easy without fighting the mouse.
+// 360 is kept as its own hit (not wrapped to 0) so the slider can actually
+// reach — and display — its right edge; onChange still wraps it to 0 when
+// it's committed to the diagram (see RotationField.apply below).
 const RIGHT_ANGLES = [0, 90, 180, 270, 360]
 const SNAP_TOLERANCE = 12
 function snapToRightAngle(v: number): number {
   const hit = RIGHT_ANGLES.find((a) => Math.abs(v - a) <= SNAP_TOLERANCE)
-  return hit === undefined ? v : hit % 360
+  return hit === undefined ? v : hit
 }
 
-// The Rotation category's second pill — a 0-359° slider over the selected
+// The Rotation category's second pill — a 0-360° slider over the selected
 // form(s) (mirrors the mockup's bounds slider), plus a directly-editable
 // degree readout. `sig` re-seeds the field when the selection changes, same
-// coalescing-drag pattern as NameField.
+// coalescing-drag pattern as NameField. The slider's right edge is a real,
+// reachable 360 (not silently folded into 0) so a full-turn drag doesn't
+// visually snap backwards mid-gesture — 360 and 0 are the same rotation, but
+// only the STORED value wraps; the live readout keeps whichever the user
+// dragged to.
 function RotationField({ sig, initial, disabled, onChange }: {
   sig: string; initial: number; disabled: boolean; onChange: (v: number) => void
 }) {
@@ -283,7 +290,10 @@ function RotationField({ sig, initial, disabled, onChange }: {
   useEffect(() => { setVal(initial); setText(String(initial)) }, [sig]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const apply = (deg: number) => {
-    const wrapped = ((Math.round(deg) % 360) + 360) % 360
+    const rounded = Math.round(deg)
+    // A full turn (any nonzero multiple of 360) reads as 360, not 0 — the
+    // wrap to 0 still happens on the way into the store (setFormsRotation).
+    const wrapped = rounded !== 0 && rounded % 360 === 0 ? 360 : ((rounded % 360) + 360) % 360
     setVal(wrapped)
     setText(String(wrapped))
     onChange(wrapped)
@@ -299,7 +309,7 @@ function RotationField({ sig, initial, disabled, onChange }: {
       <input
         type="range"
         min={0}
-        max={359}
+        max={360}
         step={1}
         disabled={disabled}
         value={disabled ? 0 : val}
@@ -326,6 +336,75 @@ function RotationField({ sig, initial, disabled, onChange }: {
         }}
       />
       <span style={{ fontSize: 13, color: disabled ? 'var(--color-muted-foreground)' : 'var(--color-foreground)' }}>°</span>
+    </div>
+  )
+}
+
+// Slider drags snap to the round hundreds (100/200/300/400%) when within
+// this many percentage points, so landing on an exact multiple — including
+// the "no scaling" 100% default — is easy without fighting the mouse. Same
+// idea (and same tolerance strength) as rotation's snapToRightAngle/RIGHT_ANGLES.
+const SCALE_MARKS = [100, 200, 300, 400]
+const SCALE_SNAP_TOLERANCE = SNAP_TOLERANCE
+function snapToScaleMark(v: number): number {
+  const hit = SCALE_MARKS.find((m) => Math.abs(v - m) <= SCALE_SNAP_TOLERANCE)
+  return hit === undefined ? v : hit
+}
+
+// The Scale category's second pill — a 25-400% slider over the selected
+// form(s), plus a directly-editable percent readout. `sig` re-seeds the field
+// when the selection changes, same coalescing-drag pattern as RotationField.
+function ScaleField({ sig, initial, disabled, onChange }: {
+  sig: string; initial: number; disabled: boolean; onChange: (v: number) => void
+}) {
+  const [val, setVal] = useState(initial)
+  const [text, setText] = useState(String(initial))
+  useEffect(() => { setVal(initial); setText(String(initial)) }, [sig]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const apply = (pct: number) => {
+    const clamped = Math.max(25, Math.min(400, Math.round(pct)))
+    setVal(clamped)
+    setText(String(clamped))
+    onChange(clamped)
+  }
+  const commitText = () => {
+    const n = Number(text)
+    if (Number.isFinite(n)) apply(n)
+    else setText(String(val))
+  }
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', height: 36, padding: '0 14px', boxSizing: 'border-box' }}>
+      <input
+        type="range"
+        min={25}
+        max={400}
+        step={5}
+        disabled={disabled}
+        value={disabled ? 100 : val}
+        onChange={(e) => apply(snapToScaleMark(Number(e.target.value)))}
+        style={{ flex: 1 }}
+      />
+      <input
+        type="text"
+        inputMode="numeric"
+        disabled={disabled}
+        value={disabled ? '—' : text}
+        onChange={(e) => setText(e.target.value)}
+        onFocus={(e) => e.target.select()}
+        onBlur={commitText}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
+          if (e.key === 'Escape') { setText(String(val)); (e.target as HTMLInputElement).blur() }
+        }}
+        style={{
+          width: 28, textAlign: 'right', fontSize: 13, fontVariantNumeric: 'tabular-nums',
+          background: 'transparent', border: 'none', outline: 'none', padding: 0,
+          color: disabled ? 'var(--color-muted-foreground)' : 'var(--color-foreground)',
+          fontFamily: 'var(--font-sans, system-ui, sans-serif)',
+        }}
+      />
+      <span style={{ fontSize: 13, color: disabled ? 'var(--color-muted-foreground)' : 'var(--color-foreground)' }}>%</span>
     </div>
   )
 }
@@ -474,6 +553,17 @@ function Canvas({ topRight }: CanvasContentProps) {
     if (selectedFormIds.length) useStore.getState().setFormsRotation(selectedFormIds, deg)
   }, [selectedFormIds])
 
+  // ── Scale field target: selected FORM(s) only, same shape as rotation's ──
+  const scaleInfo = useMemo(() => {
+    if (selectedFormIds.length === 0) return { value: 100, sig: '' }
+    const form = diagram.forms.find((f) => f.id === selectedFormIds[0])
+    return { value: Math.round((form?.scale ?? 1) * 100), sig: selectedFormIds.join(',') }
+  }, [selectedFormIds, diagram])
+
+  const onScale = useCallback((pct: number) => {
+    if (selectedFormIds.length) useStore.getState().setFormsScale(selectedFormIds, pct / 100)
+  }, [selectedFormIds])
+
   // ── Create forms ───────────────────────────────────────────────────
   const createForm = useCallback(
     (kind: FormKind, flow: { x: number; y: number }) => {
@@ -596,7 +686,7 @@ function Canvas({ topRight }: CanvasContentProps) {
   // lookup (edgeAt) clamp the fraction explicitly at the call site.
   const formLocalPoint = useCallback((event: { clientX: number; clientY: number }, node: Node, form: Form) => {
     const geom = geometryFor(form.kind)
-    const n = node.measured?.width ?? node.width ?? geom.nodeSize(form)
+    const n = node.measured?.width ?? node.width ?? geom.nodeSize(form) * (form.scale ?? 1)
     const flow = screenToFlowPosition({ x: event.clientX, y: event.clientY })
     const [lx, ly] = unrotateLocal(flow.x - node.position.x, flow.y - node.position.y, n, n, form.rotation ?? 0)
     return { rx: lx / n, ry: ly / n, lx, ly, n }
@@ -862,6 +952,16 @@ function Canvas({ topRight }: CanvasContentProps) {
         <div style={{ position: 'absolute', top: 70, left: 'calc(50% + (var(--sidebar-offset, 0px) / 2))', transform: 'translateX(-50%)', zIndex: 10, transition: 'left 200ms' }}>
           <div className="pill editor-pill" style={{ width: 360, padding: '0 4px' }}>
             <RotationField sig={rotationInfo.sig} initial={rotationInfo.value} disabled={selectedFormIds.length === 0} onChange={onRotate} />
+          </div>
+        </div>
+      )}
+
+      {/* Scale field — a 25-400% slider over the selected form(s). Same
+          width/position as the Rotation pill. */}
+      {activeCategory === 'scale' && (
+        <div style={{ position: 'absolute', top: 70, left: 'calc(50% + (var(--sidebar-offset, 0px) / 2))', transform: 'translateX(-50%)', zIndex: 10, transition: 'left 200ms' }}>
+          <div className="pill editor-pill" style={{ width: 360, padding: '0 4px' }}>
+            <ScaleField sig={scaleInfo.sig} initial={scaleInfo.value} disabled={selectedFormIds.length === 0} onChange={onScale} />
           </div>
         </div>
       )}

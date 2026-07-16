@@ -31,6 +31,7 @@ export interface Form {
   name?: string
   color?: Color // undefined = no colour (the default)
   rotation?: number // degrees, 0-359; undefined = 0 (no rotation)
+  scale?: number // size multiplier, 0.25-4; undefined = 1 (no scaling)
   position: { x: number; y: number }
   // Side keys -> ordered list of point ids (unbounded — a side is a wire run).
   edges: Record<EdgeKey, string[]>

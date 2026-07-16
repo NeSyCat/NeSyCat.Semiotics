@@ -52,6 +52,7 @@ interface State {
   renameForms: (ids: string[], name: string) => void
   setFormsKind: (ids: string[], kind: FormKind) => void
   setFormsRotation: (ids: string[], rotation: number) => void
+  setFormsScale: (ids: string[], scale: number) => void
 
   addPoint: (formId: string, edgeKey: string, shape?: PointShape) => string
   removePoint: (id: string) => void
@@ -147,6 +148,7 @@ export const useStore = create<State>((set, get) => {
     renameForms: (ids, name) => { if (ids.length) setCur(M.renameForms(get().diagram, ids, name), 'name:forms:' + [...ids].sort().join(',')) },
     setFormsKind: (ids, kind) => { if (ids.length) setCur(M.setFormsKind(get().diagram, ids, kind)) },
     setFormsRotation: (ids, rotation) => { if (ids.length) setCur(M.setFormsRotation(get().diagram, ids, rotation), 'rotation:forms:' + [...ids].sort().join(',')) },
+    setFormsScale: (ids, scale) => { if (ids.length) setCur(M.setFormsScale(get().diagram, ids, scale), 'scale:forms:' + [...ids].sort().join(',')) },
 
     addPoint: (formId, edgeKey, shape) => {
       const [d, id] = M.addPoint(get().diagram, formId, edgeKey, shape)
