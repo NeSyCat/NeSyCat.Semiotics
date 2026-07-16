@@ -67,7 +67,9 @@ function LineEdge({
           aria-hidden="true"
           width="1"
           height="1"
-          style={{ position: 'absolute', top: 0, left: 0, overflow: 'visible', pointerEvents: 'none' }}
+          // zIndex 1001: React Flow elevates SELECTED nodes to z 1000, which
+          // would otherwise lift their point-name masks back over the band.
+          style={{ position: 'absolute', top: 0, left: 0, overflow: 'visible', pointerEvents: 'none', zIndex: 1001 }}
         >
           <path
             d={edgePath}

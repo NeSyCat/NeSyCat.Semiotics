@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { Diagram, FormKind, PointShape } from './types'
+import type { Diagram, FormKind, PointShape, Color } from './types'
 import * as M from './mutations'
 
 const MAX_HISTORY = 100
@@ -58,6 +58,7 @@ interface State {
   setFormsKind: (ids: string[], kind: FormKind) => void
   setFormsRotation: (ids: string[], rotation: number) => void
   setFormsScale: (ids: string[], scale: number) => void
+  setFormsColor: (ids: string[], color: Color | null) => void
 
   addPoint: (formId: string, edgeKey: string, shape?: PointShape) => string
   removePoint: (id: string) => void
@@ -65,6 +66,7 @@ interface State {
   renamePoints: (ids: string[], name: string) => void
   setPointShape: (id: string, shape: PointShape) => void
   setPointsShape: (ids: string[], shape: PointShape) => void
+  setPointsColor: (ids: string[], color: Color | null) => void
 
   addLine: (sourcePtId: string, targetPtId: string) => string
   addLineTarget: (lineId: string, targetPtId: string) => void
@@ -72,6 +74,7 @@ interface State {
   deleteLineTarget: (lineId: string, idx: number) => void
   renameLine: (id: string, name: string) => void
   renameLines: (ids: string[], name: string) => void
+  setLinesColor: (ids: string[], color: Color | null) => void
 }
 
 const emptyDiagram: Diagram = { schemaVersion: 1, forms: [], points: {}, lines: [] }
@@ -158,6 +161,7 @@ export const useStore = create<State>((set, get) => {
     setFormsKind: (ids, kind) => { if (ids.length) setCur(M.setFormsKind(get().diagram, ids, kind)) },
     setFormsRotation: (ids, rotation) => { if (ids.length) setCur(M.setFormsRotation(get().diagram, ids, rotation), 'rotation:forms:' + [...ids].sort().join(',')) },
     setFormsScale: (ids, scale) => { if (ids.length) setCur(M.setFormsScale(get().diagram, ids, scale), 'scale:forms:' + [...ids].sort().join(',')) },
+    setFormsColor: (ids, color) => { if (ids.length) setCur(M.setFormsColor(get().diagram, ids, color)) },
 
     addPoint: (formId, edgeKey, shape) => {
       const [d, id] = M.addPoint(get().diagram, formId, edgeKey, shape)
@@ -169,6 +173,7 @@ export const useStore = create<State>((set, get) => {
     renamePoints: (ids, name) => { if (ids.length) setCur(M.renamePoints(get().diagram, ids, name), 'name:points:' + [...ids].sort().join(',')) },
     setPointShape: (id, shape) => setCur(M.setPointShape(get().diagram, id, shape)),
     setPointsShape: (ids, shape) => { if (ids.length) setCur(M.setPointsShape(get().diagram, ids, shape)) },
+    setPointsColor: (ids, color) => { if (ids.length) setCur(M.setPointsColor(get().diagram, ids, color)) },
 
     addLine: (src, tgt) => {
       const [d, id] = M.addLine(get().diagram, src, tgt)
@@ -180,6 +185,7 @@ export const useStore = create<State>((set, get) => {
     deleteLineTarget: (lineId, idx) => setCur(M.deleteLineTarget(get().diagram, lineId, idx)),
     renameLine: (id, name) => setCur(M.renameLine(get().diagram, id, name)),
     renameLines: (ids, name) => { if (ids.length) setCur(M.renameLines(get().diagram, ids, name), 'name:lines:' + [...ids].sort().join(',')) },
+    setLinesColor: (ids, color) => { if (ids.length) setCur(M.setLinesColor(get().diagram, ids, color)) },
   }
 })
 

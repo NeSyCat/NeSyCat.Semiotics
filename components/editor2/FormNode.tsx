@@ -285,7 +285,9 @@ function FormNode({ id, data, selected }: NodeProps) {
       if (!pt) return
       const anchor = geom.pointAnchor(edgeKey, index, ids.length, n)
       const isSel = selectedPoints.includes(pid)
-      const fill = accent ? (isSel ? `rgb(${accent})` : `rgba(${accent}, 0.85)`) : theme.text.ink
+      // A point's own color wins over the form's accent (the inherited tint).
+      const glyphTriple = pt.color ? toRgbTriple(pt.color) : accent
+      const fill = glyphTriple ? (isSel ? `rgb(${glyphTriple})` : `rgba(${glyphTriple}, 0.85)`) : theme.text.ink
       const hid = encodeHandle(edgeKey, index)
       // The name label sits OUTSIDE the point, in its edge's outward direction
       // (apex point → right, left-edge point → left, etc.). Counter-rotate so
