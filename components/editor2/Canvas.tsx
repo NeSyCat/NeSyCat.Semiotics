@@ -1002,7 +1002,7 @@ function Canvas({ topRight }: CanvasContentProps) {
               {cat.key === 'shape'
                 ? <svg aria-hidden="true"><use href={`#${activeKindSymbol}`} /></svg>
                 : cat.key === 'color'
-                  ? <span style={swatchStyle(selectionTarget ? (colorInfo.isShared ? colorInfo.shared : undefined) : activeColor, false, 18)} />
+                  ? <span style={swatchStyle(selectionTarget ? (colorInfo.isShared ? colorInfo.shared : undefined) : activeColor, cat.key === activeCategory, 16)} />
                   : cat.content}
             </button>
           ))}
