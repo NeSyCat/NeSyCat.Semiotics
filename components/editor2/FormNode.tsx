@@ -347,21 +347,22 @@ function FormNode({ id, data, selected }: NodeProps) {
               sibling at zIndex 0: above the edges layer (masks the wire) but
               below every tint overlay (zIndex 1+), so form hover/selection
               states sweep straight across the name instead of being notched.
-              It sizes itself with a hidden copy of the label text; box-shadow
-              instead of padding so the anchored position matches exactly. */}
+              It positions/sizes itself with a hidden copy of the label text;
+              the actual fill is an INSET band, tighter than KaTeX's tall line
+              box, so the mask doesn't blank the wire farther out than the
+              glyphs themselves. */}
           <div
             className="point-label"
             aria-hidden="true"
-            style={{
-              position: 'absolute', ...lblPos, zIndex: 0, pointerEvents: 'none',
-              background: theme.canvas.background,
-              boxShadow: `0 0 0 4px ${theme.canvas.background}`,
-              borderRadius: 6,
-            }}
+            style={{ position: 'absolute', ...lblPos, zIndex: 0, pointerEvents: 'none' }}
           >
             <span style={{ visibility: 'hidden' }}>
               <Tex fontSize={POINT_NAME_SIZE} color={theme.text.ink}>{pt.name ?? pid}</Tex>
             </span>
+            <span style={{
+              position: 'absolute', left: -2, right: -2, top: '15%', bottom: '15%',
+              background: theme.canvas.background, borderRadius: 5,
+            }} />
           </div>
           <div
             className="point-label"

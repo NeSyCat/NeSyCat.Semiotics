@@ -27,9 +27,9 @@ function allFormPointIds(form: Form): Set<string> {
 }
 
 // ── Forms ────────────────────────────────────────────────────────────
-export function addForm(d: Diagram, kind: FormKind, position: { x: number; y: number }): [Diagram, string] {
+export function addForm(d: Diagram, kind: FormKind, position: { x: number; y: number }, color?: Color | null): [Diagram, string] {
   const id = newFormId(d)
-  const form: Form = { id, kind, position, ...emptySlots(kind) }
+  const form: Form = { id, kind, position, ...(color ? { color } : {}), ...emptySlots(kind) }
   return [{ ...d, forms: [...d.forms, form] }, id]
 }
 
