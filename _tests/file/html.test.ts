@@ -56,6 +56,37 @@ async function main() {
   const empty = diagramToHtmlCore({ schemaVersion: 1, forms: [], points: {}, lines: [] })
   assert(empty.includes('<svg') && !/NaN/.test(empty), 'an empty diagram still produces a valid, NaN-free SVG')
 
+  // ── geometry: y is NOT flipped (SVG is Y-down like flow space) ────────
+  // H1 sits at flow y=0 (center 100), H2 lower at y=100 (center 200): the
+  // higher-on-screen form must keep the SMALLER y in the SVG output.
+  const polys = [...html.matchAll(/<polygon points="([^"]+)"/g)].map((m) => m[1])
+  const avgY = (pts: string) => {
+    const ys = pts.split(' ').map((p) => Number(p.split(',')[1]))
+    return ys.reduce((a, b) => a + b, 0) / ys.length
+  }
+  assert(polys.length === 2 && avgY(polys[0]) < avgY(polys[1]), 'no y-flip: screen-higher form has smaller SVG y')
+
+  // ── geometry: circle bodies are inside the viewBox, not clipped ───────
+  // A lone circle-kind form (r = n/2 = 100) — the viewBox must contain
+  // center ± r, not just the center point.
+  const circleOnly: Diagram = {
+    schemaVersion: 1,
+    forms: [{ id: 'C1', kind: 'circle', position: { x: 0, y: 0 }, edges: {}, corners: {} }],
+    points: {},
+    lines: [],
+  }
+  const csvg = diagramToHtmlCore(circleOnly)
+  const vb = csvg.match(/viewBox="([-\d. ]+)"/)![1].split(' ').map(Number)
+  const cm = csvg.match(/<circle cx="([-\d.]+)" cy="([-\d.]+)" r="([-\d.]+)"/)!
+  const [cx, cy, r] = [Number(cm[1]), Number(cm[2]), Number(cm[3])]
+  const contained =
+    vb[0] <= cx - r && vb[1] <= cy - r && vb[0] + vb[2] >= cx + r && vb[1] + vb[3] >= cy + r
+  assert(contained, `circle body fully inside viewBox — got viewBox [${vb}] for circle (${cx},${cy}) r=${r}`)
+
+  // ── form outlines match the canvas's 1.5px border, not TikZ's 0.4pt ───
+  assert(/<polygon [^>]*stroke-width="1.5"/.test(html), 'form outline stroke-width is 1.5 (canvas parity)')
+  assert(!/stroke-width="0.4"/.test(html + csvg), 'no TikZ pt-value stroke widths leak into the SVG')
+
   console.log(`\n${pass} passed, ${fail} failed`)
   process.exit(fail > 0 ? 1 : 0)
 }
