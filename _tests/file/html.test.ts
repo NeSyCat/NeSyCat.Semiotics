@@ -87,6 +87,18 @@ async function main() {
   assert(/<polygon [^>]*stroke-width="1.5"/.test(html), 'form outline stroke-width is 1.5 (canvas parity)')
   assert(!/stroke-width="0.4"/.test(html + csvg), 'no TikZ pt-value stroke widths leak into the SVG')
 
+  // ── point-label side: TikZ anchor=east (label LEFT of the point) must ─
+  // become SVG text-anchor="end" (text ends at the point, extending left),
+  // not "start" — the two conventions are inverses.
+  const named: Diagram = {
+    schemaVersion: 1,
+    forms: [{ id: 'N1', kind: 'square', position: { x: 0, y: 0 }, edges: { left: ['p1'] }, corners: {} }],
+    points: { p1: { id: 'p1', shape: 'point', name: 'in', formId: 'N1', edgeKey: 'left' } },
+    lines: [],
+  }
+  const nsvg = diagramToHtmlCore(named)
+  assert(/<text[^>]*text-anchor="end"[^>]*>in<\/text>/.test(nsvg), 'left-edge point label anchors text-anchor="end" (extends away from the form)')
+
   console.log(`\n${pass} passed, ${fail} failed`)
   process.exit(fail > 0 ? 1 : 0)
 }
