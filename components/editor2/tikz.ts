@@ -117,7 +117,7 @@ export function pointPositionsPx(diagram: Diagram): Map<string, PointPx> {
 
 // ── Drawing IR — built entirely in px, converted to cm once at the end ──
 
-type DrawCmd =
+export type DrawCmd =
   | { kind: 'polygon'; pts: Vec[]; fillColor?: Color; fillOpacity: number; strokeColor: Color | 'black'; strokeWidthPt: number }
   | { kind: 'circle'; center: Vec; radiusPx: number; fillColor?: Color; fillOpacity: number; strokeColor?: Color | 'black'; strokeWidthPt?: number }
   | { kind: 'dot'; center: Vec; radiusPx: number; fillColor: Color | 'ink' }
@@ -398,7 +398,9 @@ function emitCmd(cmd: DrawCmd, registry: ColorRegistry, minX: number, maxY: numb
 // All coordinates a DrawCmd touches — for the bounding box pass (min/max
 // must see EVERY position that ends up in the output, including labels, or
 // a label could land outside the normalized [0, width] x [0, height] box).
-function cmdVecs(cmd: DrawCmd): Vec[] {
+// Exported so other backends (html.ts) sharing this IR can compute their own
+// bounding box the same way.
+export function cmdVecs(cmd: DrawCmd): Vec[] {
   switch (cmd.kind) {
     case 'polygon': return cmd.pts
     case 'circle': return [cmd.center]
@@ -412,14 +414,13 @@ function cmdVecs(cmd: DrawCmd): Vec[] {
   }
 }
 
-const SHARE_BASE = 'https://semiotics.nesycat.org/editor'
+export const SHARE_BASE = 'https://semiotics.nesycat.org/editor'
 
-// The pure, synchronous core — geometry + string generation only. Takes an
-// already-computed share fragment (or none, if the header line should be
-// omitted) so it never needs the browser-only compression APIs
-// encodeDiagramToFragment relies on (see share.ts). This is what
-// _tests/file/tikz.test.ts calls directly.
-export function diagramToTikzCore(diagram: Diagram, fragment?: string): string {
+// The full form+point+line draw-command list, in px — the shared IR both
+// diagramToTikzCore (below) and html.ts's SVG emitter consume, so the two
+// export formats can never drift apart on what geometry/color/opacity rules
+// they follow (one geometry pass, two string backends).
+export function buildDrawCmds(diagram: Diagram): DrawCmd[] {
   const cmds: DrawCmd[] = []
   for (const form of diagram.forms) buildFormCmds(form, cmds)
 
@@ -439,7 +440,16 @@ export function diagramToTikzCore(diagram: Diagram, fragment?: string): string {
   }
 
   buildLineCmds(diagram, positions, cmds)
+  return cmds
+}
 
+// The pure, synchronous core — geometry + string generation only. Takes an
+// already-computed share fragment (or none, if the header line should be
+// omitted) so it never needs the browser-only compression APIs
+// encodeDiagramToFragment relies on (see share.ts). This is what
+// _tests/file/tikz.test.ts calls directly.
+export function diagramToTikzCore(diagram: Diagram, fragment?: string): string {
+  const cmds = buildDrawCmds(diagram)
   const allVecs = cmds.flatMap(cmdVecs)
   const minX = allVecs.length ? Math.min(...allVecs.map((v) => v.x)) : 0
   const maxY = allVecs.length ? Math.max(...allVecs.map((v) => v.y)) : 0
