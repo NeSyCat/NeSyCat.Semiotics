@@ -1217,6 +1217,11 @@ function Canvas({ topRight }: CanvasContentProps) {
         deleteKeyCode={['Delete', 'Backspace']}
         panOnScroll
         zoomOnPinch
+        // Double-click on the pane CREATES a form (onPaneClick's own 350ms
+        // two-click detector above) — React Flow's default dbl-click zoom
+        // would fire on the exact same gesture and lurch the viewport right
+        // as the new form appears.
+        zoomOnDoubleClick={false}
         minZoom={0.05}
         maxZoom={4}
         proOptions={{ hideAttribution: true }}
