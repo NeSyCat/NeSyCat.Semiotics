@@ -244,8 +244,15 @@ function FormNode({ id, data, selected }: NodeProps) {
   // Cursor territory is resolved centrally in Canvas.tsx (point proximity >
   // center zone > edge/corner ring); each derived value below is scoped so a
   // hover change elsewhere doesn't re-render every FormNode/point — only the
-  // one thing that actually changed.
-  const hover = useStore((s) => s.hover)
+  // one thing that actually changed. The selector filters out OTHER nodes'
+  // edge/center hovers: edge hovers now update on every cursor move within
+  // the edge (rx/ry drive the phantom slot), so an unnarrowed subscription
+  // would re-render every FormNode per mousemove — this keeps that cost on
+  // the one hovered node. Point hovers pass through for every node (they're
+  // deduped per-pointId in setHover, so they only fire on target change).
+  const hover = useStore((s) =>
+    s.hover && s.hover.kind !== 'point' && s.hover.formId !== id ? null : s.hover,
+  )
   const hoverEdgeKey = hover?.kind === 'edge' && hover.formId === id ? hover.edgeKey : null
   // The exact gesture position within that edge — drives the phantom
   // handle's rendered slot below, so it sits under the cursor instead of a
@@ -273,13 +280,32 @@ function FormNode({ id, data, selected }: NodeProps) {
   // changes so a stale slot from a DIFFERENT edge is never reused.
   const lastPhantomSlotRef = useRef<number | null>(null)
   useEffect(() => { lastPhantomSlotRef.current = null }, [phantomEdgeKey])
+  // Track the live gesture: while hover is actually reporting a position on
+  // THIS edge, the slot is wherever a new point would be inserted right now
+  // (forms.ts's insertionIndex — the same math addPoint's call sites use);
+  // once hover clears mid-drag, hold the last live slot instead of reverting
+  // to a fixed "always append" position, so the origin doesn't jump away
+  // from where the user grabbed. Slot is an integer 0..count, so it only
+  // changes when the cursor crosses into a different insertion interval —
+  // not on every pixel.
+  const phantomSlot = (() => {
+    if (!phantomEdgeKey) return null
+    if (hoverEdgeKey === phantomEdgeKey && hoverRx != null && hoverRy != null) {
+      lastPhantomSlotRef.current = insertionIndex(form, phantomEdgeKey, hoverRx, hoverRy)
+      return lastPhantomSlotRef.current
+    }
+    return lastPhantomSlotRef.current ?? pointIdsAt(form, phantomEdgeKey).length
+  })()
   // The phantom Handle mounts/unmounts/moves on every hover change — React
   // Flow only re-measures handle bounds via a ResizeObserver on the node's
   // overall box, which a child appearing/disappearing doesn't trigger (the
   // node's own n×n size never changes), so a just-mounted phantom is
   // invisible to React Flow's own connection-start hit-testing until this
   // nudges it to re-scan. Same fix rotation already needed above.
-  useEffect(() => { updateNodeInternals(id) }, [id, phantomEdgeKey, updateNodeInternals])
+  // phantomSlot is a dep: the handle MOVES when the slot changes, and React
+  // Flow would otherwise keep the stale measured position as the connection
+  // line's origin even though the visible dot tracked the cursor.
+  useEffect(() => { updateNodeInternals(id) }, [id, phantomEdgeKey, phantomSlot, updateNodeInternals])
 
   // Select a point (from its glyph/grab handle OR its name): exclusive with form
   // selection; Cmd/Ctrl+click accumulates, plain click single-selects.
@@ -417,18 +443,9 @@ function FormNode({ id, data, selected }: NodeProps) {
           native connection-drag (same as dragging from a real point); the
           phantom id resolves into a real point (addPoint) in Canvas.tsx's
           onConnect(End) the moment a connection actually completes. */}
-      {phantomEdgeKey && (() => {
+      {phantomEdgeKey && phantomSlot != null && (() => {
         const count = pointIdsAt(form, phantomEdgeKey).length
-        // Track the live gesture: while hover is actually reporting a
-        // position on THIS edge, the slot is wherever a new point would be
-        // inserted right now (forms.ts's insertionIndex — the same math
-        // addPoint's call sites use); once hover clears mid-drag, hold the
-        // last live slot instead of reverting to a fixed "always append"
-        // position, so the origin doesn't jump away from where the user grabbed.
-        const slot = hoverEdgeKey === phantomEdgeKey && hoverRx != null && hoverRy != null
-          ? (lastPhantomSlotRef.current = insertionIndex(form, phantomEdgeKey, hoverRx, hoverRy))
-          : (lastPhantomSlotRef.current ?? count)
-        const anchor = geom.pointAnchor(phantomEdgeKey, slot, count + 1, n)
+        const anchor = geom.pointAnchor(phantomEdgeKey, phantomSlot, count + 1, n)
         const hid = encodePhantomHandle(phantomEdgeKey)
         const dotStyle: React.CSSProperties = {
           position: 'absolute', top: anchor.y, left: anchor.x, transform: 'translate(-50%, -50%)',
