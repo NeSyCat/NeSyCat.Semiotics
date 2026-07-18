@@ -53,6 +53,13 @@ export interface FormGeometry {
   edgeAt: (rx: number, ry: number) => EdgeKey | undefined
   // Overlay shape for hovering/selecting this edgeKey's region.
   regionShape: (edgeKey: EdgeKey) => RegionShape
+  // Hard per-edge attachment cap this kind declares, so capacity lives here
+  // (geometry) instead of scattered "if kind === 'empty'" checks through
+  // mutations/Canvas. undefined = unbounded (every kind but 'empty'). When a
+  // side is at capacity, mutations.addPoint REUSES its existing point rather
+  // than refusing — unlike a corner's hard '' no-op, a drop on a full side
+  // should still CONNECT (many wires, one point).
+  maxPoints?: number
   // The INVERSE of pointAnchor's own spacing formula for a SIDE edgeKey: given
   // a normalized cursor (rx, ry) ∈ [0,1]² already known to be on/near this
   // edge, returns the same t ∈ [0,1] ordering parameter pointAnchor's t
@@ -516,10 +523,15 @@ const pointGeometry: FormGeometry = {
 }
 
 // ── EMPTY — an invisible carrier form (bodyOpacity 0, no name of its own).
-// Same "one shared attachment, fanned around it" edge as POINT, just with
-// nothing drawn — a wire dragged out into empty canvas space auto-creates
-// one of these to land on (see Canvas.tsx's onConnectEnd).
+// Deliberately the simplest kind: unlike POINT's unbounded radial fan, EMPTY
+// holds AT MOST ONE point — the middle point IS the form, always rendered
+// dead-center regardless of how many wires run to it (many lines, one
+// point; see mutations.addPoint's maxPoints reuse). A wire dragged out into
+// empty canvas space auto-creates one of these to land on (see Canvas.tsx's
+// onConnectEnd); dropping on an existing one reuses its point instead of
+// fanning a second one out beside it.
 const EMPTY_EDGE = 'self'
+const EMPTY_MAX_POINTS = 1
 
 const emptyGeometry: FormGeometry = {
   kind: 'empty',
@@ -530,11 +542,18 @@ const emptyGeometry: FormGeometry = {
   bodyOpacity: 0,
   showName: false,
   hasCenterZone: false,
+  maxPoints: EMPTY_MAX_POINTS,
   nodeSize: () => BASE_SIZE / 2,
-  pointAnchor: (_edgeKey, index, count, n) => radialFanAnchor(index, count, n),
+  // Constant center, regardless of index/count — there's no fan to place:
+  // the one middle point always sits at the form's own centre. Position
+  // 'bottom' so its name (if any) renders centred BENEATH the dot, like an
+  // ordinary point's outward label placement.
+  pointAnchor: (_edgeKey, _index, _count, n) => ({ x: n / 2, y: n / 2, position: Position.Bottom }),
   edgeAt: () => EMPTY_EDGE,
   regionShape: () => ({ kind: 'full' }),
-  edgeParam: (_edgeKey, rx, ry) => radialFanParam(rx, ry),
+  // No ordering exists — there's only ever one point — so the constant 0 is
+  // the trivial (and only) valid inverse of pointAnchor's own constant.
+  edgeParam: () => 0,
 }
 
 // ── Registry ─────────────────────────────────────────────────────────

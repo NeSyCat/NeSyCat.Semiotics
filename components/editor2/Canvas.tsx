@@ -783,7 +783,19 @@ function Canvas({ topRight }: CanvasContentProps) {
   }, [nodes, edges, selectedPoints])
 
   const nameInfo = useMemo(() => {
-    if (!selectionTarget) return { value: '', placeholder: 'Select a form, point, or line', sig: '' }
+    if (!selectionTarget) return { value: '', placeholder: 'Select a form, point, or line', sig: '', disabled: false }
+    // An 'empty' form carries no name of its own — its one middle point IS
+    // the form (see forms.ts's emptyGeometry), so renaming/reading the name
+    // field retargets to that point instead of the form. No point yet
+    // (nothing's been dropped on it) -> nothing to rename; blank + disabled.
+    if (selectionTarget.kind === 'forms' && selectionTarget.ids.length === 1) {
+      const form = diagram.forms.find((f) => f.id === selectionTarget.ids[0])
+      if (form?.kind === 'empty') {
+        const midId = pointIdsAt(form, geometryFor(form.kind).edgeKeys[0])[0]
+        if (!midId) return { value: '', placeholder: '', sig: 'empty:' + form.id, disabled: true }
+        return { value: diagram.points[midId]?.name ?? '', placeholder: midId, sig: 'points:' + midId, disabled: false }
+      }
+    }
     const id0 = selectionTarget.ids[0]
     const single = selectionTarget.ids.length === 1
     const name = selectionTarget.kind === 'points' ? diagram.points[id0]?.name
@@ -793,15 +805,24 @@ function Canvas({ topRight }: CanvasContentProps) {
       value: single ? (name ?? '') : '',
       placeholder: single ? id0 : `${selectionTarget.ids.length} ${selectionTarget.kind}`,
       sig: selectionTarget.kind + ':' + selectionTarget.ids.join(','),
+      disabled: false,
     }
   }, [selectionTarget, diagram])
 
   const onName = useCallback((value: string) => {
     if (!selectionTarget) return
+    if (selectionTarget.kind === 'forms' && selectionTarget.ids.length === 1) {
+      const form = diagram.forms.find((f) => f.id === selectionTarget.ids[0])
+      if (form?.kind === 'empty') {
+        const midId = pointIdsAt(form, geometryFor(form.kind).edgeKeys[0])[0]
+        if (midId) renamePoints([midId], value)
+        return // no point yet -> the field is disabled, nothing to do
+      }
+    }
     if (selectionTarget.kind === 'points') renamePoints(selectionTarget.ids, value)
     else if (selectionTarget.kind === 'forms') renameForms(selectionTarget.ids, value)
     else renameLines(selectionTarget.ids, value)
-  }, [selectionTarget, renamePoints, renameForms, renameLines])
+  }, [selectionTarget, diagram, renamePoints, renameForms, renameLines])
 
   // ── Color rail: same target as the Name field (points > forms > lines).
   // `colorInfo.isShared` tells the rail (and the top-pill icon) whether the
@@ -1337,7 +1358,7 @@ function Canvas({ topRight }: CanvasContentProps) {
       {activeCategory === 'name' && (
         <div style={{ position: 'absolute', top: 70, left: 'calc(50% + (var(--sidebar-offset, 0px) / 2))', transform: 'translateX(-50%)', zIndex: 10, transition: 'left 200ms' }}>
           <div className="pill editor-pill" style={{ width: 360, padding: '0 4px' }}>
-            <NameField sig={nameInfo.sig} initial={nameInfo.value} placeholder={nameInfo.placeholder} disabled={!selectionTarget} onChange={onName} />
+            <NameField sig={nameInfo.sig} initial={nameInfo.value} placeholder={nameInfo.placeholder} disabled={!selectionTarget || nameInfo.disabled} onChange={onName} />
           </div>
         </div>
       )}

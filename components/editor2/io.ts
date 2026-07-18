@@ -71,6 +71,49 @@ function canonLine(l: Record<string, unknown>): Line {
   }
 }
 
+// Old diagrams may carry an 'empty' form with several fanned points (from
+// before forms.ts's emptyGeometry capped it at ONE middle point). Collapse
+// them silently: keep the FIRST point id, re-point every Line that
+// referenced a dropped one to it, and delete the dropped Point entries — no
+// dangling ids, no visual line loss (every line still meets in the middle).
+// Idempotent: a form already at <=1 point is untouched, so re-running this
+// on an already-collapsed diagram (e.g. the next load) is a no-op.
+function collapseEmptyForms(
+  forms: Form[], points: Record<string, Point>, lines: Line[],
+): { forms: Form[]; points: Record<string, Point>; lines: Line[] } {
+  const remap = new Map<string, string>() // dropped point id -> kept point id
+  const nextForms = forms.map((f) => {
+    if (f.kind !== 'empty') return f
+    const edgeKey = geometryFor(f.kind).edgeKeys[0]
+    const ids = f.edges[edgeKey] ?? []
+    if (ids.length <= 1) return f
+    const [keep, ...drop] = ids
+    for (const id of drop) remap.set(id, keep)
+    return { ...f, edges: { ...f.edges, [edgeKey]: [keep] } }
+  })
+  if (remap.size === 0) return { forms, points, lines }
+
+  const nextPoints = { ...points }
+  for (const id of remap.keys()) delete nextPoints[id]
+
+  const rewrite = (id: string) => remap.get(id) ?? id
+  const touchesRemap = (l: Line) => remap.has(l.source) || l.targets.some((t) => remap.has(t))
+  const nextLines: Line[] = []
+  for (const l of lines) {
+    if (!touchesRemap(l)) { nextLines.push(l); continue }
+    const source = rewrite(l.source)
+    // Dedupe targets that collapsed onto the same kept id, then drop a
+    // target that collapsed onto the LINE'S OWN source — a wire whose
+    // source and only target both landed on the same middle point carries
+    // no information; a line left with none is dropped entirely rather
+    // than kept as a degenerate empty hyperedge.
+    const targets = [...new Set(l.targets.map(rewrite))].filter((t) => t !== source)
+    if (targets.length === 0) continue
+    nextLines.push({ ...l, source, targets })
+  }
+  return { forms: nextForms, points: nextPoints, lines: nextLines }
+}
+
 export function restoreDiagram(raw: unknown): Diagram {
   const d = (typeof raw === 'object' && raw !== null ? raw : {}) as Record<string, unknown>
   const forms = Array.isArray(d.forms) ? d.forms.map((f) => canonForm(f as Record<string, unknown>)) : []
@@ -78,5 +121,9 @@ export function restoreDiagram(raw: unknown): Diagram {
   const points: Record<string, Point> = {}
   for (const k of Object.keys(pointsRaw)) points[k] = canonPoint(pointsRaw[k] as Record<string, unknown>)
   const lines = Array.isArray(d.lines) ? d.lines.map((l) => canonLine(l as Record<string, unknown>)) : []
-  return { schemaVersion: typeof d.schemaVersion === 'number' ? d.schemaVersion : 1, forms, points, lines }
+  const collapsed = collapseEmptyForms(forms, points, lines)
+  return {
+    schemaVersion: typeof d.schemaVersion === 'number' ? d.schemaVersion : 1,
+    forms: collapsed.forms, points: collapsed.points, lines: collapsed.lines,
+  }
 }

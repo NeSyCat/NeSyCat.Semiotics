@@ -113,8 +113,19 @@ export function setFormsColor(d: Diagram, ids: string[], color: Color | null): D
 export function addPoint(d: Diagram, formId: string, edgeKey: EdgeKey, shape: PointShape = 'empty', index?: number): [Diagram, string] {
   const form = d.forms.find((f) => f.id === formId)
   if (!form) return [d, '']
-  const isCorner = edgeKey in geometryFor(form.kind).corners
+  const geom = geometryFor(form.kind)
+  const isCorner = edgeKey in geom.corners
   if (isCorner && form.corners[edgeKey]) return [d, '']
+  // A side with a geometry-declared capacity (forms.ts's maxPoints — only
+  // 'empty' sets one, for its single middle point) is a DIFFERENT kind of
+  // "full" than a corner's: nothing more CAN attach to an occupied corner,
+  // but a drop on a full 'empty' form should still CONNECT — it's the same
+  // shared point every wire runs to. So reuse the existing id instead of
+  // refusing.
+  if (!isCorner && geom.maxPoints !== undefined) {
+    const list = form.edges[edgeKey] ?? []
+    if (list.length >= geom.maxPoints) return [d, list[0]]
+  }
   const id = newPointId(d)
   const point: Point = { id, shape, formId, edgeKey }
   let updated: Form

@@ -370,8 +370,13 @@ function FormNode({ id, data, selected }: NodeProps) {
           }}>
             <PointGlyph shape={pt.shape} color={fill} />
           </div>
-          <Handle type="target" position={anchor.position} id={hid} style={dotStyle} />
-          <Handle type="source" position={anchor.position} id={hid} style={dotStyle} onClick={(e) => selectPoint(e, pid)}>
+          {/* isConnectableStart: false for 'empty' — its middle point is a valid
+              DROP target (you can connect wires ONTO it), but you can never
+              pull a NEW wire out from it or the form's body; dragging the
+              body just moves the node (see the phantom-skip below, which is
+              what makes that native node-drag reachable at all). */}
+          <Handle type="target" position={anchor.position} id={hid} style={dotStyle} isConnectableStart={form.kind !== 'empty'} />
+          <Handle type="source" position={anchor.position} id={hid} style={dotStyle} isConnectableStart={form.kind !== 'empty'} onClick={(e) => selectPoint(e, pid)}>
             {/* grab pad — easy to grab; events bubble to the handle above */}
             <span style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%, -50%)', width: REGION_CORNER_SIZE, height: REGION_CORNER_SIZE, borderRadius: '50%', cursor: 'crosshair', display: 'block' }} />
           </Handle>
@@ -442,8 +447,16 @@ function FormNode({ id, data, selected }: NodeProps) {
           Pulling a line out of the band goes through React Flow's own
           native connection-drag (same as dragging from a real point); the
           phantom id resolves into a real point (addPoint) in Canvas.tsx's
-          onConnect(End) the moment a connection actually completes. */}
-      {phantomEdgeKey && phantomSlot != null && (() => {
+          onConnect(End) the moment a connection actually completes.
+          Skipped entirely for 'empty': you can only DROP onto it, never
+          drag a wire FROM it (see the real point Handles' isConnectableStart
+          above) — so there's no phantom drag-START handle to offer, and
+          mounting none here is also what frees the whole body back up for
+          plain React Flow node-dragging (see BodyView's `decorative` — a
+          form with no center zone stays pointer-clickable everywhere, and
+          without a Handle covering it, a press there starts a node drag
+          instead of a connection drag). */}
+      {form.kind !== 'empty' && phantomEdgeKey && phantomSlot != null && (() => {
         const count = pointIdsAt(form, phantomEdgeKey).length
         const anchor = geom.pointAnchor(phantomEdgeKey, phantomSlot, count + 1, n)
         const hid = encodePhantomHandle(phantomEdgeKey)
