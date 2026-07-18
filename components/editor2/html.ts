@@ -53,7 +53,11 @@ function round(n: number): number {
   return Math.round(n * 100) / 100
 }
 
-const ANCHOR_MAP: Record<string, string> = { east: 'start', west: 'end', north: 'middle', south: 'middle' }
+// TikZ anchors name the side of the TEXT that touches the coordinate —
+// anchor=east puts the text's east edge there, so the text extends LEFT.
+// SVG's text-anchor names where the text STARTS relative to x. The two are
+// therefore inverses: east -> 'end' (text ends at x), west -> 'start'.
+const ANCHOR_MAP: Record<string, string> = { east: 'end', west: 'start', north: 'middle', south: 'middle' }
 
 function emitCmd(cmd: DrawCmd): string {
   switch (cmd.kind) {
@@ -114,11 +118,12 @@ function cmdBoundsVecs(cmd: DrawCmd): { x: number; y: number }[] {
         { x: cmd.pos.x + POINT_DOT_R, y: cmd.pos.y + POINT_DOT_R },
       ]
     case 'label': {
-      // Anchor-aware horizontal extent: 'east'→start grows rightward from
-      // the anchor point, 'west'→end leftward, default middle both ways.
+      // Anchor-aware horizontal extent, mirroring ANCHOR_MAP: 'east' means
+      // the text ENDS at the point (grows leftward), 'west' starts there
+      // (grows rightward), default middle both ways.
       const w = unwrapMath(cmd.text).length * LABEL_CHAR_W
-      const left = cmd.anchor === 'east' ? 0 : cmd.anchor === 'west' ? w : w / 2
-      const right = cmd.anchor === 'west' ? 0 : cmd.anchor === 'east' ? w : w / 2
+      const left = cmd.anchor === 'west' ? 0 : cmd.anchor === 'east' ? w : w / 2
+      const right = cmd.anchor === 'east' ? 0 : cmd.anchor === 'west' ? w : w / 2
       return [
         { x: cmd.at.x - left, y: cmd.at.y - LABEL_HALF_H },
         { x: cmd.at.x + right, y: cmd.at.y + LABEL_HALF_H },
