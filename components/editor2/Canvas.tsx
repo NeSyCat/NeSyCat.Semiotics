@@ -481,10 +481,22 @@ function ScaleField({ sig, initial, disabled, onChange }: {
 
 // The Export button's hover/click dropdown — Copy URL or Copy TikZ code.
 // Deliberately NOT a code-preview panel: just the two copy actions, same
-// idiom the round-trip Import button pairs with. `location.pathname`
-// reproduces the exact share path the server would compute (editor-url.ts's
-// host-mode logic) since this component only ever runs on the very page
-// whose URL that already is.
+// idiom the round-trip Import button pairs with.
+//
+// The copied URL must use the ID-LESS editor base (editor-url.ts's
+// serverEditorHref() with no id) — NOT the current pathname: on a signed-in
+// diagram page the pathname is /editor/<id> (or /<id> on the subdomain),
+// and a recipient opening that path hits the owner's RLS-guarded row — 404
+// for signed-in recipients, whose ImportSharedHash never mounts across the
+// not-found boundary (it also leaks the private row id). The base path is
+// what both import flows listen on. Client-side derivation of that base:
+// every host that serves the editor is either single-host/preview (paths
+// under /editor) or the production subdomain (paths at /), so the prefix
+// alone decides — same output as editorHrefForHost(host) for those hosts.
+function shareBasePath(): string {
+  return location.pathname.startsWith('/editor') ? '/editor' : '/'
+}
+
 function ExportMenu({ diagram }: { diagram: Diagram }) {
   const [open, setOpen] = useState(false)
   const [copied, setCopied] = useState(false)
@@ -522,7 +534,7 @@ function ExportMenu({ diagram }: { diagram: Diagram }) {
   const onCopyUrl = async () => {
     setOpen(false)
     const frag = await encodeDiagramToFragment(diagram)
-    await copyText(`${location.origin}${location.pathname}#${frag}`)
+    await copyText(`${location.origin}${shareBasePath()}#${frag}`)
   }
   const onCopyTikz = async () => {
     setOpen(false)
