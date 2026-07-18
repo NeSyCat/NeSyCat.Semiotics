@@ -27,6 +27,10 @@ interface State {
   selectedPoints: string[] // point ids
   edgePath: EdgePathMode
   pointsVisible: boolean
+  // Snap-to-grid ON/OFF (grid.ts's GRID_SIZE pitch) — transient UI state,
+  // same shape as pointsVisible: NOT part of the Diagram schema (types.ts)
+  // or the DB, no undo history entry. Default OFF.
+  gridEnabled: boolean
   // Quiver-style hover highlight — transient UI state, not part of undo history.
   hover: HoverTarget
   // Hovered wire (React Flow edge id) — transient UI state like `hover`. Lives
@@ -38,9 +42,19 @@ interface State {
   historyIndex: number
   undo: () => void
   redo: () => void
+  // Wholesale-replaces the diagram (the Import panel's "paste a share link
+  // or exported TikZ" action) — one undoable history entry, same as any
+  // other mutation, so importing over an in-progress diagram isn't
+  // destructive. Deliberately NOT routed through mutations.ts's M.* pure
+  // functions (unlike every other action below): this isn't a semantic
+  // transform of the current diagram, it's a full swap for an already-
+  // decoded one (share.ts's decodeDiagramFromFragment already normalizes it
+  // via io.ts's restoreDiagram).
+  loadDiagram: (d: Diagram) => void
 
   toggleEdgePath: () => void
   togglePointsVisible: () => void
+  toggleGridEnabled: () => void
   setSelectedPoints: (ids: string[]) => void
   toggleSelectedPoint: (id: string) => void
   clearSelection: () => void
@@ -96,6 +110,7 @@ export const useStore = create<State>((set, get) => {
     selectedPoints: [],
     edgePath: 'straight',
     pointsVisible: true,
+    gridEnabled: false,
     hover: null,
     hoveredEdgeId: null,
     history: [emptyDiagram],
@@ -107,6 +122,10 @@ export const useStore = create<State>((set, get) => {
       if (historyIndex <= 0) return
       set({ diagram: history[historyIndex - 1], historyIndex: historyIndex - 1 })
     },
+    loadDiagram: (d) => {
+      coalesceTag = null
+      setCur(d)
+    },
     redo: () => {
       coalesceTag = null
       const { history, historyIndex } = get()
@@ -116,6 +135,7 @@ export const useStore = create<State>((set, get) => {
 
     toggleEdgePath: () => set({ edgePath: get().edgePath === 'straight' ? 'smoothstep' : 'straight' }),
     togglePointsVisible: () => set({ pointsVisible: !get().pointsVisible }),
+    toggleGridEnabled: () => set({ gridEnabled: !get().gridEnabled }),
     setSelectedPoints: (ids) => {
       if (ids.length === 0 && get().selectedPoints.length === 0) return
       set({ selectedPoints: ids })

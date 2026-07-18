@@ -5,10 +5,13 @@ import {
   ReactFlow,
   ReactFlowProvider,
   ConnectionMode,
+  Background,
+  BackgroundVariant,
   useNodesState,
   useEdgesState,
   useReactFlow,
   type Node,
+  type NodeChange,
   type Edge,
   type Connection,
   type NodeTypes,
@@ -21,6 +24,11 @@ import { useStore, initStore } from './store'
 import { useAutosave, useLocalAutosave } from './save'
 import { geometryFor, pointIdsAt, isInsideBody, isInCenterZone, BASE_SIZE, type FormGeometry } from './forms'
 import { encodeHandle, decodeHandle, decodePhantomHandle } from './handles'
+import { GRID_SIZE, snapCenterPosition } from './grid'
+import ImportPanel from './ImportPanel'
+import { encodeDiagramToFragment } from './share'
+import { diagramToTikz } from './tikz'
+import { diagramToHtml } from './html'
 import theme from './theme'
 import type { Diagram, Form, FormKind, PointShape, Color } from './types'
 import { toCssRgb } from './color'
@@ -179,6 +187,23 @@ function ToolbarSprite() {
           <path d="M9.9 5.14A10.7 10.7 0 0 1 12 5c6.4 0 10 7 10 7a13.3 13.3 0 0 1-3.05 3.9m-2.87 1.9A10.7 10.7 0 0 1 12 19c-6.4 0-10-7-10-7a13.3 13.3 0 0 1 4.22-4.8" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
           <path d="M9.9 14.1a3 3 0 0 0 4.24-4.24" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
           <path d="M3 3l18 18" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+        </symbol>
+        <symbol id="ic-grid" viewBox="0 0 24 24" fill="none">
+          <rect x="3" y="3" width="18" height="18" rx="1" stroke="currentColor" strokeWidth="1.7" />
+          <path d="M3 9h18M3 15h18M9 3v18M15 3v18" stroke="currentColor" strokeWidth="1.7" />
+        </symbol>
+        <symbol id="ic-export" viewBox="0 0 24 24" fill="none">
+          <path d="M12 15V4M12 4L7.5 8.5M12 4l4.5 4.5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+        </symbol>
+        {/* Mirror of ic-export — same tray, arrow pointing the OTHER way (down,
+            into the tray) for "bring something in". */}
+        <symbol id="ic-import" viewBox="0 0 24 24" fill="none">
+          <path d="M12 4v11M12 15l-4.5-4.5M12 15l4.5-4.5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+        </symbol>
+        <symbol id="ic-check" viewBox="0 0 24 24" fill="none">
+          <path d="M5 12.5l4.5 4.5L19 7" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
         </symbol>
         <symbol id="kind-empty" viewBox="0 0 24 24">
           <circle cx="12" cy="12" r="9.25" fill="none" stroke="currentColor" strokeWidth="1.4" strokeDasharray="2.4 2.6" />
@@ -454,6 +479,129 @@ function ScaleField({ sig, initial, disabled, onChange }: {
   )
 }
 
+// A small inline copy glyph — not the sprite's ic-check (that's reserved for
+// the row's own post-copy confirmation state, swapped in locally below).
+function CopyGlyph() {
+  return (
+    <svg width={14} height={14} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <rect x="8" y="8" width="12" height="12" rx="1.5" stroke="currentColor" strokeWidth="1.7" />
+      <path d="M16 8V6a2 2 0 00-2-2H6a2 2 0 00-2 2v8a2 2 0 002 2h2" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+// One row of the Export dropdown — a label (monospace, "$...$"-free plain
+// text, not KaTeX — this is chrome, not diagram content) on the left, a
+// copy icon on the right; the whole row is clickable. Swaps to a checkmark
+// briefly after a successful copy, per-row (independent of its siblings).
+function ExportRow({ label, getText }: { label: string; getText: () => Promise<string> }) {
+  const [copied, setCopied] = useState(false)
+  const onClick = async () => {
+    const text = await getText()
+    try {
+      await navigator.clipboard.writeText(text)
+    } catch {
+      window.prompt('Copy this:', text)
+      return
+    }
+    setCopied(true)
+    setTimeout(() => setCopied(false), 1200)
+  }
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 20,
+        width: '100%', height: 30, padding: '0 8px', border: 'none', background: 'transparent', cursor: 'pointer',
+        borderRadius: 'var(--radius-sm, 6px)', color: 'var(--color-foreground)',
+      }}
+      onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--color-hover)' }}
+      onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
+    >
+      <span style={{ fontFamily: 'var(--font-mono, ui-monospace, monospace)', fontSize: 13 }}>{label}</span>
+      {copied ? <svg width={14} height={14} viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="#ic-check" /></svg> : <CopyGlyph />}
+    </button>
+  )
+}
+
+// The Export button's hover/click dropdown — narrow, three rows (URL / Text
+// / HTML), each just a label + copy icon. Deliberately NOT a code-preview
+// panel: same round-trip-copy idiom the Import button pairs with.
+//
+// The copied URL must use the ID-LESS editor base (editor-url.ts's
+// serverEditorHref() with no id) — NOT the current pathname: on a signed-in
+// diagram page the pathname is /editor/<id> (or /<id> on the subdomain),
+// and a recipient opening that path hits the owner's RLS-guarded row — 404
+// for signed-in recipients, whose ImportSharedHash never mounts across the
+// not-found boundary (it also leaks the private row id). The base path is
+// what both import flows listen on. Client-side derivation of that base:
+// every host that serves the editor is either single-host/preview (paths
+// under /editor) or the production subdomain (paths at /), so the prefix
+// alone decides — same output as editorHrefForHost(host) for those hosts.
+function shareBasePath(): string {
+  return location.pathname.startsWith('/editor') ? '/editor' : '/'
+}
+
+function ExportMenu({ diagram }: { diagram: Diagram }) {
+  const [open, setOpen] = useState(false)
+  const wrapRef = useRef<HTMLDivElement>(null)
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const openMenu = () => {
+    if (closeTimer.current) { clearTimeout(closeTimer.current); closeTimer.current = null }
+    setOpen(true)
+  }
+  const scheduleClose = () => { closeTimer.current = setTimeout(() => setOpen(false), 150) }
+  useEffect(() => () => { if (closeTimer.current) clearTimeout(closeTimer.current) }, [])
+  useEffect(() => {
+    if (!open) return
+    const onDocDown = (e: MouseEvent) => {
+      // Cast to HTMLElement, not the DOM `Node` type — this file already
+      // imports React Flow's OWN `Node` (the flow-graph node type), which
+      // shadows the ambient DOM one for bare references here.
+      if (wrapRef.current && !wrapRef.current.contains(e.target as HTMLElement)) setOpen(false)
+    }
+    document.addEventListener('mousedown', onDocDown)
+    return () => document.removeEventListener('mousedown', onDocDown)
+  }, [open])
+
+  return (
+    <div ref={wrapRef} onMouseEnter={openMenu} onMouseLeave={scheduleClose}>
+      <button
+        className="btn btn-icon"
+        title="Export"
+        aria-label="Export"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+      >
+        <svg aria-hidden="true"><use href="#ic-export" /></svg>
+      </button>
+      {open && (
+        <div
+          role="menu"
+          style={{
+            position: 'absolute', top: '100%', right: 0, marginTop: 8, zIndex: 20, minWidth: 116,
+            background: 'var(--color-card)', border: '1px solid var(--color-border)',
+            borderRadius: 'var(--radius-md, 10px)', boxShadow: 'var(--shadow-md)', padding: 4,
+            display: 'flex', flexDirection: 'column',
+          }}
+        >
+          <ExportRow label="LaTeX" getText={() => diagramToTikz(diagram)} />
+          <ExportRow
+            label="URL"
+            getText={async () => {
+              const frag = await encodeDiagramToFragment(diagram)
+              return `${location.origin}${shareBasePath()}#${frag}`
+            }}
+          />
+          <ExportRow label="HTML" getText={() => diagramToHtml(diagram)} />
+        </div>
+      )}
+    </div>
+  )
+}
+
 interface CanvasContentProps {
   topRight?: ReactNode
 }
@@ -467,6 +615,9 @@ function Canvas({ topRight }: CanvasContentProps) {
   const selectedPoints = useStore((s) => s.selectedPoints)
   const pointsVisible = useStore((s) => s.pointsVisible)
   const togglePointsVisible = useStore((s) => s.togglePointsVisible)
+  const gridEnabled = useStore((s) => s.gridEnabled)
+  const toggleGridEnabled = useStore((s) => s.toggleGridEnabled)
+  const [importOpen, setImportOpen] = useState(false)
   const { screenToFlowPosition, getNodes } = useReactFlow()
 
   const [activeKind, setActiveKind] = useState<FormKind>(() => {
@@ -545,6 +696,23 @@ function Canvas({ topRight }: CanvasContentProps) {
 
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([])
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
+
+  // Grid ON: snap LIVE, mid-drag — intercepting 'position' changes here
+  // (rather than only at drag-stop) is what makes the form visually jump
+  // from grid dot to grid dot WHILE dragging, quiver-style. Deliberately NOT
+  // React Flow's own snapToGrid prop: that snaps a node's top-left corner,
+  // but node size varies per kind/scale/point-count, so top-left isn't the
+  // form's actual visual center — snapCenterPosition (grid.ts) is.
+  const onNodesChangeSnapped = useCallback((changes: NodeChange[]) => {
+    if (!gridEnabled) { onNodesChange(changes); return }
+    const d = useStore.getState().diagram
+    onNodesChange(changes.map((c) => {
+      if (c.type !== 'position' || !c.position) return c
+      const form = d.forms.find((f) => f.id === c.id)
+      if (!form) return c
+      return { ...c, position: snapCenterPosition(form, c.position) }
+    }))
+  }, [gridEnabled, onNodesChange])
 
   useEffect(() => {
     setNodes((prev) => {
@@ -654,12 +822,20 @@ function Canvas({ topRight }: CanvasContentProps) {
   }, [selectedFormIds])
 
   // ── Create forms ───────────────────────────────────────────────────
+  // Grid ON: snap the new form's CENTER (not its raw top-left) to the
+  // nearest grid intersection — a fresh form has no edges/points yet, so its
+  // nodeSize is exactly the kind's own default (BASE_SIZE for
+  // triangle/square/circle/rhombus, POINT_SIZE for point, BASE_SIZE/2 for
+  // empty; see forms.ts).
   const createForm = useCallback(
     (kind: FormKind, flow: { x: number; y: number }) => {
       setActiveKind(kind)
-      useStore.getState().addForm(kind, flow, activeColor)
+      const position = gridEnabled
+        ? snapCenterPosition({ kind, scale: undefined, edges: {}, corners: {} }, flow)
+        : flow
+      useStore.getState().addForm(kind, position, activeColor)
     },
-    [activeColor],
+    [activeColor, gridEnabled],
   )
 
   // Click a Shape-rail tile. The SAME rail picks both point shapes and form
@@ -875,10 +1051,19 @@ function Canvas({ topRight }: CanvasContentProps) {
   }, [])
 
   // ── Move ───────────────────────────────────────────────────────────
+  // Grid ON: re-snap at persistence time too — live-drag snapping already
+  // keeps the visible position grid-aligned (see onNodesChangeSnapped
+  // above), but this is what guarantees the STORED position is the snapped
+  // one, not just whatever the live-drag path happened to leave it at.
   const onNodeDragStop = useCallback((_: unknown, node: Node, draggedNodes?: Node[]) => {
     const all = draggedNodes && draggedNodes.length > 0 ? draggedNodes : [node]
-    useStore.getState().moveForms(all.map((n) => ({ id: n.id, position: { x: n.position.x, y: n.position.y } })))
-  }, [])
+    const d = useStore.getState().diagram
+    useStore.getState().moveForms(all.map((n) => {
+      const form = d.forms.find((f) => f.id === n.id)
+      const position = gridEnabled && form ? snapCenterPosition(form, n.position) : { x: n.position.x, y: n.position.y }
+      return { id: n.id, position }
+    }))
+  }, [gridEnabled])
 
   // ── Delete ─────────────────────────────────────────────────────────
   const onNodesDelete = useCallback((deleted: Node[]) => {
@@ -927,7 +1112,7 @@ function Canvas({ topRight }: CanvasContentProps) {
       <ReactFlow
         nodes={nodes}
         edges={edges}
-        onNodesChange={onNodesChange}
+        onNodesChange={onNodesChangeSnapped}
         onEdgesChange={onEdgesChange}
         onNodesDelete={onNodesDelete}
         onEdgesDelete={onEdgesDelete}
@@ -964,16 +1149,32 @@ function Canvas({ topRight }: CanvasContentProps) {
         proOptions={{ hideAttribution: true }}
         style={{ background: theme.canvas.background }}
       >
+        {/* Grid ON: quiver-style grid lines at the same GRID_SIZE pitch
+            snapping uses — purely visual, React Flow's Background component
+            doesn't itself constrain node placement (that's the snapping
+            logic above). */}
+        {gridEnabled && (
+          <Background variant={BackgroundVariant.Lines} gap={GRID_SIZE} color={theme.canvas.gridColor} />
+        )}
       </ReactFlow>
 
       <ToolbarSprite />
 
-      {/* Points-visibility toggle — a single-button pill in the canvas's top-right
-          corner, mirroring the sidebar's collapse pill on the opposite side.
-          `topRight` (the auth/share pill) joins it in a pill-cluster. */}
+      {/* Top-right pill cluster: [grid + points-visibility] [import/export]
+          [topRight — the auth/share pill], in that left-to-right order (the
+          cluster itself is right-anchored; import/export sits immediately
+          LEFT of the share pill, mirroring quiver's round-trip idiom). */}
       <div style={{ position: 'absolute', top: 16, right: 16, zIndex: 10 }}>
         <div className="pill-cluster">
           <div className="pill editor-pill">
+            <button
+              className={`btn btn-icon${gridEnabled ? ' is-active' : ''}`}
+              title={gridEnabled ? 'Hide grid & disable snapping' : 'Show grid & snap to grid'}
+              aria-label={gridEnabled ? 'Hide grid & disable snapping' : 'Show grid & snap to grid'}
+              onClick={toggleGridEnabled}
+            >
+              <svg aria-hidden="true"><use href="#ic-grid" /></svg>
+            </button>
             <button
               className={`btn btn-icon${pointsVisible ? '' : ' is-active'}`}
               title={pointsVisible ? 'Hide point names' : 'Show point names'}
@@ -983,9 +1184,30 @@ function Canvas({ topRight }: CanvasContentProps) {
               <svg aria-hidden="true"><use href={`#${pointsVisible ? 'ic-eye' : 'ic-eye-off'}`} /></svg>
             </button>
           </div>
+          {/* Round trip: Import (paste a share link OR TikZ this editor
+              exported, opens a paste panel) on the left, Export (a Copy
+              URL / Copy TikZ code dropdown — minimalist, no code preview)
+              on the right — one pill, mirrored icons. */}
+          {/* position:relative lives HERE (the whole pill), not on ExportMenu's
+              own inner wrapper — the dropdown's `right: 0` needs to align with
+              the PILL's right edge, not just the Export button's slightly-
+              inset flex-item box, or it reads as sitting too far left. */}
+          <div className="pill editor-pill" style={{ position: 'relative' }}>
+            <button
+              className="btn btn-icon"
+              title="Import from link or TikZ"
+              aria-label="Import from link or TikZ"
+              onClick={() => setImportOpen(true)}
+            >
+              <svg aria-hidden="true"><use href="#ic-import" /></svg>
+            </button>
+            <ExportMenu diagram={diagram} />
+          </div>
           {topRight}
         </div>
       </div>
+
+      {importOpen && <ImportPanel onClose={() => setImportOpen(false)} />}
 
       {/* General toolbar — the mockup's category Spine (DS .pill, scaled up),
           centred over the canvas. Most categories are placeholders; clicking
