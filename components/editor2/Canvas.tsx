@@ -22,7 +22,7 @@ import FormNode, { DRAG_HANDLE_CLASS } from './FormNode'
 import LineEdge from './LineEdge'
 import { useStore, initStore } from './store'
 import { useAutosave, useLocalAutosave } from './save'
-import { geometryFor, pointIdsAt, isInsideBody, isInCenterZone, insertionIndex, BASE_SIZE, type FormGeometry } from './forms'
+import { geometryFor, pointIdsAt, isInsideBody, isInCenterZone, insertionIndex, BASE_SIZE, CENTER_SHRINK, type FormGeometry } from './forms'
 import { encodeHandle, decodeHandle, decodePhantomHandle } from './handles'
 import { GRID_SIZE, snapCenterPosition } from './grid'
 import ImportPanel from './ImportPanel'
@@ -1207,6 +1207,37 @@ function Canvas({ topRight }: CanvasContentProps) {
     return () => window.removeEventListener('keydown', onKey, true)
   }, [])
 
+  // React Flow's connection-radius handle search (see @xyflow/system's
+  // getClosestHandle) is what decides BOTH whether the dangling wire's
+  // rendered endpoint snaps to a handle AND whether onConnect resolves a
+  // target handle at all on release — the same distance check drives both,
+  // so whatever value we give it, "looks snapped" and "IS mechanism 1" are
+  // already the same thing moment-to-moment. The bug was the radius itself
+  // not reaching the whole interactive band: RingBandHitArea's real depth
+  // (edge to the center-zone boundary) is n·(1−CENTER_SHRINK)/2 for a
+  // centre-zone kind, or n/2 for a full-body kind (point/empty) — NOT the
+  // narrower REGION_STRIPE_WIDTH visual stripe. A fixed guess undershoots
+  // for any node bigger than the smallest default (more points on an edge
+  // grow n — see forms.ts's sizeFor), which is exactly what produced the
+  // "attaches at the rim, breaks free deeper in the SAME band" split the
+  // user saw: two visually different endings for what is, underneath,
+  // meant to be one mechanism. Deriving the radius from the diagram's own
+  // current geometry keeps the two endings identical everywhere the ring
+  // band itself is active, on any node size — not a bigger fixed guess.
+  const connectionRadius = useMemo(() => {
+    let maxBand = 20 // React Flow's own default — floor for an empty/tiny diagram
+    for (const node of nodes) {
+      if (node.type !== 'form') continue
+      const form = diagram.forms.find((f) => f.id === node.id)
+      if (!form) continue
+      const geom = geometryFor(form.kind)
+      const n = node.measured?.width ?? node.width ?? geom.nodeSize(form) * (form.scale ?? 1)
+      const band = geom.hasCenterZone ? (n * (1 - CENTER_SHRINK)) / 2 : n / 2
+      if (band > maxBand) maxBand = band
+    }
+    return maxBand
+  }, [nodes, diagram.forms])
+
   return (
     <div className={pointsVisible ? undefined : 'points-hidden'} style={{ width: '100%', height: '100%', position: 'relative' }} onDrop={onDrop} onDragOver={onDragOver}>
       <ReactFlow
@@ -1220,15 +1251,9 @@ function Canvas({ topRight }: CanvasContentProps) {
         onConnectStart={onConnectStart}
         onConnectEnd={onConnectEnd}
         isValidConnection={isValidConnection}
-        // Default is 20px — measured against the REGION_STRIPE_WIDTH=26
-        // point-creation band (FormNode.tsx), a mid-band release could sit
-        // outside the default radius and let the dangling wire visually
-        // detach from the phantom dot a few px before release, even though
-        // RingBandHitArea (edge-hover) is still active there. 36px keeps the
-        // wire snapped across the whole band (half-width 13 + the phantom
-        // dot's own draw radius + slack) without reaching so far it grabs
-        // drops meant for a neighboring handle or the center zone.
-        connectionRadius={36}
+        // See connectionRadius's own computation above — sized to the
+        // diagram's actual point-creation band, not a fixed guess.
+        connectionRadius={connectionRadius}
         connectionMode={ConnectionMode.Loose}
         // React Flow's click-to-connect (on by default) completes a
         // connection from two successive handle CLICKS — with the phantom
