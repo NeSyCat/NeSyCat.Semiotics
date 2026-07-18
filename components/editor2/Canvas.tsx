@@ -5,10 +5,13 @@ import {
   ReactFlow,
   ReactFlowProvider,
   ConnectionMode,
+  Background,
+  BackgroundVariant,
   useNodesState,
   useEdgesState,
   useReactFlow,
   type Node,
+  type NodeChange,
   type Edge,
   type Connection,
   type NodeTypes,
@@ -21,6 +24,8 @@ import { useStore, initStore } from './store'
 import { useAutosave, useLocalAutosave } from './save'
 import { geometryFor, pointIdsAt, isInsideBody, isInCenterZone, BASE_SIZE, type FormGeometry } from './forms'
 import { encodeHandle, decodeHandle, decodePhantomHandle } from './handles'
+import { GRID_SIZE, snapCenterPosition } from './grid'
+import TikzExportPanel from './TikzExportPanel'
 import theme from './theme'
 import type { Diagram, Form, FormKind, PointShape, Color } from './types'
 import { toCssRgb } from './color'
@@ -179,6 +184,14 @@ function ToolbarSprite() {
           <path d="M9.9 5.14A10.7 10.7 0 0 1 12 5c6.4 0 10 7 10 7a13.3 13.3 0 0 1-3.05 3.9m-2.87 1.9A10.7 10.7 0 0 1 12 19c-6.4 0-10-7-10-7a13.3 13.3 0 0 1 4.22-4.8" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
           <path d="M9.9 14.1a3 3 0 0 0 4.24-4.24" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
           <path d="M3 3l18 18" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+        </symbol>
+        <symbol id="ic-grid" viewBox="0 0 24 24" fill="none">
+          <rect x="3" y="3" width="18" height="18" rx="1" stroke="currentColor" strokeWidth="1.7" />
+          <path d="M3 9h18M3 15h18M9 3v18M15 3v18" stroke="currentColor" strokeWidth="1.7" />
+        </symbol>
+        <symbol id="ic-export" viewBox="0 0 24 24" fill="none">
+          <path d="M12 15V4M12 4L7.5 8.5M12 4l4.5 4.5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
         </symbol>
         <symbol id="kind-empty" viewBox="0 0 24 24">
           <circle cx="12" cy="12" r="9.25" fill="none" stroke="currentColor" strokeWidth="1.4" strokeDasharray="2.4 2.6" />
@@ -467,6 +480,9 @@ function Canvas({ topRight }: CanvasContentProps) {
   const selectedPoints = useStore((s) => s.selectedPoints)
   const pointsVisible = useStore((s) => s.pointsVisible)
   const togglePointsVisible = useStore((s) => s.togglePointsVisible)
+  const gridEnabled = useStore((s) => s.gridEnabled)
+  const toggleGridEnabled = useStore((s) => s.toggleGridEnabled)
+  const [exportOpen, setExportOpen] = useState(false)
   const { screenToFlowPosition, getNodes } = useReactFlow()
 
   const [activeKind, setActiveKind] = useState<FormKind>(() => {
@@ -545,6 +561,23 @@ function Canvas({ topRight }: CanvasContentProps) {
 
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([])
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
+
+  // Grid ON: snap LIVE, mid-drag — intercepting 'position' changes here
+  // (rather than only at drag-stop) is what makes the form visually jump
+  // from grid dot to grid dot WHILE dragging, quiver-style. Deliberately NOT
+  // React Flow's own snapToGrid prop: that snaps a node's top-left corner,
+  // but node size varies per kind/scale/point-count, so top-left isn't the
+  // form's actual visual center — snapCenterPosition (grid.ts) is.
+  const onNodesChangeSnapped = useCallback((changes: NodeChange[]) => {
+    if (!gridEnabled) { onNodesChange(changes); return }
+    const d = useStore.getState().diagram
+    onNodesChange(changes.map((c) => {
+      if (c.type !== 'position' || !c.position) return c
+      const form = d.forms.find((f) => f.id === c.id)
+      if (!form) return c
+      return { ...c, position: snapCenterPosition(form, c.position) }
+    }))
+  }, [gridEnabled, onNodesChange])
 
   useEffect(() => {
     setNodes((prev) => {
@@ -654,12 +687,20 @@ function Canvas({ topRight }: CanvasContentProps) {
   }, [selectedFormIds])
 
   // ── Create forms ───────────────────────────────────────────────────
+  // Grid ON: snap the new form's CENTER (not its raw top-left) to the
+  // nearest grid intersection — a fresh form has no edges/points yet, so its
+  // nodeSize is exactly the kind's own default (BASE_SIZE for
+  // triangle/square/circle/rhombus, POINT_SIZE for point, BASE_SIZE/2 for
+  // empty; see forms.ts).
   const createForm = useCallback(
     (kind: FormKind, flow: { x: number; y: number }) => {
       setActiveKind(kind)
-      useStore.getState().addForm(kind, flow, activeColor)
+      const position = gridEnabled
+        ? snapCenterPosition({ kind, scale: undefined, edges: {}, corners: {} }, flow)
+        : flow
+      useStore.getState().addForm(kind, position, activeColor)
     },
-    [activeColor],
+    [activeColor, gridEnabled],
   )
 
   // Click a Shape-rail tile. The SAME rail picks both point shapes and form
@@ -875,10 +916,19 @@ function Canvas({ topRight }: CanvasContentProps) {
   }, [])
 
   // ── Move ───────────────────────────────────────────────────────────
+  // Grid ON: re-snap at persistence time too — live-drag snapping already
+  // keeps the visible position grid-aligned (see onNodesChangeSnapped
+  // above), but this is what guarantees the STORED position is the snapped
+  // one, not just whatever the live-drag path happened to leave it at.
   const onNodeDragStop = useCallback((_: unknown, node: Node, draggedNodes?: Node[]) => {
     const all = draggedNodes && draggedNodes.length > 0 ? draggedNodes : [node]
-    useStore.getState().moveForms(all.map((n) => ({ id: n.id, position: { x: n.position.x, y: n.position.y } })))
-  }, [])
+    const d = useStore.getState().diagram
+    useStore.getState().moveForms(all.map((n) => {
+      const form = d.forms.find((f) => f.id === n.id)
+      const position = gridEnabled && form ? snapCenterPosition(form, n.position) : { x: n.position.x, y: n.position.y }
+      return { id: n.id, position }
+    }))
+  }, [gridEnabled])
 
   // ── Delete ─────────────────────────────────────────────────────────
   const onNodesDelete = useCallback((deleted: Node[]) => {
@@ -927,7 +977,7 @@ function Canvas({ topRight }: CanvasContentProps) {
       <ReactFlow
         nodes={nodes}
         edges={edges}
-        onNodesChange={onNodesChange}
+        onNodesChange={onNodesChangeSnapped}
         onEdgesChange={onEdgesChange}
         onNodesDelete={onNodesDelete}
         onEdgesDelete={onEdgesDelete}
@@ -964,6 +1014,13 @@ function Canvas({ topRight }: CanvasContentProps) {
         proOptions={{ hideAttribution: true }}
         style={{ background: theme.canvas.background }}
       >
+        {/* Grid ON: quiver-style grid lines at the same GRID_SIZE pitch
+            snapping uses — purely visual, React Flow's Background component
+            doesn't itself constrain node placement (that's the snapping
+            logic above). */}
+        {gridEnabled && (
+          <Background variant={BackgroundVariant.Lines} gap={GRID_SIZE} color={theme.canvas.gridColor} />
+        )}
       </ReactFlow>
 
       <ToolbarSprite />
@@ -974,6 +1031,22 @@ function Canvas({ topRight }: CanvasContentProps) {
       <div style={{ position: 'absolute', top: 16, right: 16, zIndex: 10 }}>
         <div className="pill-cluster">
           <div className="pill editor-pill">
+            <button
+              className={`btn btn-icon${gridEnabled ? ' is-active' : ''}`}
+              title={gridEnabled ? 'Hide grid & disable snapping' : 'Show grid & snap to grid'}
+              aria-label={gridEnabled ? 'Hide grid & disable snapping' : 'Show grid & snap to grid'}
+              onClick={toggleGridEnabled}
+            >
+              <svg aria-hidden="true"><use href="#ic-grid" /></svg>
+            </button>
+            <button
+              className="btn btn-icon"
+              title="Export to TikZ"
+              aria-label="Export to TikZ"
+              onClick={() => setExportOpen(true)}
+            >
+              <svg aria-hidden="true"><use href="#ic-export" /></svg>
+            </button>
             <button
               className={`btn btn-icon${pointsVisible ? '' : ' is-active'}`}
               title={pointsVisible ? 'Hide point names' : 'Show point names'}
@@ -986,6 +1059,8 @@ function Canvas({ topRight }: CanvasContentProps) {
           {topRight}
         </div>
       </div>
+
+      {exportOpen && <TikzExportPanel diagram={diagram} onClose={() => setExportOpen(false)} />}
 
       {/* General toolbar — the mockup's category Spine (DS .pill, scaled up),
           centred over the canvas. Most categories are placeholders; clicking

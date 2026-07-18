@@ -27,6 +27,10 @@ interface State {
   selectedPoints: string[] // point ids
   edgePath: EdgePathMode
   pointsVisible: boolean
+  // Snap-to-grid ON/OFF (grid.ts's GRID_SIZE pitch) — transient UI state,
+  // same shape as pointsVisible: NOT part of the Diagram schema (types.ts)
+  // or the DB, no undo history entry. Default OFF.
+  gridEnabled: boolean
   // Quiver-style hover highlight — transient UI state, not part of undo history.
   hover: HoverTarget
   // Hovered wire (React Flow edge id) — transient UI state like `hover`. Lives
@@ -41,6 +45,7 @@ interface State {
 
   toggleEdgePath: () => void
   togglePointsVisible: () => void
+  toggleGridEnabled: () => void
   setSelectedPoints: (ids: string[]) => void
   toggleSelectedPoint: (id: string) => void
   clearSelection: () => void
@@ -96,6 +101,7 @@ export const useStore = create<State>((set, get) => {
     selectedPoints: [],
     edgePath: 'straight',
     pointsVisible: true,
+    gridEnabled: false,
     hover: null,
     hoveredEdgeId: null,
     history: [emptyDiagram],
@@ -116,6 +122,7 @@ export const useStore = create<State>((set, get) => {
 
     toggleEdgePath: () => set({ edgePath: get().edgePath === 'straight' ? 'smoothstep' : 'straight' }),
     togglePointsVisible: () => set({ pointsVisible: !get().pointsVisible }),
+    toggleGridEnabled: () => set({ gridEnabled: !get().gridEnabled }),
     setSelectedPoints: (ids) => {
       if (ids.length === 0 && get().selectedPoints.length === 0) return
       set({ selectedPoints: ids })
