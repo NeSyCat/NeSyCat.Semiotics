@@ -566,7 +566,7 @@ function ExportMenu({ diagram }: { diagram: Diagram }) {
   }, [open])
 
   return (
-    <div ref={wrapRef} style={{ position: 'relative' }} onMouseEnter={openMenu} onMouseLeave={scheduleClose}>
+    <div ref={wrapRef} onMouseEnter={openMenu} onMouseLeave={scheduleClose}>
       <button
         className="btn btn-icon"
         title="Export"
@@ -594,7 +594,7 @@ function ExportMenu({ diagram }: { diagram: Diagram }) {
               return `${location.origin}${shareBasePath()}#${frag}`
             }}
           />
-          <ExportRow label="Text" getText={() => diagramToTikz(diagram)} />
+          <ExportRow label="LaTeX" getText={() => diagramToTikz(diagram)} />
           <ExportRow label="HTML" getText={() => diagramToHtml(diagram)} />
         </div>
       )}
@@ -1188,7 +1188,11 @@ function Canvas({ topRight }: CanvasContentProps) {
               exported, opens a paste panel) on the left, Export (a Copy
               URL / Copy TikZ code dropdown — minimalist, no code preview)
               on the right — one pill, mirrored icons. */}
-          <div className="pill editor-pill">
+          {/* position:relative lives HERE (the whole pill), not on ExportMenu's
+              own inner wrapper — the dropdown's `right: 0` needs to align with
+              the PILL's right edge, not just the Export button's slightly-
+              inset flex-item box, or it reads as sitting too far left. */}
+          <div className="pill editor-pill" style={{ position: 'relative' }}>
             <button
               className="btn btn-icon"
               title="Import from link or TikZ"

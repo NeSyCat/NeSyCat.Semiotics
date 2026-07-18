@@ -14,20 +14,14 @@ interface Props {
   shareBase: string
 }
 
-function SignInIcon() {
+// The classic person/account glyph — one icon for both auth states (the
+// button's title/aria-label carries the sign-in-vs-sign-out distinction,
+// same as the door-arrow icons this replaced).
+function UserIcon() {
   return (
     <svg width={24} height={24} viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M9 4h8a2 2 0 012 2v12a2 2 0 01-2 2H9" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M3 12h11m0 0l-3.5-3.5M14 12l-3.5 3.5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  )
-}
-
-function SignOutIcon() {
-  return (
-    <svg width={24} height={24} viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M15 4H7a2 2 0 00-2 2v12a2 2 0 002 2h8" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M10 12h11m0 0l-3.5-3.5M21 12l-3.5 3.5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx="12" cy="8" r="3.5" stroke="currentColor" strokeWidth="1.7" />
+      <path d="M4.5 19.5c0-3.6 3.36-6.5 7.5-6.5s7.5 2.9 7.5 6.5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
     </svg>
   )
 }
@@ -46,7 +40,7 @@ export default function AuthSharePill({ isSignedIn, callbackUrl }: Props) {
     <div className="pill editor-pill">
       {isSignedIn ? (
         <button className="btn btn-icon" title="Sign out" aria-label="Sign out" onClick={onSignOut}>
-          <SignOutIcon />
+          <UserIcon />
         </button>
       ) : (
         <button
@@ -55,7 +49,7 @@ export default function AuthSharePill({ isSignedIn, callbackUrl }: Props) {
           aria-label="Sign in with GitHub"
           onClick={() => startGitHubSignIn(callbackUrl)}
         >
-          <SignInIcon />
+          <UserIcon />
         </button>
       )}
     </div>
