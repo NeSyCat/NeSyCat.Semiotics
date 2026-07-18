@@ -7,7 +7,7 @@
 //   npx tsx _tests/file/empty-form.test.ts
 
 import { geometryFor } from '../../components/editor2/forms'
-import { addPoint, addForm } from '../../components/editor2/mutations'
+import { addPoint, addForm, removePoint } from '../../components/editor2/mutations'
 import { useStore, initStore } from '../../components/editor2/store'
 import { restoreDiagram } from '../../components/editor2/io'
 import type { Diagram, Form } from '../../components/editor2/types'
@@ -219,6 +219,45 @@ function bareForm(id: string, kind: Form['kind'], extra: Partial<Form> = {}): Fo
 // see the comments at createForm's definition). This composition was
 // instead verified live in the browser (rail-drag + double-click for both
 // 'empty' and a 200px kind) — see the task report, not this file.
+
+// ── INVARIANT: an empty form never exists without its middle point ───────
+// Deleting the middle point deletes the FORM with it (cascade through
+// deleteForm, so its lines are pruned too); loading a pre-seeding save
+// whose empty form has NO point drops that form outright (no legacy
+// support — no seeding of old saves).
+{
+  // removePoint on the middle point → whole form (and its lines) gone.
+  const [seeded, formId] = addForm(
+    { schemaVersion: 1, forms: [bareForm('SQ', 'square', { edges: { top: ['PX'] } })], points: { PX: { id: 'PX', shape: 'point', formId: 'SQ', edgeKey: 'top' } }, lines: [] },
+    'empty', { x: 0, y: 0 },
+  )
+  const mid = seeded.forms.find((f) => f.id === formId)!.edges.self[0]
+  const wired: Diagram = { ...seeded, lines: [{ id: 'LX', source: 'PX', targets: [mid] }] }
+  const after = removePoint(wired, mid)
+  assert(after.forms.find((f) => f.id === formId) === undefined, `deleting the middle point deletes the empty form itself`)
+  assert(after.points[mid] === undefined, `the middle point is gone with it`)
+  assert(after.lines.length === 0, `the line into the middle point is pruned (got ${after.lines.length})`)
+  assert(after.forms.find((f) => f.id === 'SQ') !== undefined && after.points.PX !== undefined, `the OTHER form and its point survive`)
+
+  // Regression: removePoint on a normal form's point never deletes the form.
+  const after2 = removePoint(wired, 'PX')
+  assert(after2.forms.find((f) => f.id === 'SQ') !== undefined, `removing a square's point keeps the square`)
+  assert(after2.points.PX === undefined, `...while the point itself is removed`)
+
+  // Load-time: a zero-point empty form (pre-seeding save) is dropped.
+  const raw = {
+    schemaVersion: 1,
+    forms: [
+      { id: 'BARE', kind: 'empty', position: { x: 0, y: 0 }, edges: {}, corners: {} },
+      { id: 'SQ2', kind: 'square', position: { x: 300, y: 0 }, edges: {}, corners: {} },
+    ],
+    points: {}, lines: [],
+  }
+  const restored = restoreDiagram(raw)
+  assert(restored.forms.find((f) => f.id === 'BARE') === undefined, `restore drops an empty form that has no middle point (no legacy seeding)`)
+  assert(restored.forms.find((f) => f.id === 'SQ2') !== undefined, `other forms pass through untouched`)
+  assert(JSON.stringify(restoreDiagram(restored)) === JSON.stringify(restored), `the drop is idempotent on re-restore`)
+}
 
 console.log(`\n${pass} passed, ${fail} failed`)
 process.exit(fail > 0 ? 1 : 0)

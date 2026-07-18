@@ -161,6 +161,13 @@ export function addPoint(d: Diagram, formId: string, edgeKey: EdgeKey, shape: Po
 export function removePoint(d: Diagram, pointId: string): Diagram {
   const pt = d.points[pointId]
   if (!pt) return d
+  // A capacity-1 kind ('empty') IS its middle point — the form must never
+  // exist without it, so deleting the point deletes the whole form
+  // (deleteForm also prunes the point's lines, same as any form removal).
+  const owner = d.forms.find((f) => f.id === pt.formId)
+  if (owner && geometryFor(owner.kind).maxPoints !== undefined) {
+    return deleteForm(d, owner.id)
+  }
   const forms = d.forms.map((f) => {
     if (f.id !== pt.formId) return f
     if (pt.edgeKey in geometryFor(f.kind).corners) return { ...f, corners: { ...f.corners, [pt.edgeKey]: undefined } }
