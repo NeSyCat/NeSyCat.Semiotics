@@ -26,6 +26,7 @@ import { geometryFor, pointIdsAt, isInsideBody, isInCenterZone, BASE_SIZE, type 
 import { encodeHandle, decodeHandle, decodePhantomHandle } from './handles'
 import { GRID_SIZE, snapCenterPosition } from './grid'
 import TikzExportPanel from './TikzExportPanel'
+import ImportPanel from './ImportPanel'
 import theme from './theme'
 import type { Diagram, Form, FormKind, PointShape, Color } from './types'
 import { toCssRgb } from './color'
@@ -191,6 +192,12 @@ function ToolbarSprite() {
         </symbol>
         <symbol id="ic-export" viewBox="0 0 24 24" fill="none">
           <path d="M12 15V4M12 4L7.5 8.5M12 4l4.5 4.5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+        </symbol>
+        {/* Mirror of ic-export — same tray, arrow pointing the OTHER way (down,
+            into the tray) for "bring something in". */}
+        <symbol id="ic-import" viewBox="0 0 24 24" fill="none">
+          <path d="M12 4v11M12 15l-4.5-4.5M12 15l4.5-4.5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
           <path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
         </symbol>
         <symbol id="kind-empty" viewBox="0 0 24 24">
@@ -483,6 +490,7 @@ function Canvas({ topRight }: CanvasContentProps) {
   const gridEnabled = useStore((s) => s.gridEnabled)
   const toggleGridEnabled = useStore((s) => s.toggleGridEnabled)
   const [exportOpen, setExportOpen] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
   const { screenToFlowPosition, getNodes } = useReactFlow()
 
   const [activeKind, setActiveKind] = useState<FormKind>(() => {
@@ -1025,9 +1033,10 @@ function Canvas({ topRight }: CanvasContentProps) {
 
       <ToolbarSprite />
 
-      {/* Points-visibility toggle — a single-button pill in the canvas's top-right
-          corner, mirroring the sidebar's collapse pill on the opposite side.
-          `topRight` (the auth/share pill) joins it in a pill-cluster. */}
+      {/* Top-right pill cluster: [grid + points-visibility] [import/export]
+          [topRight — the auth/share pill], in that left-to-right order (the
+          cluster itself is right-anchored; import/export sits immediately
+          LEFT of the share pill, mirroring quiver's round-trip idiom). */}
       <div style={{ position: 'absolute', top: 16, right: 16, zIndex: 10 }}>
         <div className="pill-cluster">
           <div className="pill editor-pill">
@@ -1040,14 +1049,6 @@ function Canvas({ topRight }: CanvasContentProps) {
               <svg aria-hidden="true"><use href="#ic-grid" /></svg>
             </button>
             <button
-              className="btn btn-icon"
-              title="Export to TikZ"
-              aria-label="Export to TikZ"
-              onClick={() => setExportOpen(true)}
-            >
-              <svg aria-hidden="true"><use href="#ic-export" /></svg>
-            </button>
-            <button
               className={`btn btn-icon${pointsVisible ? '' : ' is-active'}`}
               title={pointsVisible ? 'Hide point names' : 'Show point names'}
               aria-label={pointsVisible ? 'Hide point names' : 'Show point names'}
@@ -1056,11 +1057,33 @@ function Canvas({ topRight }: CanvasContentProps) {
               <svg aria-hidden="true"><use href={`#${pointsVisible ? 'ic-eye' : 'ic-eye-off'}`} /></svg>
             </button>
           </div>
+          {/* Round trip: Import (paste a share link OR TikZ this editor
+              exported) on the left, Export (open the TikZ panel) on the
+              right — one pill, mirrored icons. */}
+          <div className="pill editor-pill">
+            <button
+              className="btn btn-icon"
+              title="Import from link or TikZ"
+              aria-label="Import from link or TikZ"
+              onClick={() => setImportOpen(true)}
+            >
+              <svg aria-hidden="true"><use href="#ic-import" /></svg>
+            </button>
+            <button
+              className="btn btn-icon"
+              title="Export to TikZ"
+              aria-label="Export to TikZ"
+              onClick={() => setExportOpen(true)}
+            >
+              <svg aria-hidden="true"><use href="#ic-export" /></svg>
+            </button>
+          </div>
           {topRight}
         </div>
       </div>
 
       {exportOpen && <TikzExportPanel diagram={diagram} onClose={() => setExportOpen(false)} />}
+      {importOpen && <ImportPanel onClose={() => setImportOpen(false)} />}
 
       {/* General toolbar — the mockup's category Spine (DS .pill, scaled up),
           centred over the canvas. Most categories are placeholders; clicking

@@ -42,6 +42,15 @@ interface State {
   historyIndex: number
   undo: () => void
   redo: () => void
+  // Wholesale-replaces the diagram (the Import panel's "paste a share link
+  // or exported TikZ" action) — one undoable history entry, same as any
+  // other mutation, so importing over an in-progress diagram isn't
+  // destructive. Deliberately NOT routed through mutations.ts's M.* pure
+  // functions (unlike every other action below): this isn't a semantic
+  // transform of the current diagram, it's a full swap for an already-
+  // decoded one (share.ts's decodeDiagramFromFragment already normalizes it
+  // via io.ts's restoreDiagram).
+  loadDiagram: (d: Diagram) => void
 
   toggleEdgePath: () => void
   togglePointsVisible: () => void
@@ -112,6 +121,10 @@ export const useStore = create<State>((set, get) => {
       const { history, historyIndex } = get()
       if (historyIndex <= 0) return
       set({ diagram: history[historyIndex - 1], historyIndex: historyIndex - 1 })
+    },
+    loadDiagram: (d) => {
+      coalesceTag = null
+      setCur(d)
     },
     redo: () => {
       coalesceTag = null

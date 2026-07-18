@@ -1,10 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useStore } from '@/components/editor2/store'
 import { encodeDiagramToFragment } from '@/components/editor2/share'
+import { diagramToTikz } from '@/components/editor2/tikz'
 import { createClient } from '@/lib/supabase/client'
 import { startGitHubSignIn } from '@/components/SignInButton'
+import { MenuItem } from '@/components/ui/menu-item'
 
 interface Props {
   isSignedIn: boolean
@@ -52,22 +54,64 @@ function SignOutIcon() {
 // Top-right pill: Share (anon + signed-in) plus Sign in (anon) / Sign out
 // (signed-in). No positioning of its own — the parent (Canvas.tsx's
 // top-right corner block) owns placement via a pill-cluster.
+//
+// The Share button is a single visible button that reveals a two-item
+// hover menu (Copy link / Copy TikZ code) — a quick-copy shortcut, distinct
+// from the top-right Export button's full panel+preview (TikzExportPanel).
 export default function AuthSharePill({ isSignedIn, callbackUrl, shareBase }: Props) {
   const [copied, setCopied] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
+  const wrapRef = useRef<HTMLDivElement>(null)
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const onShare = async () => {
+  const openMenu = () => {
+    if (closeTimer.current) { clearTimeout(closeTimer.current); closeTimer.current = null }
+    setMenuOpen(true)
+  }
+  const scheduleClose = () => {
+    closeTimer.current = setTimeout(() => setMenuOpen(false), 150)
+  }
+  useEffect(() => () => { if (closeTimer.current) clearTimeout(closeTimer.current) }, [])
+
+  // Click-outside close — hover handles the mouse case, but a tap (no
+  // hover) needs this to dismiss the menu too.
+  useEffect(() => {
+    if (!menuOpen) return
+    const onDocDown = (e: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setMenuOpen(false)
+    }
+    document.addEventListener('mousedown', onDocDown)
+    return () => document.removeEventListener('mousedown', onDocDown)
+  }, [menuOpen])
+
+  const flashCopied = () => {
+    setCopied(true)
+    setTimeout(() => setCopied(false), 1500)
+  }
+
+  const copyText = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text)
+    } catch {
+      window.prompt('Copy this:', text)
+      return
+    }
+    flashCopied()
+  }
+
+  const onCopyLink = async () => {
+    setMenuOpen(false)
     const diagram = useStore.getState().diagram
     const frag = await encodeDiagramToFragment(diagram)
     const u = new URL(shareBase, location.origin)
-    const shareUrl = `${u.href}#${frag}`
-    try {
-      await navigator.clipboard.writeText(shareUrl)
-    } catch {
-      window.prompt('Copy this link:', shareUrl)
-      return
-    }
-    setCopied(true)
-    setTimeout(() => setCopied(false), 1500)
+    await copyText(`${u.href}#${frag}`)
+  }
+
+  const onCopyTikz = async () => {
+    setMenuOpen(false)
+    const diagram = useStore.getState().diagram
+    const tex = await diagramToTikz(diagram)
+    await copyText(tex)
   }
 
   const onSignOut = async () => {
@@ -78,14 +122,31 @@ export default function AuthSharePill({ isSignedIn, callbackUrl, shareBase }: Pr
 
   return (
     <div className="pill editor-pill">
-      <button
-        className="btn btn-icon"
-        title={copied ? 'Copied' : 'Copy share link'}
-        aria-label="Copy share link"
-        onClick={onShare}
-      >
-        {copied ? <CheckIcon /> : <ShareIcon />}
-      </button>
+      <div ref={wrapRef} style={{ position: 'relative' }} onMouseEnter={openMenu} onMouseLeave={scheduleClose}>
+        <button
+          className="btn btn-icon"
+          title={copied ? 'Copied' : 'Share'}
+          aria-label="Share"
+          aria-haspopup="menu"
+          aria-expanded={menuOpen}
+          onClick={() => setMenuOpen((v) => !v)}
+        >
+          {copied ? <CheckIcon /> : <ShareIcon />}
+        </button>
+        {menuOpen && (
+          <div
+            role="menu"
+            style={{
+              position: 'absolute', top: '100%', right: 0, marginTop: 8, zIndex: 20,
+              background: 'var(--color-card)', border: '1px solid var(--color-border)',
+              borderRadius: 'var(--radius-md, 10px)', boxShadow: 'var(--shadow-md)', padding: 6,
+            }}
+          >
+            <MenuItem onClick={onCopyLink}>Copy link</MenuItem>
+            <MenuItem onClick={onCopyTikz}>Copy TikZ code</MenuItem>
+          </div>
+        )}
+      </div>
       {isSignedIn ? (
         <button className="btn btn-icon" title="Sign out" aria-label="Sign out" onClick={onSignOut}>
           <SignOutIcon />
