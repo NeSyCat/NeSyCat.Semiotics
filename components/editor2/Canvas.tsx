@@ -587,6 +587,7 @@ function ExportMenu({ diagram }: { diagram: Diagram }) {
             display: 'flex', flexDirection: 'column',
           }}
         >
+          <ExportRow label="LaTeX" getText={() => diagramToTikz(diagram)} />
           <ExportRow
             label="URL"
             getText={async () => {
@@ -594,7 +595,6 @@ function ExportMenu({ diagram }: { diagram: Diagram }) {
               return `${location.origin}${shareBasePath()}#${frag}`
             }}
           />
-          <ExportRow label="LaTeX" getText={() => diagramToTikz(diagram)} />
           <ExportRow label="HTML" getText={() => diagramToHtml(diagram)} />
         </div>
       )}
