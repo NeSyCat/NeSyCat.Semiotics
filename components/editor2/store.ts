@@ -74,7 +74,7 @@ interface State {
   setFormsScale: (ids: string[], scale: number) => void
   setFormsColor: (ids: string[], color: Color | null) => void
 
-  addPoint: (formId: string, edgeKey: string, shape?: PointShape) => string
+  addPoint: (formId: string, edgeKey: string, shape?: PointShape, index?: number) => string
   removePoint: (id: string) => void
   renamePoint: (id: string, name: string) => void
   renamePoints: (ids: string[], name: string) => void
@@ -183,8 +183,8 @@ export const useStore = create<State>((set, get) => {
     setFormsScale: (ids, scale) => { if (ids.length) setCur(M.setFormsScale(get().diagram, ids, scale), 'scale:forms:' + [...ids].sort().join(',')) },
     setFormsColor: (ids, color) => { if (ids.length) setCur(M.setFormsColor(get().diagram, ids, color)) },
 
-    addPoint: (formId, edgeKey, shape) => {
-      const [d, id] = M.addPoint(get().diagram, formId, edgeKey, shape)
+    addPoint: (formId, edgeKey, shape, index) => {
+      const [d, id] = M.addPoint(get().diagram, formId, edgeKey, shape, index)
       if (id) setCur(d)
       return id
     },

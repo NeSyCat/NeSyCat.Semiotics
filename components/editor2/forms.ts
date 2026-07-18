@@ -53,6 +53,49 @@ export interface FormGeometry {
   edgeAt: (rx: number, ry: number) => EdgeKey | undefined
   // Overlay shape for hovering/selecting this edgeKey's region.
   regionShape: (edgeKey: EdgeKey) => RegionShape
+  // The INVERSE of pointAnchor's own spacing formula for a SIDE edgeKey: given
+  // a normalized cursor (rx, ry) ∈ [0,1]² already known to be on/near this
+  // edge, returns the same t ∈ [0,1] ordering parameter pointAnchor's t
+  // (whatever its per-kind meaning — linear position along a side, or angle
+  // around an arc/fan) would have produced for a point sitting there. Single
+  // source of truth for "where along this edge did the gesture happen" —
+  // insertionIndex below is the only consumer. Undefined for corner keys
+  // (a corner is a single slot; ordering is meaningless there).
+  edgeParam: (edgeKey: EdgeKey, rx: number, ry: number) => number
+}
+
+function clamp01(v: number) {
+  return Math.max(0, Math.min(1, v))
+}
+
+// Where a NEW point's gesture (rx, ry) should land in an edge's existing
+// ordered point list — the fix for "wires cross instead of running parallel"
+// when two points get created on facing sides in the wrong relative order.
+// Generic across every kind: for each of the `count` existing points, re-
+// derive ITS OWN t (by asking pointAnchor where it currently sits, then
+// inverting that back through edgeParam) and count how many precede the
+// gesture's own t. Because edgeParam is the exact inverse of whatever
+// spacing formula pointAnchor used to place that point, this stays correct
+// for linear sides (t = (i+1)/(count+1)), circle arcs (t = angle fraction),
+// and the point/empty radial fan (t = i/count) without needing a separate
+// closed-form per kind. Corner keys have no ordering — 0 is a harmless,
+// ignored default (mutations.addPoint never splices a corner).
+export function insertionIndex(form: Form, edgeKey: EdgeKey, rx: number, ry: number): number {
+  const geom = geometryFor(form.kind)
+  if (edgeKey in geom.corners) return 0
+  const ids = form.edges[edgeKey] ?? []
+  const count = ids.length
+  if (count === 0) return 0
+  const tg = geom.edgeParam(edgeKey, rx, ry)
+  let k = 0
+  for (let i = 0; i < count; i++) {
+    // n=1: every non-corner pointAnchor formula is linear in n, so fractions
+    // come out the same regardless of the actual node size.
+    const a = geom.pointAnchor(edgeKey, i, count, 1)
+    const ti = geom.edgeParam(edgeKey, a.x, a.y)
+    if (ti < tg) k++
+  }
+  return Math.min(count, k)
 }
 
 // ── Shared helpers ───────────────────────────────────────────────────
@@ -192,6 +235,15 @@ function radialFanAnchor(index: number, count: number, n: number): Anchor {
   return { x: n / 2 + r * Math.cos(theta), y: n / 2 - r * Math.sin(theta), position: cardinal(theta) }
 }
 
+// Inverse of radialFanAnchor's own raw→θ fold (θ = raw > π ? raw − 2π : raw,
+// raw ∈ [0, 2π)): recover θ from a normalized cursor, then undo the fold —
+// θ < 0 came from a raw past π, so add 2π back.
+function radialFanParam(rx: number, ry: number): number {
+  const theta = angleFromFraction(rx, ry)
+  const raw = theta < 0 ? theta + 2 * Math.PI : theta
+  return clamp01(raw / (2 * Math.PI))
+}
+
 // ── TRIANGLE — apex points RIGHT (the standard orientation). Sides:
 //   a = top slant (top-left → apex), b = bottom slant (bottom-left → apex),
 //   c = left side (top-left → bottom-left, vertical).
@@ -243,6 +295,13 @@ const triangleGeometry: FormGeometry = {
     if (edgeKey === 'b') return { kind: 'polyline', points: insetSegment([TRI_BASE_X, 1], [TRI_APEX_X, 0.5], CORNER_R) }
     return { kind: 'polyline', points: insetSegment([TRI_BASE_X, 0], [TRI_BASE_X, 1], CORNER_R) } // c
   },
+  // Inverse of triSlant's t (y runs 0→0.5 for 'a', 1→0.5 for 'b') / the
+  // direct t=y assignment for 'c' (see pointAnchor above).
+  edgeParam: (edgeKey, _rx, ry) => {
+    if (edgeKey === 'a') return clamp01(2 * ry)
+    if (edgeKey === 'b') return clamp01(2 * (1 - ry))
+    return clamp01(ry) // c
+  },
 }
 
 // ── SQUARE (4 sides + 4 corners) ─────────────────────────────────────
@@ -284,6 +343,14 @@ const squareGeometry: FormGeometry = {
       default: return { kind: 'polyline', points: insetSegment([0, 0], [0, 1], CORNER_R) } // left
     }
   },
+  // Inverse of pointAnchor's t*n assignment: top/bottom run along x, left/
+  // right run along y (see pointAnchor above).
+  edgeParam: (edgeKey, rx, ry) => {
+    switch (edgeKey) {
+      case 'top': case 'bottom': return clamp01(rx)
+      default: return clamp01(ry) // left/right
+    }
+  },
 }
 
 // ── CIRCLE (4 cardinal arcs up/right/down/left; no vertices) ─────────
@@ -298,6 +365,13 @@ function arcPt(edgeKey: string, t: number, n: number): [number, number] {
   const r = n / 2
   const theta = ARC_START[edgeKey] - t * (Math.PI / 2)
   return [n / 2 + r * Math.cos(theta), n / 2 - r * Math.sin(theta)]
+}
+
+// Inverse of arcPt's own x/y assignment (x = n/2 + r·cosθ, y = n/2 − r·sinθ,
+// centred at fraction (0.5, 0.5)) — recovers θ from a normalized cursor,
+// shared by the circle arcs' and the radial fan's edgeParam.
+function angleFromFraction(rx: number, ry: number): number {
+  return Math.atan2(-(ry - 0.5), rx - 0.5)
 }
 
 // Same trig as arcPt but sampled across the whole 90° quadrant, in
@@ -334,6 +408,16 @@ const circleGeometry: FormGeometry = {
     return 'left'
   },
   regionShape: (edgeKey) => ({ kind: 'polyline', points: arcRegionPoints(edgeKey) }),
+  // Inverse of arcPt's θ = ARC_START[edgeKey] − t·(π/2): recover θ, then
+  // undo that subtraction — normalized into [0, 2π) first since 'left'
+  // wraps across the ±π seam (ARC_START.left = −3π/4, so its far end lands
+  // past π).
+  edgeParam: (edgeKey, rx, ry) => {
+    const theta = angleFromFraction(rx, ry)
+    const raw = ARC_START[edgeKey] - theta
+    const norm = ((raw % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI)
+    return clamp01(norm / (Math.PI / 2))
+  },
 }
 
 // ── RHOMBUS (diamond orientation — 4 sides + 4 corners, same shape as
@@ -384,6 +468,19 @@ const rhombusGeometry: FormGeometry = {
     const side = RHOMBUS_SIDES[edgeKey]
     return { kind: 'polyline', points: insetSegment(side.a, side.b, CORNER_R) }
   },
+  // Inverse of lerp(side.a, side.b, t): project (rx, ry) onto the side's own
+  // segment (same a→b direction pointAnchor's lerp used) and clamp — the
+  // general projection formula, since rhombus sides aren't axis-aligned.
+  edgeParam: (edgeKey, rx, ry) => {
+    const side = RHOMBUS_SIDES[edgeKey]
+    if (!side) return 0
+    const { a, b } = side
+    const dx = b[0] - a[0]
+    const dy = b[1] - a[1]
+    const len2 = dx * dx + dy * dy || 1
+    const t = ((rx - a[0]) * dx + (ry - a[1]) * dy) / len2
+    return clamp01(t)
+  },
 }
 
 // ── POINT — a standalone atomic form: the string-diagram "copy" node. It's a
@@ -415,6 +512,7 @@ const pointGeometry: FormGeometry = {
   pointAnchor: (_edgeKey, index, count, n) => radialFanAnchor(index, count, n),
   edgeAt: () => POINT_EDGE,
   regionShape: () => ({ kind: 'full' }),
+  edgeParam: (_edgeKey, rx, ry) => radialFanParam(rx, ry),
 }
 
 // ── EMPTY — an invisible carrier form (bodyOpacity 0, no name of its own).
@@ -436,6 +534,7 @@ const emptyGeometry: FormGeometry = {
   pointAnchor: (_edgeKey, index, count, n) => radialFanAnchor(index, count, n),
   edgeAt: () => EMPTY_EDGE,
   regionShape: () => ({ kind: 'full' }),
+  edgeParam: (_edgeKey, rx, ry) => radialFanParam(rx, ry),
 }
 
 // ── Registry ─────────────────────────────────────────────────────────

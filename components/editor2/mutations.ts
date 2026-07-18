@@ -105,17 +105,26 @@ export function setFormsColor(d: Diagram, ids: string[], color: Color | null): D
 // ── Points ───────────────────────────────────────────────────────────
 // A corner is a single slot: if it's already occupied, refuse (returns the id
 // as '' — same "no-op" signal as "form not found") rather than stacking a
-// second point on one vertex.
-export function addPoint(d: Diagram, formId: string, edgeKey: EdgeKey, shape: PointShape = 'empty'): [Diagram, string] {
+// second point on one vertex. `index` places the new point at that position
+// in a SIDE's ordered list (clamped to the current length) — the gesture-
+// driven insertion point forms.ts's insertionIndex works out; undefined
+// (the default) appends, same as before. Corners ignore it — a single slot
+// has no ordering to insert into.
+export function addPoint(d: Diagram, formId: string, edgeKey: EdgeKey, shape: PointShape = 'empty', index?: number): [Diagram, string] {
   const form = d.forms.find((f) => f.id === formId)
   if (!form) return [d, '']
   const isCorner = edgeKey in geometryFor(form.kind).corners
   if (isCorner && form.corners[edgeKey]) return [d, '']
   const id = newPointId(d)
   const point: Point = { id, shape, formId, edgeKey }
-  const updated: Form = isCorner
-    ? { ...form, corners: { ...form.corners, [edgeKey]: id } }
-    : { ...form, edges: { ...form.edges, [edgeKey]: [...(form.edges[edgeKey] ?? []), id] } }
+  let updated: Form
+  if (isCorner) {
+    updated = { ...form, corners: { ...form.corners, [edgeKey]: id } }
+  } else {
+    const list = form.edges[edgeKey] ?? []
+    const at = index === undefined ? list.length : Math.max(0, Math.min(index, list.length))
+    updated = { ...form, edges: { ...form.edges, [edgeKey]: [...list.slice(0, at), id, ...list.slice(at)] } }
+  }
   const forms = d.forms.map((f) => (f.id === formId ? updated : f))
   return [{ ...d, forms, points: { ...d.points, [id]: point } }, id]
 }
