@@ -7,7 +7,7 @@
 //   npx tsx _tests/file/empty-form.test.ts
 
 import { geometryFor } from '../../components/editor2/forms'
-import { addPoint } from '../../components/editor2/mutations'
+import { addPoint, addForm } from '../../components/editor2/mutations'
 import { useStore, initStore } from '../../components/editor2/store'
 import { restoreDiagram } from '../../components/editor2/io'
 import type { Diagram, Form } from '../../components/editor2/types'
@@ -152,6 +152,73 @@ function bareForm(id: string, kind: Form['kind'], extra: Partial<Form> = {}): Fo
     'one undo after two drops removes the point (no phantom no-op step in between)',
   )
 }
+
+// ── mutations.addForm — seeds the middle point for capacity-bearing kinds ─
+// (the ticket's "when I drag an empty form onto the canvas it should
+// already have a name point" request), in ONE returned Diagram — one undo
+// step covers form + point together.
+{
+  const empty: Diagram = { schemaVersion: 1, forms: [], points: {}, lines: [] }
+
+  // (i) addForm('empty') seeds exactly one point on 'self', shape 'empty'.
+  const [d1, formId1] = addForm(empty, 'empty', { x: 0, y: 0 })
+  const form1 = d1.forms.find((f) => f.id === formId1)!
+  const seededIds = form1.edges.self ?? []
+  assert(seededIds.length === 1, `addForm('empty') seeds exactly one point id on 'self' (got [${seededIds.join(',')}])`)
+  const seededPoint = d1.points[seededIds[0]]
+  assert(seededPoint !== undefined, `the seeded point id actually exists in points{} (got ${seededIds[0]})`)
+  assert(seededPoint?.shape === 'empty', `the seeded point uses addPoint's default shape 'empty' (got ${seededPoint?.shape})`)
+  assert(seededPoint?.formId === formId1 && seededPoint?.edgeKey === 'self', `the seeded point is attached to the new form's 'self' edge (got formId=${seededPoint?.formId}, edgeKey=${seededPoint?.edgeKey})`)
+
+  // (ii) addForm for a kind with no maxPoints (e.g. 'square') seeds nothing.
+  const [d2, formId2] = addForm(empty, 'square', { x: 0, y: 0 })
+  const form2 = d2.forms.find((f) => f.id === formId2)!
+  const squareEdgeCounts = Object.values(form2.edges).map((l) => l.length)
+  assert(squareEdgeCounts.every((n) => n === 0), `addForm('square') seeds NO points on any side (got edges=${JSON.stringify(form2.edges)})`)
+  assert(Object.keys(d2.points).length === 0, `'square' creation adds no entries to points{} (got ${Object.keys(d2.points).length})`)
+
+  // (iii) store-level: create → historyIndex advances by exactly ONE; one
+  // undo removes form AND point together.
+  initStore(empty)
+  const beforeIndex = useStore.getState().historyIndex
+  const createdId = useStore.getState().addForm('empty', { x: 0, y: 0 })
+  const afterIndex = useStore.getState().historyIndex
+  assert(afterIndex === beforeIndex + 1, `store.addForm('empty') advances historyIndex by exactly ONE (was ${beforeIndex}, now ${afterIndex})`)
+  const createdForm = useStore.getState().diagram.forms.find((f) => f.id === createdId)!
+  const createdPtIds = createdForm.edges.self ?? []
+  assert(createdPtIds.length === 1 && useStore.getState().diagram.points[createdPtIds[0]] !== undefined, `store.addForm('empty') diagram already has the form's middle point (got [${createdPtIds.join(',')}])`)
+  useStore.getState().undo()
+  const afterUndo = useStore.getState().diagram
+  assert(afterUndo.forms.find((f) => f.id === createdId) === undefined, `one undo removes the seeded form (got forms=[${afterUndo.forms.map((f) => f.id).join(',')}])`)
+  assert(createdPtIds.every((pid) => afterUndo.points[pid] === undefined), `the SAME undo also removes the seeded point — no orphan left behind (got points=[${Object.keys(afterUndo.points).join(',')}])`)
+
+  // (iv) blank-canvas wire-drop composition (Canvas.tsx's resolveDropPoint):
+  // addForm('empty') then addPoint(..., 'self') must end with EXACTLY one
+  // point — addPoint's capacity reuse returns the seeded id, and (per the
+  // store-level guard tested above) the identical diagram reference so no
+  // extra history entry gets pushed for the second call.
+  const [d3, formId3] = addForm(empty, 'empty', { x: 0, y: 0 })
+  const seededId3 = (d3.forms.find((f) => f.id === formId3)!.edges.self ?? [])[0]
+  const [d4, reusedId] = addPoint(d3, formId3, 'self')
+  assert(reusedId === seededId3, `addPoint on a freshly-seeded empty form REUSES the seeded id (got ${reusedId}, want ${seededId3})`)
+  assert(d4 === d3, `that reuse returns the IDENTICAL diagram reference — a true no-op, per the setCur identity guard`)
+  assert((d4.forms.find((f) => f.id === formId3)!.edges.self ?? []).length === 1, `still exactly one point after the composed addForm + addPoint (got [${(d4.forms.find((f) => f.id === formId3)!.edges.self ?? []).join(',')}])`)
+}
+
+// ── Canvas.tsx per-kind centering (createForm) — NOT independently tested
+// here. createForm is a client-component-local useCallback, not an exported
+// pure function, and Canvas.tsx itself can't be imported headless under tsx
+// (it pulls in '@xyflow/react/dist/style.css' and JSX/React, which the tsx
+// loader used by this script rejects — confirmed: `npx tsx -e
+// "import('./components/editor2/Canvas.tsx')"` throws `Unexpected token '.'`
+// on the CSS import before any of createForm's own logic runs). Extracting
+// a standalone pure helper was out of scope for this ticket's write set
+// (Canvas.tsx's own math was kept small and read literally: n =
+// geometryFor(kind).nodeSize(freshForm), position = center - n/2, then the
+// EXISTING snapCenterPosition is reused unmodified for the grid-on case —
+// see the comments at createForm's definition). This composition was
+// instead verified live in the browser (rail-drag + double-click for both
+// 'empty' and a 200px kind) — see the task report, not this file.
 
 console.log(`\n${pass} passed, ${fail} failed`)
 process.exit(fail > 0 ? 1 : 0)

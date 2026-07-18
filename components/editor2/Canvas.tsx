@@ -877,17 +877,25 @@ function Canvas({ topRight }: CanvasContentProps) {
   }, [selectedFormIds])
 
   // ── Create forms ───────────────────────────────────────────────────
-  // Grid ON: snap the new form's CENTER (not its raw top-left) to the
-  // nearest grid intersection — a fresh form has no edges/points yet, so its
-  // nodeSize is exactly the kind's own default (BASE_SIZE for
-  // triangle/square/circle/rhombus, POINT_SIZE for point, BASE_SIZE/2 for
-  // empty; see forms.ts).
+  // `center` is the intended CENTER of the new form (the click/drop point),
+  // not its top-left — callers no longer hand-offset by a hardcoded half
+  // size, since that half size differs per kind (BASE_SIZE/2 = 100 for
+  // triangle/square/circle/rhombus, but 50 for empty, 11 for point; see
+  // forms.ts's nodeSize). A fresh form has no edges/points yet, so nodeSize
+  // reads exactly the kind's own default — same SizableForm shape grid.ts's
+  // snapCenterPosition expects.
   const createForm = useCallback(
-    (kind: FormKind, flow: { x: number; y: number }) => {
+    (kind: FormKind, center: { x: number; y: number }) => {
       setActiveKind(kind)
-      const position = gridEnabled
-        ? snapCenterPosition({ kind, scale: undefined, edges: {}, corners: {} }, flow)
-        : flow
+      const freshForm = { kind, scale: undefined, edges: {}, corners: {} }
+      const n = geometryFor(kind).nodeSize(freshForm as Form)
+      const topLeft = { x: center.x - n / 2, y: center.y - n / 2 }
+      // Grid ON: snapCenterPosition re-derives the center from `topLeft` (as
+      // topLeft + n/2, i.e. our original `center`) and snaps THAT — so
+      // feeding it our own about-to-be-used top-left snaps the true center,
+      // not the top-left corner, while reusing the one snap definition
+      // instead of duplicating it here.
+      const position = gridEnabled ? snapCenterPosition(freshForm, topLeft) : topLeft
       useStore.getState().addForm(kind, position, activeColor)
     },
     [activeColor, gridEnabled],
@@ -924,7 +932,7 @@ function Canvas({ topRight }: CanvasContentProps) {
       const kind = e.dataTransfer.getData('application/form-kind') as FormKind
       if (!kind) return
       const flow = screenToFlowPosition({ x: e.clientX, y: e.clientY })
-      createForm(kind, { x: flow.x - 100, y: flow.y - 100 })
+      createForm(kind, flow) // flow IS the intended center; createForm derives top-left per-kind
     },
     [screenToFlowPosition, createForm],
   )
@@ -936,7 +944,7 @@ function Canvas({ topRight }: CanvasContentProps) {
       const now = Date.now()
       if (now - lastPaneClickRef.current < 350) {
         const flow = screenToFlowPosition({ x: event.clientX, y: event.clientY })
-        createForm(activeKind, { x: flow.x - 100, y: flow.y - 100 })
+        createForm(activeKind, flow) // flow IS the intended center; createForm derives top-left per-kind
         lastPaneClickRef.current = 0
         return
       }

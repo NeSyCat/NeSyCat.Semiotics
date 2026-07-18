@@ -30,7 +30,25 @@ function allFormPointIds(form: Form): Set<string> {
 export function addForm(d: Diagram, kind: FormKind, position: { x: number; y: number }, color?: Color | null): [Diagram, string] {
   const id = newFormId(d)
   const form: Form = { id, kind, position, ...(color ? { color } : {}), ...emptySlots(kind) }
-  return [{ ...d, forms: [...d.forms, form] }, id]
+  const withForm: Diagram = { ...d, forms: [...d.forms, form] }
+  // Kinds whose geometry declares a per-edge capacity (forms.ts's
+  // maxPoints — only 'empty' today) start life WITH that point already
+  // attached, in the same returned Diagram: the middle point IS the form
+  // (emptyGeometry's own comment), so it should exist the moment the form
+  // does rather than waiting for a second gesture/history entry. Reuses
+  // addPoint itself so id-generation, shape defaults, and capacity all stay
+  // defined in exactly one place; the first non-corner edge key is the only
+  // one a capacity-bearing kind has (a corner is a single fixed slot, never
+  // a capacity list).
+  const geom = geometryFor(kind)
+  if (geom.maxPoints !== undefined) {
+    const edgeKey = geom.edgeKeys.find((k) => !(k in geom.corners))
+    if (edgeKey !== undefined) {
+      const [seeded] = addPoint(withForm, id, edgeKey)
+      return [seeded, id]
+    }
+  }
+  return [withForm, id]
 }
 
 export function deleteForm(d: Diagram, id: string): Diagram {
