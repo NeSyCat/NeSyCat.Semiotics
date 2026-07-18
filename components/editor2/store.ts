@@ -19,7 +19,12 @@ export type EdgePathMode = 'straight' | 'smoothstep'
 export type HoverTarget =
   | { kind: 'point'; pointId: string }
   | { kind: 'center'; formId: string }
-  | { kind: 'edge'; formId: string; edgeKey: string }
+  // rx/ry: the normalized [0,1]² cursor position that resolved to this edge —
+  // carried along (not just the edgeKey) so the phantom handle in FormNode
+  // can render at the exact slot a new point would land in (see forms.ts's
+  // insertionIndex) instead of a fixed "always append" position, keeping the
+  // visual drag-start indicator under the cursor.
+  | { kind: 'edge'; formId: string; edgeKey: string; rx: number; ry: number }
   | null
 
 interface State {
@@ -150,13 +155,17 @@ export const useStore = create<State>((set, get) => {
 
     // Deduped so mousemove (fired on every pixel) only triggers a state
     // update — and downstream re-render — when the hovered target actually
-    // changes, not on every frame within the same target.
+    // changes, not on every frame within the same target. 'edge' is the
+    // exception: rx/ry must keep updating as the cursor moves WITHIN the
+    // same edge — that's what lets the phantom handle track the gesture
+    // (see HoverTarget's edge variant) — so it dedupes on rx/ry too, not
+    // just edgeKey.
     setHover: (target) => {
       const cur = get().hover
       const same = cur && cur.kind === target.kind && (
         (cur.kind === 'point' && target.kind === 'point' && cur.pointId === target.pointId) ||
         (cur.kind === 'center' && target.kind === 'center' && cur.formId === target.formId) ||
-        (cur.kind === 'edge' && target.kind === 'edge' && cur.formId === target.formId && cur.edgeKey === target.edgeKey)
+        (cur.kind === 'edge' && target.kind === 'edge' && cur.formId === target.formId && cur.edgeKey === target.edgeKey && cur.rx === target.rx && cur.ry === target.ry)
       )
       if (same) return
       set({ hover: target })

@@ -1078,7 +1078,7 @@ function Canvas({ topRight }: CanvasContentProps) {
       useStore.getState().clearHover()
       return
     }
-    useStore.getState().setHover({ kind: 'edge', formId: node.id, edgeKey })
+    useStore.getState().setHover({ kind: 'edge', formId: node.id, edgeKey, rx: clamp01(rx), ry: clamp01(ry) })
   }, [formLocalPoint])
   const onNodeMouseLeave = useCallback(() => {
     useStore.getState().clearHover()

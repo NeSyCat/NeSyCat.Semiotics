@@ -1,9 +1,9 @@
 'use client'
 
-import { memo, useEffect } from 'react'
+import { memo, useEffect, useRef } from 'react'
 import { Handle, Position, useConnection, useReactFlow, useUpdateNodeInternals, type NodeProps } from '@xyflow/react'
 import theme from './theme'
-import { geometryFor, pointIdsAt, shrunkBodyPoints, CENTER_SHRINK, type Body, type RegionShape } from './forms'
+import { geometryFor, pointIdsAt, insertionIndex, shrunkBodyPoints, CENTER_SHRINK, type Body, type RegionShape } from './forms'
 import { encodeHandle, encodePhantomHandle, decodePhantomHandle } from './handles'
 import { toRgbTriple } from './color'
 import { useStore } from './store'
@@ -247,6 +247,11 @@ function FormNode({ id, data, selected }: NodeProps) {
   // one thing that actually changed.
   const hover = useStore((s) => s.hover)
   const hoverEdgeKey = hover?.kind === 'edge' && hover.formId === id ? hover.edgeKey : null
+  // The exact gesture position within that edge — drives the phantom
+  // handle's rendered slot below, so it sits under the cursor instead of a
+  // fixed "always append" spot.
+  const hoverRx = hover?.kind === 'edge' && hover.formId === id ? hover.rx : null
+  const hoverRy = hover?.kind === 'edge' && hover.formId === id ? hover.ry : null
   const hoverCenter = hover?.kind === 'center' && hover.formId === id
   const { setNodes } = useReactFlow()
 
@@ -260,6 +265,14 @@ function FormNode({ id, data, selected }: NodeProps) {
     c.inProgress && c.fromNode?.id === id ? (c.fromHandle?.id ?? null) : null,
   )
   const phantomEdgeKey = hoverEdgeKey ?? (activeConnectionFromHandle ? decodePhantomHandle(activeConnectionFromHandle) : null)
+  // The phantom's rendered slot (see below) — frozen here the moment the
+  // cursor last reported a live gesture position on this edge, so that once
+  // hover clears mid-drag (the cursor has moved on toward the drop target)
+  // the origin stays exactly where the user grabbed instead of jumping to
+  // the old fixed "always append" position. Resets when the edge itself
+  // changes so a stale slot from a DIFFERENT edge is never reused.
+  const lastPhantomSlotRef = useRef<number | null>(null)
+  useEffect(() => { lastPhantomSlotRef.current = null }, [phantomEdgeKey])
   // The phantom Handle mounts/unmounts/moves on every hover change — React
   // Flow only re-measures handle bounds via a ResizeObserver on the node's
   // overall box, which a child appearing/disappearing doesn't trigger (the
@@ -406,7 +419,16 @@ function FormNode({ id, data, selected }: NodeProps) {
           onConnect(End) the moment a connection actually completes. */}
       {phantomEdgeKey && (() => {
         const count = pointIdsAt(form, phantomEdgeKey).length
-        const anchor = geom.pointAnchor(phantomEdgeKey, count, count + 1, n)
+        // Track the live gesture: while hover is actually reporting a
+        // position on THIS edge, the slot is wherever a new point would be
+        // inserted right now (forms.ts's insertionIndex — the same math
+        // addPoint's call sites use); once hover clears mid-drag, hold the
+        // last live slot instead of reverting to a fixed "always append"
+        // position, so the origin doesn't jump away from where the user grabbed.
+        const slot = hoverEdgeKey === phantomEdgeKey && hoverRx != null && hoverRy != null
+          ? (lastPhantomSlotRef.current = insertionIndex(form, phantomEdgeKey, hoverRx, hoverRy))
+          : (lastPhantomSlotRef.current ?? count)
+        const anchor = geom.pointAnchor(phantomEdgeKey, slot, count + 1, n)
         const hid = encodePhantomHandle(phantomEdgeKey)
         const dotStyle: React.CSSProperties = {
           position: 'absolute', top: anchor.y, left: anchor.x, transform: 'translate(-50%, -50%)',
