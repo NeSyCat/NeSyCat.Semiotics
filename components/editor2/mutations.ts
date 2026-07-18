@@ -30,7 +30,25 @@ function allFormPointIds(form: Form): Set<string> {
 export function addForm(d: Diagram, kind: FormKind, position: { x: number; y: number }, color?: Color | null): [Diagram, string] {
   const id = newFormId(d)
   const form: Form = { id, kind, position, ...(color ? { color } : {}), ...emptySlots(kind) }
-  return [{ ...d, forms: [...d.forms, form] }, id]
+  const withForm: Diagram = { ...d, forms: [...d.forms, form] }
+  // Kinds whose geometry declares a per-edge capacity (forms.ts's
+  // maxPoints — only 'empty' today) start life WITH that point already
+  // attached, in the same returned Diagram: the middle point IS the form
+  // (emptyGeometry's own comment), so it should exist the moment the form
+  // does rather than waiting for a second gesture/history entry. Reuses
+  // addPoint itself so id-generation, shape defaults, and capacity all stay
+  // defined in exactly one place; the first non-corner edge key is the only
+  // one a capacity-bearing kind has (a corner is a single fixed slot, never
+  // a capacity list).
+  const geom = geometryFor(kind)
+  if (geom.maxPoints !== undefined) {
+    const edgeKey = geom.edgeKeys.find((k) => !(k in geom.corners))
+    if (edgeKey !== undefined) {
+      const [seeded] = addPoint(withForm, id, edgeKey)
+      return [seeded, id]
+    }
+  }
+  return [withForm, id]
 }
 
 export function deleteForm(d: Diagram, id: string): Diagram {
@@ -105,17 +123,37 @@ export function setFormsColor(d: Diagram, ids: string[], color: Color | null): D
 // ── Points ───────────────────────────────────────────────────────────
 // A corner is a single slot: if it's already occupied, refuse (returns the id
 // as '' — same "no-op" signal as "form not found") rather than stacking a
-// second point on one vertex.
-export function addPoint(d: Diagram, formId: string, edgeKey: EdgeKey, shape: PointShape = 'empty'): [Diagram, string] {
+// second point on one vertex. `index` places the new point at that position
+// in a SIDE's ordered list (clamped to the current length) — the gesture-
+// driven insertion point forms.ts's insertionIndex works out; undefined
+// (the default) appends, same as before. Corners ignore it — a single slot
+// has no ordering to insert into.
+export function addPoint(d: Diagram, formId: string, edgeKey: EdgeKey, shape: PointShape = 'empty', index?: number): [Diagram, string] {
   const form = d.forms.find((f) => f.id === formId)
   if (!form) return [d, '']
-  const isCorner = edgeKey in geometryFor(form.kind).corners
+  const geom = geometryFor(form.kind)
+  const isCorner = edgeKey in geom.corners
   if (isCorner && form.corners[edgeKey]) return [d, '']
+  // A side with a geometry-declared capacity (forms.ts's maxPoints — only
+  // 'empty' sets one, for its single middle point) is a DIFFERENT kind of
+  // "full" than a corner's: nothing more CAN attach to an occupied corner,
+  // but a drop on a full 'empty' form should still CONNECT — it's the same
+  // shared point every wire runs to. So reuse the existing id instead of
+  // refusing.
+  if (!isCorner && geom.maxPoints !== undefined) {
+    const list = form.edges[edgeKey] ?? []
+    if (list.length >= geom.maxPoints) return [d, list[0]]
+  }
   const id = newPointId(d)
   const point: Point = { id, shape, formId, edgeKey }
-  const updated: Form = isCorner
-    ? { ...form, corners: { ...form.corners, [edgeKey]: id } }
-    : { ...form, edges: { ...form.edges, [edgeKey]: [...(form.edges[edgeKey] ?? []), id] } }
+  let updated: Form
+  if (isCorner) {
+    updated = { ...form, corners: { ...form.corners, [edgeKey]: id } }
+  } else {
+    const list = form.edges[edgeKey] ?? []
+    const at = index === undefined ? list.length : Math.max(0, Math.min(index, list.length))
+    updated = { ...form, edges: { ...form.edges, [edgeKey]: [...list.slice(0, at), id, ...list.slice(at)] } }
+  }
   const forms = d.forms.map((f) => (f.id === formId ? updated : f))
   return [{ ...d, forms, points: { ...d.points, [id]: point } }, id]
 }

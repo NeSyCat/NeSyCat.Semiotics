@@ -19,7 +19,12 @@ export type EdgePathMode = 'straight' | 'smoothstep'
 export type HoverTarget =
   | { kind: 'point'; pointId: string }
   | { kind: 'center'; formId: string }
-  | { kind: 'edge'; formId: string; edgeKey: string }
+  // rx/ry: the normalized [0,1]² cursor position that resolved to this edge —
+  // carried along (not just the edgeKey) so the phantom handle in FormNode
+  // can render at the exact slot a new point would land in (see forms.ts's
+  // insertionIndex) instead of a fixed "always append" position, keeping the
+  // visual drag-start indicator under the cursor.
+  | { kind: 'edge'; formId: string; edgeKey: string; rx: number; ry: number }
   | null
 
 interface State {
@@ -74,7 +79,7 @@ interface State {
   setFormsScale: (ids: string[], scale: number) => void
   setFormsColor: (ids: string[], color: Color | null) => void
 
-  addPoint: (formId: string, edgeKey: string, shape?: PointShape) => string
+  addPoint: (formId: string, edgeKey: string, shape?: PointShape, index?: number) => string
   removePoint: (id: string) => void
   renamePoint: (id: string, name: string) => void
   renamePoints: (ids: string[], name: string) => void
@@ -95,6 +100,13 @@ const emptyDiagram: Diagram = { schemaVersion: 1, forms: [], points: {}, lines: 
 
 export const useStore = create<State>((set, get) => {
   const setCur = (updated: Diagram, tag: string | null = null) => {
+    // True no-op guard: every real mutation in mutations.ts spread-clones,
+    // so an IDENTICAL reference only ever means "nothing changed" — e.g.
+    // addPoint's capacity reuse on a full 'empty' form returns the same
+    // diagram with the existing point id. Without this, that reuse would
+    // push a duplicate history entry and the next undo would visibly do
+    // nothing.
+    if (updated === get().diagram) return
     const { history, historyIndex } = get()
     if (tag !== null && tag === coalesceTag) {
       set({ diagram: updated, history: [...history.slice(0, historyIndex), updated] })
@@ -150,13 +162,17 @@ export const useStore = create<State>((set, get) => {
 
     // Deduped so mousemove (fired on every pixel) only triggers a state
     // update — and downstream re-render — when the hovered target actually
-    // changes, not on every frame within the same target.
+    // changes, not on every frame within the same target. 'edge' is the
+    // exception: rx/ry must keep updating as the cursor moves WITHIN the
+    // same edge — that's what lets the phantom handle track the gesture
+    // (see HoverTarget's edge variant) — so it dedupes on rx/ry too, not
+    // just edgeKey.
     setHover: (target) => {
       const cur = get().hover
       const same = cur && cur.kind === target.kind && (
         (cur.kind === 'point' && target.kind === 'point' && cur.pointId === target.pointId) ||
         (cur.kind === 'center' && target.kind === 'center' && cur.formId === target.formId) ||
-        (cur.kind === 'edge' && target.kind === 'edge' && cur.formId === target.formId && cur.edgeKey === target.edgeKey)
+        (cur.kind === 'edge' && target.kind === 'edge' && cur.formId === target.formId && cur.edgeKey === target.edgeKey && cur.rx === target.rx && cur.ry === target.ry)
       )
       if (same) return
       set({ hover: target })
@@ -183,8 +199,8 @@ export const useStore = create<State>((set, get) => {
     setFormsScale: (ids, scale) => { if (ids.length) setCur(M.setFormsScale(get().diagram, ids, scale), 'scale:forms:' + [...ids].sort().join(',')) },
     setFormsColor: (ids, color) => { if (ids.length) setCur(M.setFormsColor(get().diagram, ids, color)) },
 
-    addPoint: (formId, edgeKey, shape) => {
-      const [d, id] = M.addPoint(get().diagram, formId, edgeKey, shape)
+    addPoint: (formId, edgeKey, shape, index) => {
+      const [d, id] = M.addPoint(get().diagram, formId, edgeKey, shape, index)
       if (id) setCur(d)
       return id
     },

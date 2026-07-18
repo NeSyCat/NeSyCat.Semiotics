@@ -22,7 +22,7 @@ import FormNode, { DRAG_HANDLE_CLASS } from './FormNode'
 import LineEdge from './LineEdge'
 import { useStore, initStore } from './store'
 import { useAutosave, useLocalAutosave } from './save'
-import { geometryFor, pointIdsAt, isInsideBody, isInCenterZone, BASE_SIZE, type FormGeometry } from './forms'
+import { geometryFor, pointIdsAt, isInsideBody, isInCenterZone, insertionIndex, BASE_SIZE, type FormGeometry } from './forms'
 import { encodeHandle, decodeHandle, decodePhantomHandle } from './handles'
 import { GRID_SIZE, snapCenterPosition } from './grid'
 import ImportPanel from './ImportPanel'
@@ -51,6 +51,21 @@ function unrotateLocal(localX: number, localY: number, w: number, h: number, rot
   const ux = vx * Math.cos(theta) + vy * Math.sin(theta)
   const uy = -vx * Math.sin(theta) + vy * Math.cos(theta)
   return [cx + ux, cy + uy]
+}
+
+// Node-local point (rotation-aware) → normalized [0,1]² fraction, given a
+// flow-space point and the target node/Form. Shared by every point-creation
+// gesture path — double-click, drop-attach (resolveDropPoint), and the
+// stashed ring-drag-start position (resolvePointForHandle's phantom branch)
+// — so "which side of an existing point did the gesture land on" resolves
+// through ONE conversion, not three inline copies.
+function nodeLocalFraction(
+  flowX: number, flowY: number, node: Node, form: Form,
+): { rx: number; ry: number; lx: number; ly: number; n: number } {
+  const geom = geometryFor(form.kind)
+  const n = node.measured?.width ?? node.width ?? geom.nodeSize(form) * (form.scale ?? 1)
+  const [lx, ly] = unrotateLocal(flowX - node.position.x, flowY - node.position.y, n, n, form.rotation ?? 0)
+  return { rx: lx / n, ry: ly / n, lx, ly, n }
 }
 
 // Radius (local/unrotated px) within which an existing point's own drag
@@ -106,18 +121,15 @@ function resolveDropPoint(
   const targetForm = d.forms.find((f) => f.id === dropTarget.id)
   if (!targetForm) return null
   const geom = geometryFor(targetForm.kind)
-  const w = dropTarget.measured?.width ?? dropTarget.width ?? 1
-  const h = dropTarget.measured?.height ?? dropTarget.height ?? 1
-  const [lx, ly] = unrotateLocal(position.x - dropTarget.position.x, position.y - dropTarget.position.y, w, h, targetForm.rotation ?? 0)
-  const rx = lx / w
-  const ry = ly / h
+  const { rx, ry } = nodeLocalFraction(position.x, position.y, dropTarget, targetForm)
   // Dropped in the center zone — that's the whole-form-selection region, not
   // point-creation territory, so this is a no-op, same as a center-zone
   // double-click.
   if (geom.hasCenterZone && isInCenterZone(geom.body, rx, ry)) return null
   const edgeKey = geom.edgeAt(clamp01(rx), clamp01(ry))
   if (!edgeKey) return null
-  return useStore.getState().addPoint(dropTarget.id, edgeKey) || null
+  const index = insertionIndex(targetForm, edgeKey, clamp01(rx), clamp01(ry))
+  return useStore.getState().addPoint(dropTarget.id, edgeKey, undefined, index) || null
 }
 
 // point id -> { nodeId, handleId } (the form it sits on + its handle).
@@ -145,10 +157,32 @@ function handleToPointId(d: Diagram, nodeId: string, handleId: string): string |
 // click uses. Reads the diagram fresh each time since creating one phantom
 // point (in a source+target pair, e.g. two ring positions on the same form)
 // must not resolve the other end against a stale pre-creation snapshot.
-function resolvePointForHandle(nodeId: string, handleId: string): string | undefined {
+//
+// `gesturePoint` is the client (screen) coords of where the DRAG STARTED
+// (stashed by onConnectStart) — passed only for the "from" side of a
+// connection, where it's a real gesture position; omitted for the "to" side
+// (there's no equivalently reliable position for where a completed
+// connection landed exactly on a phantom handle), which falls back to a
+// plain append, same as before this feature.
+function resolvePointForHandle(
+  nodeId: string, handleId: string,
+  gesturePoint: { clientX: number; clientY: number } | null | undefined,
+  screenToFlowPosition: (p: { x: number; y: number }) => { x: number; y: number },
+  getNodes: () => Node[],
+): string | undefined {
   const phantomEdgeKey = decodePhantomHandle(handleId)
-  if (phantomEdgeKey) return useStore.getState().addPoint(nodeId, phantomEdgeKey) || undefined
-  return handleToPointId(useStore.getState().diagram, nodeId, handleId)
+  if (!phantomEdgeKey) return handleToPointId(useStore.getState().diagram, nodeId, handleId)
+  if (gesturePoint) {
+    const node = getNodes().find((n) => n.id === nodeId)
+    const form = useStore.getState().diagram.forms.find((f) => f.id === nodeId)
+    if (node && form) {
+      const flow = screenToFlowPosition({ x: gesturePoint.clientX, y: gesturePoint.clientY })
+      const { rx, ry } = nodeLocalFraction(flow.x, flow.y, node, form)
+      const index = insertionIndex(form, phantomEdgeKey, clamp01(rx), clamp01(ry))
+      return useStore.getState().addPoint(nodeId, phantomEdgeKey, undefined, index) || undefined
+    }
+  }
+  return useStore.getState().addPoint(nodeId, phantomEdgeKey) || undefined
 }
 
 // SVG sprite — copied verbatim from _design/04-prototype (the mockup). The DS
@@ -749,7 +783,19 @@ function Canvas({ topRight }: CanvasContentProps) {
   }, [nodes, edges, selectedPoints])
 
   const nameInfo = useMemo(() => {
-    if (!selectionTarget) return { value: '', placeholder: 'Select a form, point, or line', sig: '' }
+    if (!selectionTarget) return { value: '', placeholder: 'Select a form, point, or line', sig: '', disabled: false }
+    // An 'empty' form carries no name of its own — its one middle point IS
+    // the form (see forms.ts's emptyGeometry), so renaming/reading the name
+    // field retargets to that point instead of the form. No point yet
+    // (nothing's been dropped on it) -> nothing to rename; blank + disabled.
+    if (selectionTarget.kind === 'forms' && selectionTarget.ids.length === 1) {
+      const form = diagram.forms.find((f) => f.id === selectionTarget.ids[0])
+      if (form?.kind === 'empty') {
+        const midId = pointIdsAt(form, geometryFor(form.kind).edgeKeys[0])[0]
+        if (!midId) return { value: '', placeholder: '', sig: 'empty:' + form.id, disabled: true }
+        return { value: diagram.points[midId]?.name ?? '', placeholder: midId, sig: 'points:' + midId, disabled: false }
+      }
+    }
     const id0 = selectionTarget.ids[0]
     const single = selectionTarget.ids.length === 1
     const name = selectionTarget.kind === 'points' ? diagram.points[id0]?.name
@@ -759,15 +805,24 @@ function Canvas({ topRight }: CanvasContentProps) {
       value: single ? (name ?? '') : '',
       placeholder: single ? id0 : `${selectionTarget.ids.length} ${selectionTarget.kind}`,
       sig: selectionTarget.kind + ':' + selectionTarget.ids.join(','),
+      disabled: false,
     }
   }, [selectionTarget, diagram])
 
   const onName = useCallback((value: string) => {
     if (!selectionTarget) return
+    if (selectionTarget.kind === 'forms' && selectionTarget.ids.length === 1) {
+      const form = diagram.forms.find((f) => f.id === selectionTarget.ids[0])
+      if (form?.kind === 'empty') {
+        const midId = pointIdsAt(form, geometryFor(form.kind).edgeKeys[0])[0]
+        if (midId) renamePoints([midId], value)
+        return // no point yet -> the field is disabled, nothing to do
+      }
+    }
     if (selectionTarget.kind === 'points') renamePoints(selectionTarget.ids, value)
     else if (selectionTarget.kind === 'forms') renameForms(selectionTarget.ids, value)
     else renameLines(selectionTarget.ids, value)
-  }, [selectionTarget, renamePoints, renameForms, renameLines])
+  }, [selectionTarget, diagram, renamePoints, renameForms, renameLines])
 
   // ── Color rail: same target as the Name field (points > forms > lines).
   // `colorInfo.isShared` tells the rail (and the top-pill icon) whether the
@@ -822,17 +877,25 @@ function Canvas({ topRight }: CanvasContentProps) {
   }, [selectedFormIds])
 
   // ── Create forms ───────────────────────────────────────────────────
-  // Grid ON: snap the new form's CENTER (not its raw top-left) to the
-  // nearest grid intersection — a fresh form has no edges/points yet, so its
-  // nodeSize is exactly the kind's own default (BASE_SIZE for
-  // triangle/square/circle/rhombus, POINT_SIZE for point, BASE_SIZE/2 for
-  // empty; see forms.ts).
+  // `center` is the intended CENTER of the new form (the click/drop point),
+  // not its top-left — callers no longer hand-offset by a hardcoded half
+  // size, since that half size differs per kind (BASE_SIZE/2 = 100 for
+  // triangle/square/circle/rhombus, but 50 for empty, 11 for point; see
+  // forms.ts's nodeSize). A fresh form has no edges/points yet, so nodeSize
+  // reads exactly the kind's own default — same SizableForm shape grid.ts's
+  // snapCenterPosition expects.
   const createForm = useCallback(
-    (kind: FormKind, flow: { x: number; y: number }) => {
+    (kind: FormKind, center: { x: number; y: number }) => {
       setActiveKind(kind)
-      const position = gridEnabled
-        ? snapCenterPosition({ kind, scale: undefined, edges: {}, corners: {} }, flow)
-        : flow
+      const freshForm = { kind, scale: undefined, edges: {}, corners: {} }
+      const n = geometryFor(kind).nodeSize(freshForm as Form)
+      const topLeft = { x: center.x - n / 2, y: center.y - n / 2 }
+      // Grid ON: snapCenterPosition re-derives the center from `topLeft` (as
+      // topLeft + n/2, i.e. our original `center`) and snaps THAT — so
+      // feeding it our own about-to-be-used top-left snaps the true center,
+      // not the top-left corner, while reusing the one snap definition
+      // instead of duplicating it here.
+      const position = gridEnabled ? snapCenterPosition(freshForm, topLeft) : topLeft
       useStore.getState().addForm(kind, position, activeColor)
     },
     [activeColor, gridEnabled],
@@ -869,7 +932,7 @@ function Canvas({ topRight }: CanvasContentProps) {
       const kind = e.dataTransfer.getData('application/form-kind') as FormKind
       if (!kind) return
       const flow = screenToFlowPosition({ x: e.clientX, y: e.clientY })
-      createForm(kind, { x: flow.x - 100, y: flow.y - 100 })
+      createForm(kind, flow) // flow IS the intended center; createForm derives top-left per-kind
     },
     [screenToFlowPosition, createForm],
   )
@@ -881,7 +944,7 @@ function Canvas({ topRight }: CanvasContentProps) {
       const now = Date.now()
       if (now - lastPaneClickRef.current < 350) {
         const flow = screenToFlowPosition({ x: event.clientX, y: event.clientY })
-        createForm(activeKind, { x: flow.x - 100, y: flow.y - 100 })
+        createForm(activeKind, flow) // flow IS the intended center; createForm derives top-left per-kind
         lastPaneClickRef.current = 0
         return
       }
@@ -915,22 +978,33 @@ function Canvas({ topRight }: CanvasContentProps) {
     return sourceOk && targetOk
   }, [])
 
+  // Where the CURRENT connection drag started — stashed by onConnectStart so
+  // resolvePointForHandle's phantom branch can turn "which side of the ring
+  // the drag was pulled from" into an insertion index, for the "from" side
+  // only (see resolvePointForHandle's own comment on why not the "to" side).
+  const connectStartRef = useRef<{ clientX: number; clientY: number } | null>(null)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const onConnectStart = useCallback((event: MouseEvent | TouchEvent, _params: any) => {
+    const { clientX, clientY } = 'changedTouches' in event ? (event as TouchEvent).changedTouches[0] : (event as MouseEvent)
+    connectStartRef.current = { clientX, clientY }
+  }, [])
+
   const onConnect = useCallback((params: Connection) => {
     if (!params.source || !params.target || !params.sourceHandle || !params.targetHandle) return
-    const src = resolvePointForHandle(params.source, params.sourceHandle)
-    const tgt = resolvePointForHandle(params.target, params.targetHandle)
+    const src = resolvePointForHandle(params.source, params.sourceHandle, connectStartRef.current, screenToFlowPosition, getNodes)
+    const tgt = resolvePointForHandle(params.target, params.targetHandle, null, screenToFlowPosition, getNodes)
     if (!src || !tgt || src === tgt) return
     const existing = useStore.getState().diagram.lines.find((l) => l.source === src)
     if (existing) useStore.getState().addLineTarget(existing.id, tgt)
     else useStore.getState().addLine(src, tgt)
-  }, [])
+  }, [screenToFlowPosition, getNodes])
 
   // ── Drag from a point (or phantom) handle onto a form body → attach to
   // nearest edge ──────────────────────────────────────────────────────────
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const onConnectEnd = useCallback((event: MouseEvent | TouchEvent, connectionState: any) => {
     if (connectionState.isValid || !connectionState.fromNode || !connectionState.fromHandle?.id) return
-    const fromPointId = resolvePointForHandle(connectionState.fromNode.id, connectionState.fromHandle.id)
+    const fromPointId = resolvePointForHandle(connectionState.fromNode.id, connectionState.fromHandle.id, connectStartRef.current, screenToFlowPosition, getNodes)
     if (!fromPointId) return
     const d = useStore.getState().diagram
     const { clientX, clientY } = 'changedTouches' in event ? (event as TouchEvent).changedTouches[0] : (event as MouseEvent)
@@ -950,11 +1024,8 @@ function Canvas({ topRight }: CanvasContentProps) {
   // two differently for opposite edges). Callers that need a valid-edge
   // lookup (edgeAt) clamp the fraction explicitly at the call site.
   const formLocalPoint = useCallback((event: { clientX: number; clientY: number }, node: Node, form: Form) => {
-    const geom = geometryFor(form.kind)
-    const n = node.measured?.width ?? node.width ?? geom.nodeSize(form) * (form.scale ?? 1)
     const flow = screenToFlowPosition({ x: event.clientX, y: event.clientY })
-    const [lx, ly] = unrotateLocal(flow.x - node.position.x, flow.y - node.position.y, n, n, form.rotation ?? 0)
-    return { rx: lx / n, ry: ly / n, lx, ly, n }
+    return nodeLocalFraction(flow.x, flow.y, node, form)
   }, [screenToFlowPosition])
 
   // Selecting a form only works from its center zone — root-cause fix for
@@ -984,11 +1055,12 @@ function Canvas({ topRight }: CanvasContentProps) {
     const form = d.forms.find((f) => f.id === node.id)
     if (!form) return
     const geom = geometryFor(form.kind)
-    const { rx, ry, n } = formLocalPoint(event, node, form)
+    const { rx, ry } = formLocalPoint(event, node, form)
     if (geom.hasCenterZone && isInCenterZone(geom.body, rx, ry)) return
     const edgeKey = geom.edgeAt(clamp01(rx), clamp01(ry))
     if (!edgeKey) return
-    useStore.getState().addPoint(node.id, edgeKey)
+    const index = insertionIndex(form, edgeKey, clamp01(rx), clamp01(ry))
+    useStore.getState().addPoint(node.id, edgeKey, undefined, index)
   }, [formLocalPoint])
 
   // ── Cursor territory inside a form, quiver-style — resolved centrally
@@ -1035,7 +1107,7 @@ function Canvas({ topRight }: CanvasContentProps) {
       useStore.getState().clearHover()
       return
     }
-    useStore.getState().setHover({ kind: 'edge', formId: node.id, edgeKey })
+    useStore.getState().setHover({ kind: 'edge', formId: node.id, edgeKey, rx: clamp01(rx), ry: clamp01(ry) })
   }, [formLocalPoint])
   const onNodeMouseLeave = useCallback(() => {
     useStore.getState().clearHover()
@@ -1117,6 +1189,7 @@ function Canvas({ topRight }: CanvasContentProps) {
         onNodesDelete={onNodesDelete}
         onEdgesDelete={onEdgesDelete}
         onConnect={onConnect}
+        onConnectStart={onConnectStart}
         onConnectEnd={onConnectEnd}
         isValidConnection={isValidConnection}
         connectionMode={ConnectionMode.Loose}
@@ -1144,6 +1217,11 @@ function Canvas({ topRight }: CanvasContentProps) {
         deleteKeyCode={['Delete', 'Backspace']}
         panOnScroll
         zoomOnPinch
+        // Double-click on the pane CREATES a form (onPaneClick's own 350ms
+        // two-click detector above) — React Flow's default dbl-click zoom
+        // would fire on the exact same gesture and lurch the viewport right
+        // as the new form appears.
+        zoomOnDoubleClick={false}
         minZoom={0.05}
         maxZoom={4}
         proOptions={{ hideAttribution: true }}
@@ -1293,7 +1371,7 @@ function Canvas({ topRight }: CanvasContentProps) {
       {activeCategory === 'name' && (
         <div style={{ position: 'absolute', top: 70, left: 'calc(50% + (var(--sidebar-offset, 0px) / 2))', transform: 'translateX(-50%)', zIndex: 10, transition: 'left 200ms' }}>
           <div className="pill editor-pill" style={{ width: 360, padding: '0 4px' }}>
-            <NameField sig={nameInfo.sig} initial={nameInfo.value} placeholder={nameInfo.placeholder} disabled={!selectionTarget} onChange={onName} />
+            <NameField sig={nameInfo.sig} initial={nameInfo.value} placeholder={nameInfo.placeholder} disabled={!selectionTarget || nameInfo.disabled} onChange={onName} />
           </div>
         </div>
       )}

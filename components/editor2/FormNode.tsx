@@ -1,9 +1,9 @@
 'use client'
 
-import { memo, useEffect } from 'react'
+import { memo, useEffect, useRef } from 'react'
 import { Handle, Position, useConnection, useReactFlow, useUpdateNodeInternals, type NodeProps } from '@xyflow/react'
 import theme from './theme'
-import { geometryFor, pointIdsAt, shrunkBodyPoints, CENTER_SHRINK, type Body, type RegionShape } from './forms'
+import { geometryFor, pointIdsAt, insertionIndex, shrunkBodyPoints, CENTER_SHRINK, type Body, type RegionShape } from './forms'
 import { encodeHandle, encodePhantomHandle, decodePhantomHandle } from './handles'
 import { toRgbTriple } from './color'
 import { useStore } from './store'
@@ -244,9 +244,21 @@ function FormNode({ id, data, selected }: NodeProps) {
   // Cursor territory is resolved centrally in Canvas.tsx (point proximity >
   // center zone > edge/corner ring); each derived value below is scoped so a
   // hover change elsewhere doesn't re-render every FormNode/point — only the
-  // one thing that actually changed.
-  const hover = useStore((s) => s.hover)
+  // one thing that actually changed. The selector filters out OTHER nodes'
+  // edge/center hovers: edge hovers now update on every cursor move within
+  // the edge (rx/ry drive the phantom slot), so an unnarrowed subscription
+  // would re-render every FormNode per mousemove — this keeps that cost on
+  // the one hovered node. Point hovers pass through for every node (they're
+  // deduped per-pointId in setHover, so they only fire on target change).
+  const hover = useStore((s) =>
+    s.hover && s.hover.kind !== 'point' && s.hover.formId !== id ? null : s.hover,
+  )
   const hoverEdgeKey = hover?.kind === 'edge' && hover.formId === id ? hover.edgeKey : null
+  // The exact gesture position within that edge — drives the phantom
+  // handle's rendered slot below, so it sits under the cursor instead of a
+  // fixed "always append" spot.
+  const hoverRx = hover?.kind === 'edge' && hover.formId === id ? hover.rx : null
+  const hoverRy = hover?.kind === 'edge' && hover.formId === id ? hover.ry : null
   const hoverCenter = hover?.kind === 'center' && hover.formId === id
   const { setNodes } = useReactFlow()
 
@@ -260,13 +272,40 @@ function FormNode({ id, data, selected }: NodeProps) {
     c.inProgress && c.fromNode?.id === id ? (c.fromHandle?.id ?? null) : null,
   )
   const phantomEdgeKey = hoverEdgeKey ?? (activeConnectionFromHandle ? decodePhantomHandle(activeConnectionFromHandle) : null)
+  // The phantom's rendered slot (see below) — frozen here the moment the
+  // cursor last reported a live gesture position on this edge, so that once
+  // hover clears mid-drag (the cursor has moved on toward the drop target)
+  // the origin stays exactly where the user grabbed instead of jumping to
+  // the old fixed "always append" position. Resets when the edge itself
+  // changes so a stale slot from a DIFFERENT edge is never reused.
+  const lastPhantomSlotRef = useRef<number | null>(null)
+  useEffect(() => { lastPhantomSlotRef.current = null }, [phantomEdgeKey])
+  // Track the live gesture: while hover is actually reporting a position on
+  // THIS edge, the slot is wherever a new point would be inserted right now
+  // (forms.ts's insertionIndex — the same math addPoint's call sites use);
+  // once hover clears mid-drag, hold the last live slot instead of reverting
+  // to a fixed "always append" position, so the origin doesn't jump away
+  // from where the user grabbed. Slot is an integer 0..count, so it only
+  // changes when the cursor crosses into a different insertion interval —
+  // not on every pixel.
+  const phantomSlot = (() => {
+    if (!phantomEdgeKey) return null
+    if (hoverEdgeKey === phantomEdgeKey && hoverRx != null && hoverRy != null) {
+      lastPhantomSlotRef.current = insertionIndex(form, phantomEdgeKey, hoverRx, hoverRy)
+      return lastPhantomSlotRef.current
+    }
+    return lastPhantomSlotRef.current ?? pointIdsAt(form, phantomEdgeKey).length
+  })()
   // The phantom Handle mounts/unmounts/moves on every hover change — React
   // Flow only re-measures handle bounds via a ResizeObserver on the node's
   // overall box, which a child appearing/disappearing doesn't trigger (the
   // node's own n×n size never changes), so a just-mounted phantom is
   // invisible to React Flow's own connection-start hit-testing until this
   // nudges it to re-scan. Same fix rotation already needed above.
-  useEffect(() => { updateNodeInternals(id) }, [id, phantomEdgeKey, updateNodeInternals])
+  // phantomSlot is a dep: the handle MOVES when the slot changes, and React
+  // Flow would otherwise keep the stale measured position as the connection
+  // line's origin even though the visible dot tracked the cursor.
+  useEffect(() => { updateNodeInternals(id) }, [id, phantomEdgeKey, phantomSlot, updateNodeInternals])
 
   // Select a point (from its glyph/grab handle OR its name): exclusive with form
   // selection; Cmd/Ctrl+click accumulates, plain click single-selects.
@@ -331,6 +370,22 @@ function FormNode({ id, data, selected }: NodeProps) {
           }}>
             <PointGlyph shape={pt.shape} color={fill} />
           </div>
+          {/* Once 'empty's middle point EXISTS, it behaves exactly like any
+              other kind's point — default isConnectableStart, so it can
+              both receive a dropped wire AND start a new one by dragging
+              straight from it. (Explicitly setting isConnectableStart to
+              false here also happened to give the Handle no
+              `connectionindicator` class, which React Flow's own CSS ties
+              `pointer-events` to — base.css defaults `.react-flow__handle`
+              to `pointer-events: none` and only re-enables it via
+              `.connectionindicator`/`.connectingfrom`. That silently ate
+              plain clicks too, since they inherit pointer-events from this
+              parent: the grab pad never received them, so they fell
+              through to the form body underneath and selected the FORM
+              instead of the point — the direct-click-doesn't-select bug.
+              Only the form's BODY still can't spawn a wire/new point — see
+              the phantom-skip below, which is what makes plain node-drag
+              reachable there at all.) */}
           <Handle type="target" position={anchor.position} id={hid} style={dotStyle} />
           <Handle type="source" position={anchor.position} id={hid} style={dotStyle} onClick={(e) => selectPoint(e, pid)}>
             {/* grab pad — easy to grab; events bubble to the handle above */}
@@ -403,10 +458,20 @@ function FormNode({ id, data, selected }: NodeProps) {
           Pulling a line out of the band goes through React Flow's own
           native connection-drag (same as dragging from a real point); the
           phantom id resolves into a real point (addPoint) in Canvas.tsx's
-          onConnect(End) the moment a connection actually completes. */}
-      {phantomEdgeKey && (() => {
+          onConnect(End) the moment a connection actually completes.
+          Skipped entirely for 'empty': its body can only be a DROP target,
+          never spawn a NEW point/wire by dragging from empty space on it —
+          maxPoints=1 means there's nothing left to fan out anyway, and
+          mounting no phantom here is also what frees the whole body back up
+          for plain React Flow node-dragging (see BodyView's `decorative` —
+          a form with no center zone stays pointer-clickable everywhere, and
+          without a Handle covering it, a press there starts a node drag
+          instead of a connection drag). The one middle point ITSELF, once
+          it exists, is a real point Handle like any other kind's — see
+          above — so dragging FROM it does start a wire. */}
+      {form.kind !== 'empty' && phantomEdgeKey && phantomSlot != null && (() => {
         const count = pointIdsAt(form, phantomEdgeKey).length
-        const anchor = geom.pointAnchor(phantomEdgeKey, count, count + 1, n)
+        const anchor = geom.pointAnchor(phantomEdgeKey, phantomSlot, count + 1, n)
         const hid = encodePhantomHandle(phantomEdgeKey)
         const dotStyle: React.CSSProperties = {
           position: 'absolute', top: anchor.y, left: anchor.x, transform: 'translate(-50%, -50%)',
