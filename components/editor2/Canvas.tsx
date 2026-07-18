@@ -114,7 +114,15 @@ function resolveDropPoint(
   })
   if (!dropTarget) {
     const size = BASE_SIZE / 2 // matches emptyGeometry's nodeSize
-    const newFormId = useStore.getState().addForm('empty', { x: position.x - size / 2, y: position.y - size / 2 })
+    // Grid ON: the auto-created empty form's CENTER (= its middle point)
+    // snaps to the nearest intersection, same composition createForm uses —
+    // so drawing a string out onto blank canvas lands the point exactly on
+    // the grid, not wherever the drop happened to end.
+    const topLeft = { x: position.x - size / 2, y: position.y - size / 2 }
+    const snapped = useStore.getState().gridEnabled
+      ? snapCenterPosition({ kind: 'empty', scale: undefined, edges: {}, corners: {} }, topLeft)
+      : topLeft
+    const newFormId = useStore.getState().addForm('empty', snapped)
     return useStore.getState().addPoint(newFormId, 'self') || null
   }
   const d = useStore.getState().diagram
