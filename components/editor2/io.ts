@@ -82,16 +82,23 @@ function collapseEmptyForms(
   forms: Form[], points: Record<string, Point>, lines: Line[],
 ): { forms: Form[]; points: Record<string, Point>; lines: Line[] } {
   const remap = new Map<string, string>() // dropped point id -> kept point id
-  const nextForms = forms.map((f) => {
-    if (f.kind !== 'empty') return f
+  let droppedForm = false
+  const nextForms: Form[] = []
+  for (const f of forms) {
+    if (f.kind !== 'empty') { nextForms.push(f); continue }
     const edgeKey = geometryFor(f.kind).edgeKeys[0]
     const ids = f.edges[edgeKey] ?? []
-    if (ids.length <= 1) return f
+    // An empty form IS its middle point — one without any point (a save
+    // from before creation seeded it) is an invisible, connectionless
+    // artifact: dropped outright, not seeded (no legacy support).
+    if (ids.length === 0) { droppedForm = true; continue }
+    if (ids.length === 1) { nextForms.push(f); continue }
     const [keep, ...drop] = ids
     for (const id of drop) remap.set(id, keep)
-    return { ...f, edges: { ...f.edges, [edgeKey]: [keep] } }
-  })
-  if (remap.size === 0) return { forms, points, lines }
+    nextForms.push({ ...f, edges: { ...f.edges, [edgeKey]: [keep] } })
+  }
+  if (remap.size === 0 && !droppedForm) return { forms, points, lines }
+  if (remap.size === 0) return { forms: nextForms, points, lines }
 
   const nextPoints = { ...points }
   for (const id of remap.keys()) delete nextPoints[id]
