@@ -100,6 +100,13 @@ const emptyDiagram: Diagram = { schemaVersion: 1, forms: [], points: {}, lines: 
 
 export const useStore = create<State>((set, get) => {
   const setCur = (updated: Diagram, tag: string | null = null) => {
+    // True no-op guard: every real mutation in mutations.ts spread-clones,
+    // so an IDENTICAL reference only ever means "nothing changed" — e.g.
+    // addPoint's capacity reuse on a full 'empty' form returns the same
+    // diagram with the existing point id. Without this, that reuse would
+    // push a duplicate history entry and the next undo would visibly do
+    // nothing.
+    if (updated === get().diagram) return
     const { history, historyIndex } = get()
     if (tag !== null && tag === coalesceTag) {
       set({ diagram: updated, history: [...history.slice(0, historyIndex), updated] })

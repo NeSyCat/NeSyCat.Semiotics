@@ -8,6 +8,7 @@
 
 import { geometryFor } from '../../components/editor2/forms'
 import { addPoint } from '../../components/editor2/mutations'
+import { useStore, initStore } from '../../components/editor2/store'
 import { restoreDiagram } from '../../components/editor2/io'
 import type { Diagram, Form } from '../../components/editor2/types'
 
@@ -128,6 +129,28 @@ function bareForm(id: string, kind: Form['kind'], extra: Partial<Form> = {}): Fo
   const [d2, id2] = addPoint(d1, 'PT1', 'self')
   assert(id1 !== id2, `'point' kind's addPoint creates a NEW point every time, no capacity reuse (got id1=${id1}, id2=${id2})`)
   assert(d2.forms.find((f) => f.id === 'PT1')!.edges.self.length === 2, `'point' form correctly fans to 2 points (got ${d2.forms.find((f) => f.id === 'PT1')!.edges.self.length})`)
+}
+
+// ── STORE: capacity reuse must not push a phantom undo step ──────────────
+// addPoint's reuse on a full 'empty' form returns the SAME diagram object;
+// setCur's identity guard must skip history so the next undo isn't a
+// visual no-op. Exercised through the real zustand store (works headless).
+{
+  const d: Diagram = { schemaVersion: 1, forms: [bareForm('SE1', 'empty')], points: {}, lines: [] }
+  initStore(d)
+  const first = useStore.getState().addPoint('SE1', 'self')
+  const afterFirst = useStore.getState().historyIndex
+  const second = useStore.getState().addPoint('SE1', 'self')
+  assert(second === first, `store addPoint reuse returns the existing id (got ${second}, want ${first})`)
+  assert(
+    useStore.getState().historyIndex === afterFirst,
+    `capacity reuse pushes NO history entry (historyIndex stayed ${afterFirst}, got ${useStore.getState().historyIndex})`,
+  )
+  useStore.getState().undo()
+  assert(
+    (useStore.getState().diagram.forms.find((f) => f.id === 'SE1')!.edges.self ?? []).length === 0,
+    'one undo after two drops removes the point (no phantom no-op step in between)',
+  )
 }
 
 console.log(`\n${pass} passed, ${fail} failed`)
