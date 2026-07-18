@@ -1,10 +1,9 @@
 'use client'
 
-// Import panel — the round-trip counterpart to TikzExportPanel. Paste
-// either a NeSyCat share link (or bare fragment) or TikZ code this editor
-// exported; both round-trip through the same embedded share fragment (see
-// importText.ts). Same fixed-overlay/panel visual language as the export
-// panel.
+// Import panel — the round-trip counterpart to the top-right Export
+// dropdown's "Copy URL" / "Copy TikZ code". Paste either a NeSyCat share
+// link (or bare fragment) or TikZ code this editor exported; both round-trip
+// through the same embedded share fragment (see importText.ts).
 
 import { useEffect, useState } from 'react'
 import theme, { panelStyle } from './theme'

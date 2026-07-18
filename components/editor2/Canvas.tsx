@@ -25,11 +25,13 @@ import { useAutosave, useLocalAutosave } from './save'
 import { geometryFor, pointIdsAt, isInsideBody, isInCenterZone, BASE_SIZE, type FormGeometry } from './forms'
 import { encodeHandle, decodeHandle, decodePhantomHandle } from './handles'
 import { GRID_SIZE, snapCenterPosition } from './grid'
-import TikzExportPanel from './TikzExportPanel'
 import ImportPanel from './ImportPanel'
+import { encodeDiagramToFragment } from './share'
+import { diagramToTikz } from './tikz'
 import theme from './theme'
 import type { Diagram, Form, FormKind, PointShape, Color } from './types'
 import { toCssRgb } from './color'
+import { MenuItem } from '@/components/ui/menu-item'
 
 const nodeTypes: NodeTypes = { form: FormNode }
 const edgeTypes: EdgeTypes = { line: LineEdge }
@@ -199,6 +201,9 @@ function ToolbarSprite() {
         <symbol id="ic-import" viewBox="0 0 24 24" fill="none">
           <path d="M12 4v11M12 15l-4.5-4.5M12 15l4.5-4.5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
           <path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+        </symbol>
+        <symbol id="ic-check" viewBox="0 0 24 24" fill="none">
+          <path d="M5 12.5l4.5 4.5L19 7" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
         </symbol>
         <symbol id="kind-empty" viewBox="0 0 24 24">
           <circle cx="12" cy="12" r="9.25" fill="none" stroke="currentColor" strokeWidth="1.4" strokeDasharray="2.4 2.6" />
@@ -474,6 +479,86 @@ function ScaleField({ sig, initial, disabled, onChange }: {
   )
 }
 
+// The Export button's hover/click dropdown — Copy URL or Copy TikZ code.
+// Deliberately NOT a code-preview panel: just the two copy actions, same
+// idiom the round-trip Import button pairs with. `location.pathname`
+// reproduces the exact share path the server would compute (editor-url.ts's
+// host-mode logic) since this component only ever runs on the very page
+// whose URL that already is.
+function ExportMenu({ diagram }: { diagram: Diagram }) {
+  const [open, setOpen] = useState(false)
+  const [copied, setCopied] = useState(false)
+  const wrapRef = useRef<HTMLDivElement>(null)
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const openMenu = () => {
+    if (closeTimer.current) { clearTimeout(closeTimer.current); closeTimer.current = null }
+    setOpen(true)
+  }
+  const scheduleClose = () => { closeTimer.current = setTimeout(() => setOpen(false), 150) }
+  useEffect(() => () => { if (closeTimer.current) clearTimeout(closeTimer.current) }, [])
+  useEffect(() => {
+    if (!open) return
+    const onDocDown = (e: MouseEvent) => {
+      // Cast to HTMLElement, not the DOM `Node` type — this file already
+      // imports React Flow's OWN `Node` (the flow-graph node type), which
+      // shadows the ambient DOM one for bare references here.
+      if (wrapRef.current && !wrapRef.current.contains(e.target as HTMLElement)) setOpen(false)
+    }
+    document.addEventListener('mousedown', onDocDown)
+    return () => document.removeEventListener('mousedown', onDocDown)
+  }, [open])
+
+  const flashCopied = () => { setCopied(true); setTimeout(() => setCopied(false), 1500) }
+  const copyText = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text)
+    } catch {
+      window.prompt('Copy this:', text)
+      return
+    }
+    flashCopied()
+  }
+  const onCopyUrl = async () => {
+    setOpen(false)
+    const frag = await encodeDiagramToFragment(diagram)
+    await copyText(`${location.origin}${location.pathname}#${frag}`)
+  }
+  const onCopyTikz = async () => {
+    setOpen(false)
+    const tex = await diagramToTikz(diagram)
+    await copyText(tex)
+  }
+
+  return (
+    <div ref={wrapRef} style={{ position: 'relative' }} onMouseEnter={openMenu} onMouseLeave={scheduleClose}>
+      <button
+        className="btn btn-icon"
+        title={copied ? 'Copied' : 'Export'}
+        aria-label="Export"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+      >
+        <svg aria-hidden="true"><use href={`#${copied ? 'ic-check' : 'ic-export'}`} /></svg>
+      </button>
+      {open && (
+        <div
+          role="menu"
+          style={{
+            position: 'absolute', top: '100%', right: 0, marginTop: 8, zIndex: 20,
+            background: 'var(--color-card)', border: '1px solid var(--color-border)',
+            borderRadius: 'var(--radius-md, 10px)', boxShadow: 'var(--shadow-md)', padding: 6,
+          }}
+        >
+          <MenuItem onClick={onCopyUrl}>Copy URL</MenuItem>
+          <MenuItem onClick={onCopyTikz}>Copy TikZ code</MenuItem>
+        </div>
+      )}
+    </div>
+  )
+}
+
 interface CanvasContentProps {
   topRight?: ReactNode
 }
@@ -489,7 +574,6 @@ function Canvas({ topRight }: CanvasContentProps) {
   const togglePointsVisible = useStore((s) => s.togglePointsVisible)
   const gridEnabled = useStore((s) => s.gridEnabled)
   const toggleGridEnabled = useStore((s) => s.toggleGridEnabled)
-  const [exportOpen, setExportOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
   const { screenToFlowPosition, getNodes } = useReactFlow()
 
@@ -1058,8 +1142,9 @@ function Canvas({ topRight }: CanvasContentProps) {
             </button>
           </div>
           {/* Round trip: Import (paste a share link OR TikZ this editor
-              exported) on the left, Export (open the TikZ panel) on the
-              right — one pill, mirrored icons. */}
+              exported, opens a paste panel) on the left, Export (a Copy
+              URL / Copy TikZ code dropdown — minimalist, no code preview)
+              on the right — one pill, mirrored icons. */}
           <div className="pill editor-pill">
             <button
               className="btn btn-icon"
@@ -1069,20 +1154,12 @@ function Canvas({ topRight }: CanvasContentProps) {
             >
               <svg aria-hidden="true"><use href="#ic-import" /></svg>
             </button>
-            <button
-              className="btn btn-icon"
-              title="Export to TikZ"
-              aria-label="Export to TikZ"
-              onClick={() => setExportOpen(true)}
-            >
-              <svg aria-hidden="true"><use href="#ic-export" /></svg>
-            </button>
+            <ExportMenu diagram={diagram} />
           </div>
           {topRight}
         </div>
       </div>
 
-      {exportOpen && <TikzExportPanel diagram={diagram} onClose={() => setExportOpen(false)} />}
       {importOpen && <ImportPanel onClose={() => setImportOpen(false)} />}
 
       {/* General toolbar — the mockup's category Spine (DS .pill, scaled up),
