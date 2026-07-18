@@ -22,7 +22,7 @@ import FormNode, { DRAG_HANDLE_CLASS } from './FormNode'
 import LineEdge from './LineEdge'
 import { useStore, initStore } from './store'
 import { useAutosave, useLocalAutosave } from './save'
-import { geometryFor, pointIdsAt, isInsideBody, isInCenterZone, insertionIndex, BASE_SIZE, type FormGeometry } from './forms'
+import { geometryFor, pointIdsAt, isInsideBody, isInCenterZone, insertionIndex, BASE_SIZE, CENTER_SHRINK, type FormGeometry } from './forms'
 import { encodeHandle, decodeHandle, decodePhantomHandle } from './handles'
 import { GRID_SIZE, snapCenterPosition } from './grid'
 import ImportPanel from './ImportPanel'
@@ -166,12 +166,14 @@ function handleToPointId(d: Diagram, nodeId: string, handleId: string): string |
 // point (in a source+target pair, e.g. two ring positions on the same form)
 // must not resolve the other end against a stale pre-creation snapshot.
 //
-// `gesturePoint` is the client (screen) coords of where the DRAG STARTED
-// (stashed by onConnectStart) — passed only for the "from" side of a
-// connection, where it's a real gesture position; omitted for the "to" side
-// (there's no equivalently reliable position for where a completed
-// connection landed exactly on a phantom handle), which falls back to a
-// plain append, same as before this feature.
+// `gesturePoint` is the client (screen) coords used to place a phantom's new
+// point among its edge's existing ones: for the "from" side, where the drag
+// STARTED (stashed by onConnectStart); for the "to" side, the CURRENT
+// pointer position at drop time (tracked via a window 'pointermove' listener
+// between onConnectStart/onConnectEnd — see connectPointerRef in Canvas),
+// since React Flow's onConnect callback carries no client coords of its own
+// for where the drop landed. Passing null/undefined falls back to a plain
+// append (used when no gesture position is available at all).
 function resolvePointForHandle(
   nodeId: string, handleId: string,
   gesturePoint: { clientX: number; clientY: number } | null | undefined,
@@ -989,18 +991,35 @@ function Canvas({ topRight }: CanvasContentProps) {
   // Where the CURRENT connection drag started — stashed by onConnectStart so
   // resolvePointForHandle's phantom branch can turn "which side of the ring
   // the drag was pulled from" into an insertion index, for the "from" side
-  // only (see resolvePointForHandle's own comment on why not the "to" side).
+  // (see resolvePointForHandle's own comment on why not the "to" side used
+  // to fall back to a plain append).
   const connectStartRef = useRef<{ clientX: number; clientY: number } | null>(null)
+  // Live pointer position during an in-progress connection drag — updated on
+  // every 'pointermove' between onConnectStart and onConnectEnd/unmount, so
+  // onConnect can give the TARGET side a real gesture position too (there is
+  // no React Flow drag-end event with client coords for the handle-to-handle
+  // path onConnect covers; window pointermove is the only reliable source).
+  // A single mutable ref, not state — this fires on every pixel of the drag
+  // and must not trigger re-renders.
+  const connectPointerRef = useRef<{ clientX: number; clientY: number } | null>(null)
+  const onConnectPointerMove = useCallback((event: PointerEvent) => {
+    connectPointerRef.current = { clientX: event.clientX, clientY: event.clientY }
+  }, [])
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const onConnectStart = useCallback((event: MouseEvent | TouchEvent, _params: any) => {
     const { clientX, clientY } = 'changedTouches' in event ? (event as TouchEvent).changedTouches[0] : (event as MouseEvent)
     connectStartRef.current = { clientX, clientY }
-  }, [])
+    connectPointerRef.current = { clientX, clientY }
+    window.addEventListener('pointermove', onConnectPointerMove)
+  }, [onConnectPointerMove])
+  // Always remove the listener on unmount too, in case a connection drag is
+  // abandoned mid-gesture (e.g. component unmounts before onConnectEnd fires).
+  useEffect(() => () => window.removeEventListener('pointermove', onConnectPointerMove), [onConnectPointerMove])
 
   const onConnect = useCallback((params: Connection) => {
     if (!params.source || !params.target || !params.sourceHandle || !params.targetHandle) return
     const src = resolvePointForHandle(params.source, params.sourceHandle, connectStartRef.current, screenToFlowPosition, getNodes)
-    const tgt = resolvePointForHandle(params.target, params.targetHandle, null, screenToFlowPosition, getNodes)
+    const tgt = resolvePointForHandle(params.target, params.targetHandle, connectPointerRef.current, screenToFlowPosition, getNodes)
     if (!src || !tgt || src === tgt) return
     const existing = useStore.getState().diagram.lines.find((l) => l.source === src)
     if (existing) useStore.getState().addLineTarget(existing.id, tgt)
@@ -1011,6 +1030,7 @@ function Canvas({ topRight }: CanvasContentProps) {
   // nearest edge ──────────────────────────────────────────────────────────
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const onConnectEnd = useCallback((event: MouseEvent | TouchEvent, connectionState: any) => {
+    window.removeEventListener('pointermove', onConnectPointerMove)
     if (connectionState.isValid || !connectionState.fromNode || !connectionState.fromHandle?.id) return
     const fromPointId = resolvePointForHandle(connectionState.fromNode.id, connectionState.fromHandle.id, connectStartRef.current, screenToFlowPosition, getNodes)
     if (!fromPointId) return
@@ -1021,7 +1041,7 @@ function Canvas({ topRight }: CanvasContentProps) {
     const srcLine = d.lines.find((l) => l.source === fromPointId)
     if (srcLine && connectionState.fromHandle.type === 'source') useStore.getState().addLineTarget(srcLine.id, newPtId)
     else useStore.getState().addLine(fromPointId, newPtId)
-  }, [screenToFlowPosition, getNodes])
+  }, [screenToFlowPosition, getNodes, onConnectPointerMove])
 
   // Shared by the double-click-to-add-point handler and the hover tracker: a
   // node-local point → normalized [0,1]² fraction PLUS the raw local pixel
@@ -1187,6 +1207,37 @@ function Canvas({ topRight }: CanvasContentProps) {
     return () => window.removeEventListener('keydown', onKey, true)
   }, [])
 
+  // React Flow's connection-radius handle search (see @xyflow/system's
+  // getClosestHandle) is what decides BOTH whether the dangling wire's
+  // rendered endpoint snaps to a handle AND whether onConnect resolves a
+  // target handle at all on release — the same distance check drives both,
+  // so whatever value we give it, "looks snapped" and "IS mechanism 1" are
+  // already the same thing moment-to-moment. The bug was the radius itself
+  // not reaching the whole interactive band: RingBandHitArea's real depth
+  // (edge to the center-zone boundary) is n·(1−CENTER_SHRINK)/2 for a
+  // centre-zone kind, or n/2 for a full-body kind (point/empty) — NOT the
+  // narrower REGION_STRIPE_WIDTH visual stripe. A fixed guess undershoots
+  // for any node bigger than the smallest default (more points on an edge
+  // grow n — see forms.ts's sizeFor), which is exactly what produced the
+  // "attaches at the rim, breaks free deeper in the SAME band" split the
+  // user saw: two visually different endings for what is, underneath,
+  // meant to be one mechanism. Deriving the radius from the diagram's own
+  // current geometry keeps the two endings identical everywhere the ring
+  // band itself is active, on any node size — not a bigger fixed guess.
+  const connectionRadius = useMemo(() => {
+    let maxBand = 20 // React Flow's own default — floor for an empty/tiny diagram
+    for (const node of nodes) {
+      if (node.type !== 'form') continue
+      const form = diagram.forms.find((f) => f.id === node.id)
+      if (!form) continue
+      const geom = geometryFor(form.kind)
+      const n = node.measured?.width ?? node.width ?? geom.nodeSize(form) * (form.scale ?? 1)
+      const band = geom.hasCenterZone ? (n * (1 - CENTER_SHRINK)) / 2 : n / 2
+      if (band > maxBand) maxBand = band
+    }
+    return maxBand
+  }, [nodes, diagram.forms])
+
   return (
     <div className={pointsVisible ? undefined : 'points-hidden'} style={{ width: '100%', height: '100%', position: 'relative' }} onDrop={onDrop} onDragOver={onDragOver}>
       <ReactFlow
@@ -1200,6 +1251,9 @@ function Canvas({ topRight }: CanvasContentProps) {
         onConnectStart={onConnectStart}
         onConnectEnd={onConnectEnd}
         isValidConnection={isValidConnection}
+        // See connectionRadius's own computation above — sized to the
+        // diagram's actual point-creation band, not a fixed guess.
+        connectionRadius={connectionRadius}
         connectionMode={ConnectionMode.Loose}
         // React Flow's click-to-connect (on by default) completes a
         // connection from two successive handle CLICKS — with the phantom
