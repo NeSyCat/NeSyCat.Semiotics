@@ -4,6 +4,10 @@
 // dropdown's "Copy URL" / "Copy TikZ code". Paste either a NeSyCat share
 // link (or bare fragment) or TikZ code this editor exported; both round-trip
 // through the same embedded share fragment (see importText.ts).
+//
+// Deliberately minimal, per direct user feedback: no header, no Cancel/
+// Import text buttons — just the field and two icon buttons above it
+// (cross = cancel, check = import).
 
 import { useEffect, useState } from 'react'
 import theme, { panelStyle } from './theme'
@@ -19,6 +23,14 @@ function CloseIcon() {
   return (
     <svg width={24} height={24} viewBox="0 0 24 24" fill="none" aria-hidden="true">
       <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+function CheckIcon() {
+  return (
+    <svg width={24} height={24} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M5 12.5l4.5 4.5L19 7" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   )
 }
@@ -69,73 +81,47 @@ export default function ImportPanel({ onClose }: Props) {
           ...panelStyle(),
           width: 'min(560px, 90vw)',
           borderRadius: 'var(--radius-lg, 16px)',
-          display: 'flex', flexDirection: 'column', overflow: 'hidden',
+          padding: 10,
+          display: 'flex', flexDirection: 'column', gap: 8,
         }}
         onMouseDown={(e) => e.stopPropagation()}
       >
-        <div style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          padding: '10px 14px', borderBottom: `1px solid ${theme.glass.borderColor}`,
-        }}>
-          <span style={{
-            fontFamily: 'var(--font-sans, system-ui, sans-serif)', fontWeight: 600,
-            fontSize: 14, color: 'var(--color-foreground)',
-          }}>
-            Import
-          </span>
+        {/* Cross (cancel) / check (import) — nothing else above the field. */}
+        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
           <div className="pill editor-pill">
-            <button className="btn btn-icon" title="Close" aria-label="Close" onClick={onClose}>
+            <button className="btn btn-icon" title="Cancel" aria-label="Cancel" onClick={onClose}>
               <CloseIcon />
             </button>
-          </div>
-        </div>
-        <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <textarea
-            autoFocus
-            value={text}
-            onChange={(e) => { setText(e.target.value); setError(null) }}
-            placeholder="Paste a NeSyCat share link, or TikZ exported from this editor…"
-            rows={6}
-            style={{
-              width: '100%', boxSizing: 'border-box', resize: 'vertical',
-              fontFamily: 'var(--font-mono, ui-monospace, monospace)', fontSize: 12.5, lineHeight: 1.5,
-              padding: 10, borderRadius: 'var(--radius-sm, 8px)',
-              border: `1px solid ${theme.glass.borderColor}`, background: 'var(--color-background)',
-              color: 'var(--color-foreground)',
-            }}
-          />
-          {error && (
-            <div style={{ fontSize: 13, color: 'var(--color-destructive, #d33)', fontFamily: 'var(--font-sans, system-ui, sans-serif)' }}>
-              {error}
-            </div>
-          )}
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
             <button
-              className="btn"
-              onClick={onClose}
-              style={{
-                height: 32, padding: '0 14px', borderRadius: 9999, border: 'none', cursor: 'pointer',
-                background: 'transparent', color: 'var(--color-foreground)',
-                fontFamily: 'var(--font-sans, system-ui, sans-serif)', fontSize: 13,
-              }}
-            >
-              Cancel
-            </button>
-            <button
-              className="btn"
+              className="btn btn-icon"
+              title="Import"
+              aria-label="Import"
               onClick={onImport}
               disabled={!text.trim() || busy}
-              style={{
-                height: 32, padding: '0 16px', borderRadius: 9999, border: 'none',
-                cursor: !text.trim() || busy ? 'default' : 'pointer',
-                background: 'var(--color-primary)', color: '#fff', opacity: !text.trim() || busy ? 0.5 : 1,
-                fontFamily: 'var(--font-sans, system-ui, sans-serif)', fontSize: 13, fontWeight: 600,
-              }}
             >
-              {busy ? 'Importing…' : 'Import'}
+              <CheckIcon />
             </button>
           </div>
         </div>
+        <textarea
+          autoFocus
+          value={text}
+          onChange={(e) => { setText(e.target.value); setError(null) }}
+          placeholder="Paste a NeSyCat share link, or TikZ exported from this editor…"
+          rows={6}
+          style={{
+            width: '100%', boxSizing: 'border-box', resize: 'vertical',
+            fontFamily: 'var(--font-mono, ui-monospace, monospace)', fontSize: 12.5, lineHeight: 1.5,
+            padding: 10, borderRadius: 'var(--radius-sm, 8px)',
+            border: `1px solid ${theme.glass.borderColor}`, background: 'var(--color-background)',
+            color: 'var(--color-foreground)',
+          }}
+        />
+        {error && (
+          <div style={{ fontSize: 12.5, color: 'var(--color-destructive, #d33)', fontFamily: 'var(--font-sans, system-ui, sans-serif)' }}>
+            {error}
+          </div>
+        )}
       </div>
     </div>
   )
