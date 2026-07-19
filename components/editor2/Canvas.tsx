@@ -1235,7 +1235,14 @@ function Canvas({ topRight }: CanvasContentProps) {
       const band = geom.hasCenterZone ? (n * (1 - CENTER_SHRINK)) / 2 : n / 2
       if (band > maxBand) maxBand = band
     }
-    return maxBand
+    // The radius is GLOBAL (React Flow takes one scalar), so a single big
+    // node would otherwise inflate snapping diagram-wide: at 4× scale the
+    // band is 180px, wrapping EVERY point handle in a capture halo wider
+    // than typical inter-form gaps — blank-canvas drops (the auto-create-
+    // empty gesture) would stop being reachable near forms. 75 covers every
+    // default-size band (45–50) and crowded edges up to ~7 points/side
+    // (n≈333), while keeping a scaled-up form's snapping merely generous.
+    return Math.min(maxBand, 75)
   }, [nodes, diagram.forms])
 
   return (
