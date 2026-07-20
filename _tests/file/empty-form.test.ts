@@ -5,11 +5,11 @@
 //
 //   npx tsx _tests/file/empty-form.test.ts
 
-import { geometryFor } from '../../components/editor2/forms'
-import { addPoint, addForm, removePoint } from '../../components/editor2/mutations'
-import { useStore, initStore } from '../../components/editor2/store'
-import { restoreDiagram } from '../../components/editor2/io'
-import type { Diagram, Form } from '../../components/editor2/types'
+import { geometryFor } from '../../components/editor/forms'
+import { addPoint, addForm, removePoint } from '../../components/editor/mutations'
+import { useStore, initStore } from '../../components/editor/store'
+import { restoreDiagram } from '../../components/editor/io'
+import type { Diagram, Form } from '../../components/editor/types'
 
 let pass = 0
 let fail = 0
@@ -188,7 +188,7 @@ function bareForm(id: string, kind: Form['kind'], extra: Partial<Form> = {}): Fo
 // pure function, and Canvas.tsx itself can't be imported headless under tsx
 // (it pulls in '@xyflow/react/dist/style.css' and JSX/React, which the tsx
 // loader used by this script rejects — confirmed: `npx tsx -e
-// "import('./components/editor2/Canvas.tsx')"` throws `Unexpected token '.'`
+// "import('./components/editor/Canvas.tsx')"` throws `Unexpected token '.'`
 // on the CSS import before any of createForm's own logic runs). Extracting
 // a standalone pure helper was out of scope for this ticket's write set
 // (Canvas.tsx's own math was kept small and read literally: n =

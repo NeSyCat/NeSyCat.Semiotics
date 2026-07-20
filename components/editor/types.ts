@@ -1,4 +1,4 @@
-// NeSyCat Semiotics — editor2 domain model.
+// NeSyCat Semiotics — editor domain model.
 //
 // Deliberately SIMPLE and NON-RECURSIVE. There are two distinct types:
 //   • Form  — a "big shape" (triangle / square / circle). Has its own shape

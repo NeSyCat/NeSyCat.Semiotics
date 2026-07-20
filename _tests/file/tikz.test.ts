@@ -6,9 +6,9 @@
 // Plain assertions; prints one PASS/FAIL line per check and exits non-zero
 // if anything failed.
 
-import { snapCoord, snapPoint, snapCenterPosition, GRID_SIZE } from '../../components/editor2/grid'
-import { diagramToTikzCore, diagramToTikz, formBodyVerticesPx, pointPositionsPx } from '../../components/editor2/tikz'
-import type { Diagram, Form } from '../../components/editor2/types'
+import { snapCoord, snapPoint, snapCenterPosition, GRID_SIZE } from '../../components/editor/grid'
+import { diagramToTikzCore, diagramToTikz, formBodyVerticesPx, pointPositionsPx } from '../../components/editor/tikz'
+import type { Diagram, Form } from '../../components/editor/types'
 
 let pass = 0
 let fail = 0

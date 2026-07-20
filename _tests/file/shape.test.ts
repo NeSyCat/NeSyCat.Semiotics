@@ -8,10 +8,10 @@
 // Plain assertions; prints one PASS/FAIL line per check and exits non-zero
 // if anything failed.
 
-import { formRegistry, SHAPES } from '../../components/editor2/forms'
-import { restoreDiagram } from '../../components/editor2/io'
-import { addForm, addPoint, setPointShape } from '../../components/editor2/mutations'
-import type { Diagram, Shape } from '../../components/editor2/types'
+import { formRegistry, SHAPES } from '../../components/editor/forms'
+import { restoreDiagram } from '../../components/editor/io'
+import { addForm, addPoint, setPointShape } from '../../components/editor/mutations'
+import type { Diagram, Shape } from '../../components/editor/types'
 
 let pass = 0
 let fail = 0

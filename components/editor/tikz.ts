@@ -246,7 +246,7 @@ function buildLineCmds(diagram: Diagram, positions: Map<string, PointPx>, cmds: 
   }
 }
 
-// Names render through Tex.tsx (components/editor2/Tex.tsx), which ALWAYS
+// Names render through Tex.tsx (components/editor/Tex.tsx), which ALWAYS
 // runs katex.renderToString on the raw text regardless of `$` delimiters —
 // there is no plain-text mode in this editor, every name is math. Mirrored
 // here by always wrapping in `$...$` for TikZ's own math-mode rendering.
