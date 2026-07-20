@@ -252,7 +252,7 @@ export function deleteLineTarget(d: Diagram, lineId: string, idx: number): Diagr
 // copy points. Starting from the renamed lines, whenever a renamed line
 // TARGETS a copy point's middle point (pointIsForm — the empty form), every
 // line SOURCED at that point takes the same name too, and the cascade
-// continues through chains of copy points (breadth-first, visited-guarded,
+// continues through chains of copy points (depth-first, visited-guarded,
 // so copy cycles terminate). Downstream only: renaming an outgoing branch
 // directly renames just that branch — it never syncs back upstream or
 // across to sibling branches.
@@ -283,7 +283,10 @@ function copyDownstreamLineIds(d: Diagram, seedIds: Set<string>): Set<string> {
 
 export function renameLine(d: Diagram, id: string, name: string): Diagram {
   const set = copyDownstreamLineIds(d, new Set([id]))
-  return { ...d, lines: d.lines.map((l) => (set.has(l.id) ? { ...l, name } : l)) }
+  // Same clearing rule as renameLines: '' clears the name (undefined), and
+  // that clearing propagates through copy points like any other rename.
+  const nm = name === '' ? undefined : name
+  return { ...d, lines: d.lines.map((l) => (set.has(l.id) ? { ...l, name: nm } : l)) }
 }
 
 export function renameLines(d: Diagram, ids: string[], name: string): Diagram {
