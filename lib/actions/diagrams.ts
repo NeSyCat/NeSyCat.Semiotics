@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/server'
 import { withRLS } from '@/lib/db'
 import { diagrams, type Diagram as DiagramRow } from '@/_concept/03-orm-schema/schema'
 import type { Diagram } from '@/components/editor/types'
+import { emptyData } from '@/lib/constants'
 
 async function session() {
   const supabase = await createClient()
@@ -73,11 +74,4 @@ export async function renameDiagram(id: string, title: string): Promise<void> {
       .where(eq(diagrams.id, id)),
   )
   revalidatePath('/editor', 'layout')
-}
-
-const emptyData: Diagram = {
-  schemaVersion: 1,
-  forms: [],
-  points: {},
-  lines: [],
 }
