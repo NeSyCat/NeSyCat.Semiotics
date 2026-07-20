@@ -155,7 +155,7 @@ describe('HTML/SVG exporter', () => {
     }
   })
 
-  it('a named hyperedge (2 targets) — the wire-name label gets a white <rect> immediately before its <text>, once (not per-segment)', () => {
+  it('a named hyperedge (2 targets) — every branch carries a white-backed name label', () => {
     const w: Diagram = {
       schemaVersion: 1,
       forms: [
@@ -175,10 +175,9 @@ describe('HTML/SVG exporter', () => {
     expect(wsvg, "the wire-name label's white backing rect immediately precedes its <text>").toMatch(
       /<rect[^>]*fill="white"\/>\s*<text[^>]*>f<\/text>/,
     )
-    // Exactly one label rendered for the whole hyperedge (once per line, not
-    // once per segment) — both a single <text>f</text> and a single backing
-    // <rect fill="white"> tied to it.
-    expect((wsvg.match(/>f<\/text>/g) ?? []).length, 'the wire name appears exactly once, not once per segment').toBe(1)
+    // The name renders on EVERY branch of the hyperedge (user decision:
+    // each branch of a fork shows the wire's type) — one label per target.
+    expect((wsvg.match(/>f<\/text>/g) ?? []).length, 'the wire name appears once per branch (2 targets)').toBe(2)
     // Two <line> segments are still drawn (both targets get their own wire).
     expect((wsvg.match(/<line /g) ?? []).length, 'both segments are drawn').toBe(2)
   })

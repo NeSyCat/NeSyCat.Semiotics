@@ -7,7 +7,7 @@
 
 import { describe, expect, it } from 'vitest'
 import { geometryFor } from '../../components/editor/domain/forms'
-import { addPoint, addForm, removePoint } from '../../components/editor/domain/mutations'
+import { addPoint, addForm, addLine, removePoint } from '../../components/editor/domain/mutations'
 import { useStore, initStore } from '../../components/editor/state/store'
 import { restoreDiagram } from '../../components/editor/persist/io'
 import type { Diagram, Form } from '../../components/editor/domain/types'
@@ -240,5 +240,62 @@ describe("'empty' Form shape", () => {
     expect(restored.forms.find((f) => f.id === 'BARE'), `restore drops an empty form that has no middle point (no legacy seeding)`).toBeUndefined()
     expect(restored.forms.find((f) => f.id === 'SQ2'), `other forms pass through untouched`).not.toBeUndefined()
     expect(JSON.stringify(restoreDiagram(restored)), `the drop is idempotent on re-restore`).toBe(JSON.stringify(restored))
+  })
+})
+
+// ── COPY-NODE naming: wires drawn OUT of an empty form's middle point
+// inherit the name of the wire flowing IN — the empty form is the copy
+// point, so every outgoing branch automatically carries the incoming
+// wire's name. Creation-time only; scoped to pointIsForm (empty) points. ──
+describe("copy-node naming (empty form's middle point)", () => {
+  // dice[SQ,right:DP] --Nat--> copy(empty,self:CP) , plus OUT targets on TG
+  function rig(inflowName?: string): Diagram {
+    return {
+      schemaVersion: 1,
+      forms: [
+        { id: 'SQ', shape: 'square', position: { x: 0, y: 0 }, edges: { top: [], right: ['DP'], bottom: [], left: [] } },
+        { id: 'CN', shape: 'empty', position: { x: 300, y: 0 }, edges: { self: ['CP'] } },
+        { id: 'TG', shape: 'square', position: { x: 600, y: 0 }, edges: { top: [], right: [], bottom: [], left: ['TP1', 'TP2'] } },
+      ],
+      points: {
+        DP: { id: 'DP', shape: 'empty', formId: 'SQ', edgeKey: 'right' },
+        CP: { id: 'CP', shape: 'empty', formId: 'CN', edgeKey: 'self' },
+        TP1: { id: 'TP1', shape: 'empty', formId: 'TG', edgeKey: 'left' },
+        TP2: { id: 'TP2', shape: 'empty', formId: 'TG', edgeKey: 'left' },
+      },
+      lines: [{ id: 'IN1', ...(inflowName ? { name: inflowName } : {}), source: 'DP', targets: ['CP'] }],
+    }
+  }
+
+  it('a wire drawn OUT of the copy point inherits the inflow name', () => {
+    const [d1, id1] = addLine(rig('Nat'), 'CP', 'TP1')
+    expect(d1.lines.find((l) => l.id === id1)?.name, 'outflow inherits "Nat"').toBe('Nat')
+  })
+
+  it('multiple outflows each inherit the same inflow name', () => {
+    const [d1] = addLine(rig('Nat'), 'CP', 'TP1')
+    const [d2, id2] = addLine(d1, 'CP', 'TP2')
+    expect(d2.lines.find((l) => l.id === id2)?.name, 'second outflow also inherits "Nat"').toBe('Nat')
+  })
+
+  it('an UNNAMED inflow gives nothing to inherit — outflow stays unnamed', () => {
+    const [d1, id1] = addLine(rig(undefined), 'CP', 'TP1')
+    expect(d1.lines.find((l) => l.id === id1)?.name, 'no inherited name').toBeUndefined()
+  })
+
+  it('scope: a NON-empty form point with a named inflow does NOT propagate', () => {
+    // draw a wire out of TG's TP1 (a square's side point) which has a named
+    // inflow — no copy-node semantics outside pointIsForm forms.
+    const base = rig('Nat')
+    const withIn: Diagram = { ...base, lines: [...base.lines, { id: 'IN2', name: 'Bool', source: 'CP', targets: ['TP1'] }] }
+    const [d1, id1] = addLine(withIn, 'TP1', 'TP2')
+    expect(d1.lines.find((l) => l.id === id1)?.name, 'square points do not copy names').toBeUndefined()
+  })
+
+  it('no inflow at all — outflow from a bare copy point stays unnamed', () => {
+    const bare = rig('Nat')
+    const noIn: Diagram = { ...bare, lines: [] }
+    const [d1, id1] = addLine(noIn, 'CP', 'TP1')
+    expect(d1.lines.find((l) => l.id === id1)?.name, 'nothing to inherit').toBeUndefined()
   })
 })

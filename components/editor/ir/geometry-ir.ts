@@ -296,15 +296,14 @@ function buildLineCmds(diagram: Diagram, positions: Map<string, PointPx>, cmds: 
   for (const line of diagram.lines) {
     const src = positions.get(line.source)
     if (!src) continue
-    line.targets.forEach((tid, i) => {
+    line.targets.forEach((tid) => {
       const tgt = positions.get(tid)
       if (!tgt) return
       cmds.push({ kind: 'line', from: src.pos, to: tgt.pos, color: line.color ?? 'black', widthPt: LINE_STROKE_PT })
-      // ONCE per line (hyperedge), on its first target's segment only — a
-      // line with 2+ targets used to get its name label drawn on EVERY
-      // segment; canvas's builtEdges (ui/Canvas.tsx) now mirrors this same
-      // first-segment-only rule.
-      if (i === 0 && line.name) {
+      // EVERY branch of a hyperedge carries the line's name (user decision:
+      // each branch of a fork shows the wire's type explicitly) — canvas's
+      // builtEdges (ui/Canvas.tsx) renders the same per-branch labels.
+      if (line.name) {
         const mid = { x: (src.pos.x + tgt.pos.x) / 2, y: (src.pos.y + tgt.pos.y) / 2 }
         labelCmds.push({ kind: 'label', at: mid, text: mathWrap(line.name), masked: true })
       }

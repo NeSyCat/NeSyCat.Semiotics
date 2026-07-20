@@ -203,9 +203,26 @@ export function setPointsColor(d: Diagram, ids: string[], color: Color | null): 
 }
 
 // ── Lines ────────────────────────────────────────────────────────────
+// COPY-NODE naming: an 'empty' form (pointIsForm — it IS its middle point)
+// acts as a copy node. A wire drawn OUT of that point inherits the name of
+// the wire already flowing IN (a line whose targets include the point), so
+// branching a typed wire through a copy point keeps every outgoing branch
+// carrying the incoming wire's name automatically. First named inflow wins;
+// nothing to inherit (no inflow, or unnamed) → the new line stays unnamed.
+// Inheritance happens at CREATION time only — renaming the inflow later
+// does not retro-rename existing outflows.
+function inheritedCopyName(d: Diagram, sourcePtId: string): string | undefined {
+  const pt = d.points[sourcePtId]
+  if (!pt) return undefined
+  const form = d.forms.find((f) => f.id === pt.formId)
+  if (!form || !geometryFor(form.shape).pointIsForm) return undefined
+  return d.lines.find((l) => l.targets.includes(sourcePtId) && l.name)?.name
+}
+
 export function addLine(d: Diagram, sourcePtId: string, targetPtId: string): [Diagram, string] {
   const id = newLineId(d)
-  const line: Line = { id, source: sourcePtId, targets: [targetPtId] }
+  const name = inheritedCopyName(d, sourcePtId)
+  const line: Line = { id, ...(name ? { name } : {}), source: sourcePtId, targets: [targetPtId] }
   return [{ ...d, lines: [...d.lines, line] }, id]
 }
 
