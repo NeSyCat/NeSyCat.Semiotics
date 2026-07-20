@@ -1,6 +1,7 @@
 'use client'
 
 import type { ReactNode } from 'react'
+import { useEffect, useRef } from 'react'
 import type { Diagram } from '../../domain/types'
 import { ExportMenu } from '../ExportMenu'
 
@@ -17,8 +18,26 @@ export function TopRightPills({
   onImportClick: () => void
   topRight?: ReactNode
 }) {
+  // Exposes this cluster's rendered width as --topright-width, mirroring how
+  // EditorSidebar exposes --sidebar-offset — CenteredPillRow (MainToolbar/
+  // SecondToolbar) reserves this much + a gap on its right so the centered
+  // pill can never slide under this cluster. `topRight` (the auth pill)
+  // varies signed-in vs signed-out, so the width can't be a static constant.
+  // Pure DOM mutation (not React state), so no render-loop risk.
+  const clusterRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const el = clusterRef.current
+    if (!el) return
+    const root = document.documentElement
+    const update = () => root.style.setProperty('--topright-width', `${el.getBoundingClientRect().width}px`)
+    update()
+    const ro = new ResizeObserver(update)
+    ro.observe(el)
+    return () => { ro.disconnect(); root.style.removeProperty('--topright-width') }
+  }, [])
+
   return (
-    <div style={{ position: 'absolute', top: 16, right: 16, zIndex: 10 }}>
+    <div ref={clusterRef} style={{ position: 'absolute', top: 16, right: 16, zIndex: 10 }}>
       <div className="pill-cluster">
         <div className="pill editor-pill">
           <button
