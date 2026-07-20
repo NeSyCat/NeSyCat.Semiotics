@@ -31,6 +31,7 @@ import type { Diagram, Form, Shape, Color } from '../domain/types'
 import { ToolbarSprite } from './sprite'
 import { CATEGORIES, SHAPE_RAIL, sameColor } from './rails'
 import { TopRightPills } from './toolbars/TopRightPills'
+import { CenteredPillRow } from './toolbars/CenteredPillRow'
 import { MainToolbar } from './toolbars/MainToolbar'
 import { SecondToolbar } from './toolbars/SecondToolbar'
 import { useEditorKeyboard } from './hooks/useEditorKeyboard'
@@ -882,33 +883,40 @@ function Canvas({ topRight }: CanvasContentProps) {
 
       {importOpen && <ImportPanel onClose={() => setImportOpen(false)} />}
 
-      <MainToolbar
-        activeCategory={activeCategory}
-        setActiveCategory={setActiveCategory}
-        activeShapeSymbol={activeShapeSymbol}
-        selectionTarget={selectionTarget}
-        colorInfo={colorInfo}
-        activeColor={activeColor}
-      />
+      {/* ONE shared track for both pills — see CenteredPillRow's comment.
+          Stacking them as a single unit's children (instead of each in its
+          own CenteredPillRow) is what keeps them centered together under
+          clamp; `top` here is the MAIN pill's top, SecondToolbar's pill
+          (when rendered) falls in below it via the column gap. */}
+      <CenteredPillRow top={16}>
+        <MainToolbar
+          activeCategory={activeCategory}
+          setActiveCategory={setActiveCategory}
+          activeShapeSymbol={activeShapeSymbol}
+          selectionTarget={selectionTarget}
+          colorInfo={colorInfo}
+          activeColor={activeColor}
+        />
 
-      <SecondToolbar
-        activeCategory={activeCategory}
-        selectedPoints={selectedPoints}
-        selectedPointShape={selectedPointShape}
-        activeShape={activeShape}
-        onPickShape={onPickShape}
-        selectionTarget={selectionTarget}
-        colorInfo={colorInfo}
-        activeColor={activeColor}
-        onColor={onColor}
-        nameInfo={nameInfo}
-        onName={onName}
-        rotationInfo={rotationInfo}
-        onRotate={onRotate}
-        scaleInfo={scaleInfo}
-        onScale={onScale}
-        selectedFormIds={selectedFormIds}
-      />
+        <SecondToolbar
+          activeCategory={activeCategory}
+          selectedPoints={selectedPoints}
+          selectedPointShape={selectedPointShape}
+          activeShape={activeShape}
+          onPickShape={onPickShape}
+          selectionTarget={selectionTarget}
+          colorInfo={colorInfo}
+          activeColor={activeColor}
+          onColor={onColor}
+          nameInfo={nameInfo}
+          onName={onName}
+          rotationInfo={rotationInfo}
+          onRotate={onRotate}
+          scaleInfo={scaleInfo}
+          onScale={onScale}
+          selectedFormIds={selectedFormIds}
+        />
+      </CenteredPillRow>
     </div>
   )
 }

@@ -237,8 +237,24 @@ input[type="search"]::-webkit-search-results-decoration {
 .toolbar-center-row .toolbar-center-spacer.is-right {
   min-width: calc(var(--topright-width, 240px) + 32px);
 }
+/* Column of stacked pills (MainToolbar always, SecondToolbar when a
+   category is active) sharing ONE center — see CenteredPillRow's comment.
+   6px gap reproduces the pre-lockstep 16/70 top offsets exactly: main
+   pill is 48px tall (36px .btn + 2*5px .editor-pill padding + 2*1px
+   border), 16 + 48 + 6 = 70. Gap is a no-op with a single child, so
+   SecondToolbar-absent stays pixel-identical to the old main-only row.
+   pointer-events: none on the column (like the spacers) keeps the dead
+   space around a narrower child, and the gap itself, click-through to the
+   canvas; `> *` re-enables `auto` on each real pill only. */
 .toolbar-center-row .toolbar-center-content {
   flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  pointer-events: none;
+}
+.toolbar-center-row .toolbar-center-content > * {
   pointer-events: auto;
 }
 
