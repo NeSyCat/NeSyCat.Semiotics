@@ -63,9 +63,9 @@ function bareForm(id: string, kind: Form['kind'], extra: Partial<Form> = {}): Fo
       { id: 'E', kind: 'empty', position: { x: 200, y: 0 }, edges: { self: ['P1', 'P2'] }, corners: {} },
     ],
     points: {
-      PA: { id: 'PA', shape: 'point', formId: 'A', edgeKey: 'top' },
-      P1: { id: 'P1', shape: 'point', formId: 'E', edgeKey: 'self' },
-      P2: { id: 'P2', shape: 'point', formId: 'E', edgeKey: 'self' },
+      PA: { id: 'PA', shape: 'empty', formId: 'A', edgeKey: 'top' },
+      P1: { id: 'P1', shape: 'empty', formId: 'E', edgeKey: 'self' },
+      P2: { id: 'P2', shape: 'empty', formId: 'E', edgeKey: 'self' },
     },
     lines: [
       { id: 'L1', source: 'PA', targets: ['P1'] },
@@ -98,8 +98,8 @@ function bareForm(id: string, kind: Form['kind'], extra: Partial<Form> = {}): Fo
     schemaVersion: 1,
     forms: [{ id: 'E2', kind: 'empty', position: { x: 0, y: 0 }, edges: { self: ['Q1', 'Q2'] }, corners: {} }],
     points: {
-      Q1: { id: 'Q1', shape: 'point', formId: 'E2', edgeKey: 'self' },
-      Q2: { id: 'Q2', shape: 'point', formId: 'E2', edgeKey: 'self' },
+      Q1: { id: 'Q1', shape: 'empty', formId: 'E2', edgeKey: 'self' },
+      Q2: { id: 'Q2', shape: 'empty', formId: 'E2', edgeKey: 'self' },
     },
     lines: [{ id: 'L3', source: 'Q1', targets: ['Q2'] }], // both ends on the same (soon-to-collapse) form
   }
@@ -206,7 +206,7 @@ function bareForm(id: string, kind: Form['kind'], extra: Partial<Form> = {}): Fo
 {
   // removePoint on the middle point → whole form (and its lines) gone.
   const [seeded, formId] = addForm(
-    { schemaVersion: 1, forms: [bareForm('SQ', 'square', { edges: { top: ['PX'] } })], points: { PX: { id: 'PX', shape: 'point', formId: 'SQ', edgeKey: 'top' } }, lines: [] },
+    { schemaVersion: 1, forms: [bareForm('SQ', 'square', { edges: { top: ['PX'] } })], points: { PX: { id: 'PX', shape: 'empty', formId: 'SQ', edgeKey: 'top' } }, lines: [] },
     'empty', { x: 0, y: 0 },
   )
   const mid = seeded.forms.find((f) => f.id === formId)!.edges.self[0]

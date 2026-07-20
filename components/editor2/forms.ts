@@ -1,5 +1,5 @@
 import { Position } from '@xyflow/react'
-import type { Form, FormKind, EdgeKey } from './types'
+import type { Form, Shape, EdgeKey } from './types'
 
 // ── Layout constants ─────────────────────────────────────────────────
 export const BASE_SIZE = 200
@@ -31,7 +31,7 @@ export type Body =
   | { type: 'circle' }
 
 export interface FormGeometry {
-  kind: FormKind
+  kind: Shape
   displayName: string
   // Side/arc keys. A point sits on one of these.
   edgeKeys: readonly EdgeKey[]
@@ -442,7 +442,7 @@ const emptyGeometry: FormGeometry = {
 }
 
 // ── Registry ─────────────────────────────────────────────────────────
-export const formRegistry: Record<FormKind, FormGeometry> = {
+export const formRegistry: Record<Shape, FormGeometry> = {
   triangle: triangleGeometry,
   square: squareGeometry,
   circle: circleGeometry,
@@ -450,6 +450,12 @@ export const formRegistry: Record<FormKind, FormGeometry> = {
   empty: emptyGeometry,
 }
 
-export function geometryFor(kind: FormKind): FormGeometry {
+export function geometryFor(kind: Shape): FormGeometry {
   return formRegistry[kind]
 }
+
+// The full, runtime-checkable set of valid Shapes — formRegistry's own keys,
+// so this can never drift from the geometry registry above. io.ts's
+// canonPoint uses this to drop-silently normalize a legacy/unknown point
+// shape to 'empty' on load.
+export const SHAPES: readonly Shape[] = Object.keys(formRegistry) as Shape[]

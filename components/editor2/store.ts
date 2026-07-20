@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { Diagram, FormKind, PointShape, Color } from './types'
+import type { Diagram, Shape, Color } from './types'
 import * as M from './mutations'
 
 const MAX_HISTORY = 100
@@ -68,23 +68,23 @@ interface State {
   setHoveredEdgeId: (id: string | null) => void
 
   // Mutations (delegate to pure functions; one history entry each)
-  addForm: (kind: FormKind, position: { x: number; y: number }, color?: Color | null) => string
+  addForm: (kind: Shape, position: { x: number; y: number }, color?: Color | null) => string
   deleteForm: (id: string) => void
   moveForm: (id: string, position: { x: number; y: number }) => void
   moveForms: (updates: Array<{ id: string; position: { x: number; y: number } }>) => void
   renameForm: (id: string, name: string) => void
   renameForms: (ids: string[], name: string) => void
-  setFormsKind: (ids: string[], kind: FormKind) => void
+  setFormsKind: (ids: string[], kind: Shape) => void
   setFormsRotation: (ids: string[], rotation: number) => void
   setFormsScale: (ids: string[], scale: number) => void
   setFormsColor: (ids: string[], color: Color | null) => void
 
-  addPoint: (formId: string, edgeKey: string, shape?: PointShape, index?: number) => string
+  addPoint: (formId: string, edgeKey: string, shape?: Shape, index?: number) => string
   removePoint: (id: string) => void
   renamePoint: (id: string, name: string) => void
   renamePoints: (ids: string[], name: string) => void
-  setPointShape: (id: string, shape: PointShape) => void
-  setPointsShape: (ids: string[], shape: PointShape) => void
+  setPointShape: (id: string, shape: Shape) => void
+  setPointsShape: (ids: string[], shape: Shape) => void
   setPointsColor: (ids: string[], color: Color | null) => void
 
   addLine: (sourcePtId: string, targetPtId: string) => string

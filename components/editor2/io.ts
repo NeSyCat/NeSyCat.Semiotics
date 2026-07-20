@@ -1,5 +1,5 @@
-import type { Diagram, Form, Point, Line, Color, PointShape } from './types'
-import { geometryFor } from './forms'
+import type { Diagram, Form, Point, Line, Color, Shape } from './types'
+import { geometryFor, SHAPES } from './forms'
 import { pruneLines } from './mutations'
 
 // Single load-boundary normalizer. Persisted JSON arrives from Supabase
@@ -23,6 +23,7 @@ import { pruneLines } from './mutations'
 // geometryFor never sees the no-longer-valid 'point' kind.
 
 const FALLBACK_COLOR: Color = [52 / 255, 120 / 255, 246 / 255]
+const VALID_SHAPES = new Set<string>(SHAPES)
 
 function asColor(c: unknown): Color {
   if (Array.isArray(c) && c.length === 3) return [Number(c[0]), Number(c[1]), Number(c[2])]
@@ -53,9 +54,14 @@ function canonForm(f: Record<string, unknown>): Form {
 }
 
 function canonPoint(p: Record<string, unknown>): Point {
+  // Legacy/unknown point shapes (the removed 'point'/'line'/'pentagon'/
+  // 'hexagon', the old 'dot' alias, null, or anything else not in the
+  // current 5-member Shape set) drop-silently normalize to 'empty' — the
+  // create-default, no glyph. Valid shapes pass through unchanged.
+  const shape: Shape = typeof p.shape === 'string' && VALID_SHAPES.has(p.shape) ? (p.shape as Shape) : 'empty'
   return {
     id: String(p.id),
-    shape: p.shape == null || p.shape === 'dot' ? 'point' : (p.shape as PointShape),
+    shape,
     ...(p.name !== undefined ? { name: String(p.name) } : {}),
     ...(p.color != null ? { color: asColor(p.color) } : {}),
     formId: String(p.formId),

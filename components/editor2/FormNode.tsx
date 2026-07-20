@@ -8,7 +8,7 @@ import { encodeHandle, encodePhantomHandle, decodePhantomHandle } from './handle
 import { toRgbTriple } from './color'
 import { useStore } from './store'
 import { Tex } from './Tex'
-import type { Form, Point, PointShape } from './types'
+import type { Form, Point, Shape } from './types'
 
 export interface FormNodeData {
   form: Form
@@ -31,7 +31,7 @@ function bodyCentroid(body: Body): [number, number] {
 // A point's glyph is drawn from the SAME sprite as the toolbar (see Canvas's
 // ToolbarSprite), rendered small and filled in the point's colour — so a point
 // shares the form/Shape-rail shape vocabulary. 'square' uses kind-rectangle.
-function PointGlyph({ shape, color }: { shape: PointShape; color: string }) {
+function PointGlyph({ shape, color }: { shape: Shape; color: string }) {
   if (shape === 'empty') return null // Empty = nothing rendered; the dashed circle is only the toolbar symbol
   const sym = shape === 'square' ? 'kind-rectangle' : `kind-${shape}`
   return (

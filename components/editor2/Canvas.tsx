@@ -30,7 +30,7 @@ import { encodeDiagramToFragment } from './share'
 import { diagramToTikz } from './tikz'
 import { diagramToHtml } from './html'
 import theme from './theme'
-import type { Diagram, Form, FormKind, PointShape, Color } from './types'
+import type { Diagram, Form, Shape, Color } from './types'
 import { toCssRgb } from './color'
 
 const nodeTypes: NodeTypes = { form: FormNode }
@@ -252,15 +252,12 @@ function ToolbarSprite() {
         <symbol id="kind-empty" viewBox="0 0 24 24">
           <circle cx="12" cy="12" r="9.25" fill="none" stroke="currentColor" strokeWidth="1.4" strokeDasharray="2.4 2.6" />
         </symbol>
-        {/* 'kind-point' is a POINT SHAPE glyph (PointShape 'point' in
-            types.ts, rendered small on a Point leaf), NOT a FormKind — the
-            'point' FormKind (a standalone dot-bodied form) was removed, but
-            this glyph and the PointShape vocabulary stay. */}
-        <symbol id="kind-point" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.15" fill="currentColor" /></symbol>
-        <symbol id="kind-line" viewBox="0 0 24 24"><path d="M2.75 12L21.25 12" fill="none" stroke="currentColor" strokeLinecap="round" /></symbol>
         <symbol id="kind-triangle" viewBox="0 0 24 24"><path d="M21.25 12L7.375 20.011L7.375 3.989Z" /></symbol>
         <symbol id="kind-rhombus" viewBox="0 0 24 24"><path d="M12 2.75L21.25 12L12 21.25L2.75 12Z" /></symbol>
-        <symbol id="kind-pentagon" viewBox="0 0 24 24"><path d="M12 2.75 L20.797 9.142 L17.437 19.483 L6.563 19.483 L3.203 9.142 Z" /></symbol>
+        {/* 'kind-hexagon' is NOT a Shape value (the vocabulary is just the 5
+            in types.ts) — it survives here only as the generic decorative
+            "shape" glyph used by the top-pill's Shape category icon and its
+            activeKindSymbol fallback below. */}
         <symbol id="kind-hexagon" viewBox="0 0 24 24"><path d="M12 2.75 L20.011 7.375 L20.011 16.625 L12 21.25 L3.989 16.625 L3.989 7.375 Z" /></symbol>
         <symbol id="kind-circle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9.25" /></symbol>
         <symbol id="kind-rectangle" viewBox="0 0 24 24"><rect x="2.75" y="2.75" width="18.5" height="18.5" rx="0" ry="0" /></symbol>
@@ -286,10 +283,9 @@ const CATEGORIES: Array<{ key: string; label: string; content: React.ReactNode }
 
 // Second toolbar — the Shape rail. Every tile sets the shape of the SELECTED
 // POINT(S). For FORMS, only tiles with a `kind` are functional; the rest are
-// point-only placeholders. Line/Pentagon/Hexagon are disabled for now — kept
-// out of this list so they don't render in the pill, but PointShape in
-// types.ts still includes them so pre-existing diagram data isn't affected.
-const SHAPE_RAIL: Array<{ label: string; symbol: string; pshape: PointShape; kind?: FormKind }> = [
+// point-only placeholders. The rail covers the full Shape vocabulary
+// (types.ts) — 5 tiles, no disabled/legacy-only entries.
+const SHAPE_RAIL: Array<{ label: string; symbol: string; pshape: Shape; kind?: Shape }> = [
   { label: 'Empty', symbol: 'kind-empty', pshape: 'empty', kind: 'empty' },
   { label: 'Triangle', symbol: 'kind-triangle', pshape: 'triangle', kind: 'triangle' },
   { label: 'Rhombus', symbol: 'kind-rhombus', pshape: 'rhombus', kind: 'rhombus' },
@@ -667,9 +663,9 @@ function Canvas({ topRight }: CanvasContentProps) {
   const [importOpen, setImportOpen] = useState(false)
   const { screenToFlowPosition, getNodes } = useReactFlow()
 
-  const [activeKind, setActiveKind] = useState<FormKind>(() => {
+  const [activeKind, setActiveKind] = useState<Shape>(() => {
     const stored = readLocalStorage(ACTIVE_KIND_KEY)
-    return stored && SHAPE_RAIL.some((s) => s.kind === stored) ? (stored as FormKind) : 'square'
+    return stored && SHAPE_RAIL.some((s) => s.kind === stored) ? (stored as Shape) : 'square'
   })
   const [activeCategory, setActiveCategory] = useState<string>(() => {
     const stored = readLocalStorage(ACTIVE_CATEGORY_KEY)
@@ -693,10 +689,10 @@ function Canvas({ topRight }: CanvasContentProps) {
   useEffect(() => { writeLocalStorage(ACTIVE_CATEGORY_KEY, activeCategory) }, [activeCategory])
 
   // The shape shared by all selected points (for the rail highlight), if any.
-  const selectedPointShape = useMemo<PointShape | undefined>(() => {
+  const selectedPointShape = useMemo<Shape | undefined>(() => {
     if (selectedPoints.length === 0) return undefined
     const shapes = new Set(selectedPoints.map((id) => diagram.points[id]?.shape).filter(Boolean))
-    return shapes.size === 1 ? ([...shapes][0] as PointShape) : undefined
+    return shapes.size === 1 ? ([...shapes][0] as Shape) : undefined
   }, [selectedPoints, diagram.points])
 
   // The top-pill Shape icon mirrors the active/selected form's shape.
@@ -898,7 +894,7 @@ function Canvas({ topRight }: CanvasContentProps) {
   // exactly the kind's own default — same SizableForm shape grid.ts's
   // snapCenterPosition expects.
   const createForm = useCallback(
-    (kind: FormKind, center: { x: number; y: number }) => {
+    (kind: Shape, center: { x: number; y: number }) => {
       setActiveKind(kind)
       const freshForm = { kind, scale: undefined, edges: {} }
       const n = geometryFor(kind).nodeSize(freshForm as Form)
@@ -916,11 +912,11 @@ function Canvas({ topRight }: CanvasContentProps) {
 
   // Click a Shape-rail tile. The SAME rail picks both point shapes and form
   // shapes, applied to the current selection:
-  //   • point(s) selected → set their shape (any of the 9);
+  //   • point(s) selected → set their shape (any of the 5);
   //   • else form(s) selected (and the tile is a form kind) → transform them;
   //   • else just set the active form tool (used by double-click / drag-create).
   const onPickShape = useCallback(
-    (entry: { kind?: FormKind; pshape: PointShape }) => {
+    (entry: { kind?: Shape; pshape: Shape }) => {
       const pts = useStore.getState().selectedPoints
       if (pts.length > 0) {
         useStore.getState().setPointsShape(pts, entry.pshape)
@@ -942,7 +938,7 @@ function Canvas({ topRight }: CanvasContentProps) {
   const onDrop = useCallback(
     (e: React.DragEvent) => {
       e.preventDefault()
-      const kind = e.dataTransfer.getData('application/form-kind') as FormKind
+      const kind = e.dataTransfer.getData('application/form-kind') as Shape
       if (!kind) return
       const flow = screenToFlowPosition({ x: e.clientX, y: e.clientY })
       createForm(kind, flow) // flow IS the intended center; createForm derives top-left per-kind

@@ -25,7 +25,6 @@ const PAD = 12 // px margin around the diagram's bounding box
 // (0.4, a TikZ *pt* value for the cm-scaled backend), which as SVG user
 // units would draw a hairline and sit inconsistently beside the 1.5px wires.
 const FORM_STROKE = 1.5
-const POINT_DOT_R = 4 // fixed pointDot radius (see emitCmd)
 // Label extent estimate for the bounding box: 14px ui-monospace runs ≈8.4px
 // per glyph; half that height above/below the anchored midline.
 const LABEL_CHAR_W = 8.4
@@ -72,18 +71,12 @@ function emitCmd(cmd: DrawCmd): string {
       const strokeAttr = cmd.strokeColor ? ` stroke="${colorRef(cmd.strokeColor)}" stroke-width="${FORM_STROKE}"` : ''
       return `<circle cx="${round(cmd.center.x)}" cy="${round(cmd.center.y)}" r="${round(cmd.radiusPx)}"${fillAttr}${strokeAttr}/>`
     }
-    case 'pointDot':
-      // Fixed small px radius (unlike TikZ's fixed-pt dot) — a plain, always-
-      // visible quiver-style point glyph regardless of the diagram's scale.
-      return `<circle cx="${round(cmd.pos.x)}" cy="${round(cmd.pos.y)}" r="${POINT_DOT_R}" fill="${colorRef(cmd.color)}"/>`
     case 'pointCircle':
       return `<circle cx="${round(cmd.pos.x)}" cy="${round(cmd.pos.y)}" r="${round(cmd.radiusPx)}" fill="none" stroke="${colorRef(cmd.color)}" stroke-width="1.2"/>`
     case 'pointPolygon': {
       const pts = cmd.pts.map((p) => `${round(p.x)},${round(p.y)}`).join(' ')
       return `<polygon points="${pts}" fill="none" stroke="${colorRef(cmd.color)}" stroke-width="1.2"/>`
     }
-    case 'pointLine':
-      return `<line x1="${round(cmd.from.x)}" y1="${round(cmd.from.y)}" x2="${round(cmd.to.x)}" y2="${round(cmd.to.y)}" stroke="${colorRef(cmd.color)}" stroke-width="1.2"/>`
     case 'line':
       return `<line x1="${round(cmd.from.x)}" y1="${round(cmd.from.y)}" x2="${round(cmd.to.x)}" y2="${round(cmd.to.y)}" stroke="${colorRef(cmd.color)}" stroke-width="1.5"/>`
     case 'label': {
@@ -108,11 +101,6 @@ function cmdBoundsVecs(cmd: DrawCmd): { x: number; y: number }[] {
       const { pos, radiusPx: r } = cmd
       return [{ x: pos.x - r, y: pos.y - r }, { x: pos.x + r, y: pos.y + r }]
     }
-    case 'pointDot':
-      return [
-        { x: cmd.pos.x - POINT_DOT_R, y: cmd.pos.y - POINT_DOT_R },
-        { x: cmd.pos.x + POINT_DOT_R, y: cmd.pos.y + POINT_DOT_R },
-      ]
     case 'label': {
       // Anchor-aware horizontal extent, mirroring ANCHOR_MAP: 'east' means
       // the text ENDS at the point (grows leftward), 'west' starts there

@@ -1,4 +1,4 @@
-import type { Diagram, Form, Point, Line, FormKind, EdgeKey, PointShape, Color } from './types'
+import type { Diagram, Form, Point, Line, Shape, EdgeKey, Color } from './types'
 import { newFormId, newPointId, newLineId } from './ids'
 import { geometryFor } from './forms'
 
@@ -6,7 +6,7 @@ import { geometryFor } from './forms'
 // The store snapshots each result into history (one entry per call).
 
 // Fresh, empty edges for a kind — every side starts as [].
-function emptySlots(kind: FormKind): { edges: Record<EdgeKey, string[]> } {
+function emptySlots(kind: Shape): { edges: Record<EdgeKey, string[]> } {
   const geom = geometryFor(kind)
   const edges: Record<EdgeKey, string[]> = {}
   for (const k of geom.edgeKeys) edges[k] = []
@@ -21,7 +21,7 @@ function allFormPointIds(form: Form): Set<string> {
 }
 
 // ── Forms ────────────────────────────────────────────────────────────
-export function addForm(d: Diagram, kind: FormKind, position: { x: number; y: number }, color?: Color | null): [Diagram, string] {
+export function addForm(d: Diagram, kind: Shape, position: { x: number; y: number }, color?: Color | null): [Diagram, string] {
   const id = newFormId(d)
   const form: Form = { id, kind, position, ...(color ? { color } : {}), ...emptySlots(kind) }
   const withForm: Diagram = { ...d, forms: [...d.forms, form] }
@@ -76,7 +76,7 @@ export function renameForms(d: Diagram, ids: string[], name: string): Diagram {
 
 // Transform a form to a new kind. Edge keys differ per kind, so the form's
 // points can't be carried over — they (and lines touching them) are dropped.
-export function setFormKind(d: Diagram, id: string, kind: FormKind): Diagram {
+export function setFormKind(d: Diagram, id: string, kind: Shape): Diagram {
   const form = d.forms.find((f) => f.id === id)
   if (!form || form.kind === kind) return d
   const ptIds = allFormPointIds(form)
@@ -86,7 +86,7 @@ export function setFormKind(d: Diagram, id: string, kind: FormKind): Diagram {
   return { ...d, forms, points, lines: pruneLines(d.lines, ptIds) }
 }
 
-export function setFormsKind(d: Diagram, ids: string[], kind: FormKind): Diagram {
+export function setFormsKind(d: Diagram, ids: string[], kind: Shape): Diagram {
   let out = d
   for (const id of ids) out = setFormKind(out, id, kind)
   return out
@@ -117,7 +117,7 @@ export function setFormsColor(d: Diagram, ids: string[], color: Color | null): D
 // `index` places the new point at that position in the SIDE's ordered list
 // (clamped to the current length) — the gesture-driven insertion point
 // forms.ts's insertionIndex works out; undefined (the default) appends.
-export function addPoint(d: Diagram, formId: string, edgeKey: EdgeKey, shape: PointShape = 'empty', index?: number): [Diagram, string] {
+export function addPoint(d: Diagram, formId: string, edgeKey: EdgeKey, shape: Shape = 'empty', index?: number): [Diagram, string] {
   const form = d.forms.find((f) => f.id === formId)
   if (!form) return [d, '']
   const geom = geometryFor(form.kind)
@@ -169,13 +169,13 @@ export function renamePoints(d: Diagram, ids: string[], name: string): Diagram {
   return { ...d, points }
 }
 
-export function setPointShape(d: Diagram, id: string, shape: PointShape): Diagram {
+export function setPointShape(d: Diagram, id: string, shape: Shape): Diagram {
   const pt = d.points[id]
   if (!pt) return d
   return { ...d, points: { ...d.points, [id]: { ...pt, shape } } }
 }
 
-export function setPointsShape(d: Diagram, ids: string[], shape: PointShape): Diagram {
+export function setPointsShape(d: Diagram, ids: string[], shape: Shape): Diagram {
   const points = { ...d.points }
   let changed = false
   for (const id of ids) {
