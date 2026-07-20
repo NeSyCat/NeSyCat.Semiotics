@@ -4,10 +4,10 @@
 //   npm test
 
 import { describe, expect, it } from 'vitest'
-import { extractFragment } from '../../components/editor/importText'
-import { diagramToTikz } from '../../components/editor/tikz'
-import { encodeDiagramToFragment, decodeDiagramFromFragment } from '../../components/editor/share'
-import type { Diagram, Form } from '../../components/editor/types'
+import { extractFragment } from '../../components/editor/export/importText'
+import { diagramToTikz } from '../../components/editor/export/tikz'
+import { encodeDiagramToFragment, decodeDiagramFromFragment } from '../../components/editor/persist/share'
+import type { Diagram, Form } from '../../components/editor/domain/types'
 
 function bareSquare(id: string, position: { x: number; y: number }): Form {
   return { id, shape: 'square', position, edges: {} }

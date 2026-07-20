@@ -5,9 +5,9 @@
 //   npm test
 
 import { describe, expect, it } from 'vitest'
-import { insertionIndex } from '../../components/editor/forms'
-import { addPoint } from '../../components/editor/mutations'
-import type { Diagram, Form } from '../../components/editor/types'
+import { insertionIndex } from '../../components/editor/domain/forms'
+import { addPoint } from '../../components/editor/domain/mutations'
+import type { Diagram, Form } from '../../components/editor/domain/types'
 
 function emptyDiagram(): Diagram {
   return { schemaVersion: 1, forms: [], points: {}, lines: [] }

@@ -5,10 +5,10 @@
 //   npm test
 
 import { describe, expect, it } from 'vitest'
-import { formRegistry, SHAPES } from '../../components/editor/forms'
-import { restoreDiagram } from '../../components/editor/io'
-import { addForm, addPoint, setPointShape } from '../../components/editor/mutations'
-import type { Diagram, Shape } from '../../components/editor/types'
+import { formRegistry, SHAPES } from '../../components/editor/domain/forms'
+import { restoreDiagram } from '../../components/editor/persist/io'
+import { addForm, addPoint, setPointShape } from '../../components/editor/domain/mutations'
+import type { Diagram, Shape } from '../../components/editor/domain/types'
 
 const VALID_SHAPES: Shape[] = ['empty', 'triangle', 'square', 'circle', 'rhombus']
 

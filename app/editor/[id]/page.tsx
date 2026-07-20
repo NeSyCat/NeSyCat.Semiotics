@@ -1,9 +1,9 @@
 import { notFound, redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import CanvasRoot from '@/components/editor/Canvas'
+import CanvasRoot from '@/components/editor/ui/Canvas'
 import AuthSharePill from '@/components/AuthSharePill'
 import { loadDiagram } from '@/lib/actions/diagrams'
-import { restoreDiagram } from '@/components/editor/io'
+import { restoreDiagram } from '@/components/editor/persist/io'
 import { serverCallbackUrl, serverEditorHref } from '@/lib/editor-url.server'
 
 export default async function EditorDiagramPage(props: { params: Promise<{ id: string }> }) {

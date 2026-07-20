@@ -1,6 +1,6 @@
 import { create } from 'zustand'
-import type { Diagram, Shape, Color } from './types'
-import * as M from './mutations'
+import type { Diagram, Shape, Color } from '../domain/types'
+import * as M from '../domain/mutations'
 
 const MAX_HISTORY = 100
 

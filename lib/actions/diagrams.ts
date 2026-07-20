@@ -5,7 +5,7 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { withRLS } from '@/lib/db'
 import { diagrams, type Diagram as DiagramRow } from '@/_concept/03-orm-schema/schema'
-import type { Diagram } from '@/components/editor/types'
+import type { Diagram } from '@/components/editor/domain/types'
 import { emptyData } from '@/lib/constants'
 
 async function session() {

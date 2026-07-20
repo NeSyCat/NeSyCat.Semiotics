@@ -6,11 +6,11 @@
 //   npm test
 
 import { describe, expect, it } from 'vitest'
-import { geometryFor } from '../../components/editor/forms'
-import { addPoint, addForm, removePoint } from '../../components/editor/mutations'
-import { useStore, initStore } from '../../components/editor/store'
-import { restoreDiagram } from '../../components/editor/io'
-import type { Diagram, Form } from '../../components/editor/types'
+import { geometryFor } from '../../components/editor/domain/forms'
+import { addPoint, addForm, removePoint } from '../../components/editor/domain/mutations'
+import { useStore, initStore } from '../../components/editor/state/store'
+import { restoreDiagram } from '../../components/editor/persist/io'
+import type { Diagram, Form } from '../../components/editor/domain/types'
 
 function bareForm(id: string, shape: Form['shape'], extra: Partial<Form> = {}): Form {
   return { id, shape, position: { x: 0, y: 0 }, edges: {}, ...extra }

@@ -11,9 +11,9 @@
 
 import { useEffect, useState } from 'react'
 import theme, { panelStyle } from './theme'
-import { extractFragment } from './importText'
-import { decodeDiagramFromFragment } from './share'
-import { useStore } from './store'
+import { extractFragment } from '../export/importText'
+import { decodeDiagramFromFragment } from '../persist/share'
+import { useStore } from '../state/store'
 
 interface Props {
   onClose: () => void

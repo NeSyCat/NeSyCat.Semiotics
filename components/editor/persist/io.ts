@@ -1,6 +1,6 @@
-import type { Diagram, Form, Point, Line, Color, Shape } from './types'
-import { geometryFor, SHAPES } from './forms'
-import { pruneLines } from './mutations'
+import type { Diagram, Form, Point, Line, Color, Shape } from '../domain/types'
+import { geometryFor, SHAPES } from '../domain/forms'
+import { pruneLines } from '../domain/mutations'
 
 // Single load-boundary normalizer. Persisted JSON arrives from Supabase
 // (`diagrams.data` jsonb) or a JSON import; this fills defaults and rebuilds

@@ -2,11 +2,12 @@
 // snippet a website can drop straight into its markup and have it render,
 // no editor/React/KaTeX runtime required).
 //
-// Reuses tikz.ts's buildDrawCmds — the SAME geometry pass (form/point
-// positions, rotation, colors, opacity) that backs the TikZ exporter — so
-// this never drifts from what the canvas or the TikZ export show. Only the
-// final backend differs: SVG needs no y-flip (SVG is already Y-down, same
-// as flow space) and no px->cm conversion — raw px are valid SVG user units.
+// Reuses ir/geometry-ir.ts's buildDrawCmds — the SAME geometry pass
+// (form/point positions, rotation, colors, opacity) that backs the TikZ
+// exporter — so this never drifts from what the canvas or the TikZ export
+// show. Only the final backend differs: SVG needs no y-flip (SVG is already
+// Y-down, same as flow space) and no px->cm conversion — raw px are valid
+// SVG user units.
 //
 // KNOWN LIMITATION: names/labels render as plain SVG <text>, not full
 // KaTeX-rendered math — embedding real KaTeX output would need the target
@@ -14,10 +15,10 @@
 // Good enough for simple identifiers/short expressions; not a LaTeX
 // renderer. (Flagged as a v1 tradeoff, not silently swept under the rug.)
 
-import { buildDrawCmds, cmdVecs, SHARE_BASE, type DrawCmd } from './tikz'
-import { toRgbTriple } from './color'
-import { encodeDiagramToFragment } from './share'
-import type { Diagram, Color } from './types'
+import { buildDrawCmds, cmdVecs, SHARE_BASE, type DrawCmd } from '../ir/geometry-ir'
+import { toRgbTriple } from '../domain/color'
+import { encodeDiagramToFragment } from '../persist/share'
+import type { Diagram, Color } from '../domain/types'
 
 const INK = '#111111' // theme.ts's text.ink — used for the plain-text SVG name/point labels
 const PAD = 12 // px margin around the diagram's bounding box
@@ -35,9 +36,9 @@ function colorRef(c: Color | 'black' | undefined): string {
   return `rgb(${toRgbTriple(c)})`
 }
 
-// tikz.ts's mathWrap always wraps names as `$text$` for TikZ's own math
-// mode — undo that single wrapping layer for plain-text SVG rendering (a
-// literal `$` either side would otherwise show up in the output).
+// ir/geometry-ir.ts's mathWrap always wraps names as `$text$` for TikZ's own
+// math mode — undo that single wrapping layer for plain-text SVG rendering
+// (a literal `$` either side would otherwise show up in the output).
 function unwrapMath(text: string): string {
   return text.length >= 2 && text.startsWith('$') && text.endsWith('$') ? text.slice(1, -1) : text
 }

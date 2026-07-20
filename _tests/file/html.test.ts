@@ -3,8 +3,8 @@
 //   npm test
 
 import { describe, expect, it } from 'vitest'
-import { diagramToHtmlCore, diagramToHtml } from '../../components/editor/html'
-import type { Diagram, Form } from '../../components/editor/types'
+import { diagramToHtmlCore, diagramToHtml } from '../../components/editor/export/html'
+import type { Diagram, Form } from '../../components/editor/domain/types'
 
 function bareSquare(id: string, position: { x: number; y: number }, extra: Partial<Form> = {}): Form {
   return { id, shape: 'square', position, edges: {}, ...extra }

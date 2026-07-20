@@ -3,12 +3,12 @@
 import { memo, useEffect, useRef } from 'react'
 import { Handle, Position, useConnection, useReactFlow, useUpdateNodeInternals, type NodeProps } from '@xyflow/react'
 import theme from './theme'
-import { geometryFor, pointIdsAt, insertionIndex, shrunkBodyPoints, CENTER_SHRINK, type Body, type RegionShape } from './forms'
-import { encodeHandle, encodePhantomHandle, decodePhantomHandle } from './handles'
-import { toRgbTriple } from './color'
-import { useStore } from './store'
+import { geometryFor, pointIdsAt, insertionIndex, shrunkBodyPoints, CENTER_SHRINK, type Body, type RegionShape } from '../domain/forms'
+import { encodeHandle, encodePhantomHandle, decodePhantomHandle } from '../domain/handles'
+import { toRgbTriple } from '../domain/color'
+import { useStore } from '../state/store'
 import { Tex } from './Tex'
-import type { Form, Point, Shape } from './types'
+import type { Form, Point, Shape } from '../domain/types'
 
 export interface FormNodeData {
   form: Form

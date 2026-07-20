@@ -1,10 +1,10 @@
 'use client'
 
 import { useEffect, useState, type ReactNode } from 'react'
-import CanvasRoot from './Canvas'
-import { decodeDiagramFromFragment } from './share'
-import { loadLocalDraft } from './save'
-import type { Diagram } from './types'
+import CanvasRoot from './ui/Canvas'
+import { decodeDiagramFromFragment } from './persist/share'
+import { loadLocalDraft } from './persist/save'
+import type { Diagram } from './domain/types'
 
 const emptyDiagram: Diagram = { schemaVersion: 1, forms: [], points: {}, lines: [] }
 

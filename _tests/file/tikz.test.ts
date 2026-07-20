@@ -3,9 +3,10 @@
 //   npm test
 
 import { describe, expect, it } from 'vitest'
-import { snapCoord, snapPoint, snapCenterPosition, GRID_SIZE } from '../../components/editor/grid'
-import { diagramToTikzCore, diagramToTikz, formBodyVerticesPx, pointPositionsPx } from '../../components/editor/tikz'
-import type { Diagram, Form } from '../../components/editor/types'
+import { snapCoord, snapPoint, snapCenterPosition, GRID_SIZE } from '../../components/editor/domain/grid'
+import { diagramToTikzCore, diagramToTikz } from '../../components/editor/export/tikz'
+import { formBodyVerticesPx, pointPositionsPx } from '../../components/editor/ir/geometry-ir'
+import type { Diagram, Form } from '../../components/editor/domain/types'
 
 function approx(a: number, b: number, tol = 1e-6): boolean {
   return Math.abs(a - b) <= tol
