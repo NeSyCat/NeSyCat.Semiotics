@@ -5,7 +5,8 @@
 import { describe, expect, it } from 'vitest'
 import { snapCoord, snapPoint, snapCenterPosition, GRID_SIZE } from '../../components/editor/domain/grid'
 import { diagramToTikzCore, diagramToTikz } from '../../components/editor/export/tikz'
-import { formBodyVerticesPx, pointPositionsPx } from '../../components/editor/ir/geometry-ir'
+import { formBodyVerticesPx, pointPositionsPx, formCenterPx, rotateAbout } from '../../components/editor/ir/geometry-ir'
+import { geometryFor, bodyCentroid } from '../../components/editor/domain/forms'
 import type { Diagram, Form } from '../../components/editor/domain/types'
 
 function approx(a: number, b: number, tol = 1e-6): boolean {
@@ -219,6 +220,140 @@ describe('TikZ exporter', () => {
       const [, xs, ys] = m
       expect(approx(Number(xs), expectedXCm, 1e-3), `peak glyph x matches pointPositionsPx's apex (got ${xs}, want ${expectedXCm})`).toBe(true)
       expect(approx(Number(ys), expectedYCm, 1e-3), `peak glyph y matches pointPositionsPx's apex (got ${ys}, want ${expectedYCm})`).toBe(true)
+    }
+  })
+
+  it('Test 10: a named hyperedge (2 targets) — the wire-name label carries a white backing node, emitted AFTER BOTH segment draws', () => {
+    const d = emptyDiagram()
+    const f1 = bareSquare('WF1', { x: 0, y: 0 }, { edges: { top: [], right: ['WP1'], bottom: [], left: [] } })
+    const f2 = bareSquare('WF2', { x: 300, y: -50 }, { edges: { top: [], right: [], bottom: [], left: ['WP2'] } })
+    const f3 = bareSquare('WF3', { x: 300, y: 150 }, { edges: { top: [], right: [], bottom: [], left: ['WP3'] } })
+    d.forms.push(f1, f2, f3)
+    d.points['WP1'] = { id: 'WP1', shape: 'empty', formId: 'WF1', edgeKey: 'right' }
+    d.points['WP2'] = { id: 'WP2', shape: 'empty', formId: 'WF2', edgeKey: 'left' }
+    d.points['WP3'] = { id: 'WP3', shape: 'empty', formId: 'WF3', edgeKey: 'left' }
+    d.lines.push({ id: 'WL1', name: 'f', source: 'WP1', targets: ['WP2', 'WP3'] })
+    const tikz = diagramToTikzCore(d)
+    const lines = tikz.split('\n')
+
+    // The label carries the masking node options: white fill + a tight inner sep.
+    const labelIdx = lines.findIndex((l) => l.includes('{$f$}'))
+    expect(labelIdx, 'the wire-name label node is emitted').toBeGreaterThan(-1)
+    expect(lines[labelIdx], 'wire-name label is masked (fill=white, inner sep)').toMatch(/\\node\[fill=white, inner sep=2pt\] at/)
+
+    // Both segment \draw lines (source->target, plain lines, not the forms'
+    // own closed \filldraw/\draw ...-- cycle borders) must appear BEFORE it —
+    // this is defect 1's ordering guarantee: a masked label paints only
+    // after every line it could cross, not just its own segment.
+    const drawIdxs = lines
+      .map((l, i) => ({ l, i }))
+      .filter(({ l }) => l.trim().startsWith('\\draw[') && !l.includes('cycle') && !l.includes('draw='))
+      .map(({ i }) => i)
+    expect(drawIdxs.length, 'both wire segments are drawn').toBe(2)
+    expect(drawIdxs.every((i) => i < labelIdx), 'the masked wire-name label is emitted AFTER both segment draws').toBe(true)
+  })
+
+  it('Test 11: form names emit WITHOUT a white backing (unmasked) — a white box over a colored form body would be wrong', () => {
+    const d = emptyDiagram()
+    d.forms.push(bareSquare('NF1', { x: 0, y: 0 }, { name: 'Bool', color: [1, 0, 0.5] }))
+    const tikz = diagramToTikzCore(d)
+    const line = tikz.split('\n').find((l) => l.includes('{$Bool$}'))
+    expect(!!line, 'form-name label node is emitted').toBe(true)
+    expect(line, 'form-name label carries NO fill=white masking').not.toMatch(/fill=white/)
+  })
+
+  it('Test 12: named point labels carry the white backing (masked), matching wire-name labels', () => {
+    const d = emptyDiagram()
+    const f1 = bareSquare('PF1', { x: 0, y: 0 }, { edges: { top: [], right: [], bottom: [], left: ['PP1'] } })
+    d.forms.push(f1)
+    d.points['PP1'] = { id: 'PP1', shape: 'circle', name: 'x', formId: 'PF1', edgeKey: 'left' }
+    const tikz = diagramToTikzCore(d)
+    const line = tikz.split('\n').find((l) => l.includes('{$x$}'))
+    expect(!!line, 'point-name label node is emitted').toBe(true)
+    expect(line, 'point-name label is masked (fill=white, inner sep)').toMatch(/\\node\[fill=white, inner sep=2pt,/)
+  })
+
+  it("Test 13: a triangle's form-name label sits at the polygon CENTROID (not the bbox center); a square's stays at its (identical) center", () => {
+    const tri: Form = { id: 'CT1', shape: 'triangle', position: { x: 0, y: 0 }, edges: { a: [], b: [], c: [], peak: [] }, name: 'even' }
+    const geom = geometryFor('triangle')
+    const n = geom.nodeSize(tri)
+    const [cfx, cfy] = bodyCentroid(geom.body)
+    // Hand-computed centroid of the triangle's own pointsFrac × n, pre-rotation
+    // (rotation 0 here, so toAbs is a pure translation by form.position).
+    const expectedCentroidPx = { x: tri.position.x + cfx * n, y: tri.position.y + cfy * n }
+    // Sanity: the centroid must NOT coincide with the bbox center (n/2, n/2)
+    // — otherwise this test couldn't distinguish the fix from the old bug.
+    expect(approx(expectedCentroidPx.x, n / 2), "triangle centroid x differs from bbox-center x (that's the bug being fixed)").toBe(false)
+
+    const d = emptyDiagram()
+    d.forms.push(tri)
+    const verts = formBodyVerticesPx(tri)!
+    const allX = [...verts.map((v) => v.x), expectedCentroidPx.x]
+    const allY = [...verts.map((v) => v.y), expectedCentroidPx.y]
+    const minX = Math.min(...allX)
+    const maxY = Math.max(...allY)
+    const expectedXCm = (expectedCentroidPx.x - minX) / 100
+    const expectedYCm = (maxY - expectedCentroidPx.y) / 100
+
+    const tikz = diagramToTikzCore(d)
+    const line = tikz.split('\n').find((l) => l.includes('{$even$}'))
+    expect(!!line, 'triangle form-name label node is emitted').toBe(true)
+    const m = line?.match(/at \(([-\d.]+),([-\d.]+)\)/)
+    expect(!!m, "the label's coordinate parses").toBe(true)
+    if (m) {
+      const [, xs, ys] = m
+      expect(approx(Number(xs), expectedXCm, 1e-3), `triangle label x matches the hand-computed centroid (got ${xs}, want ${expectedXCm})`).toBe(true)
+      expect(approx(Number(ys), expectedYCm, 1e-3), `triangle label y matches the hand-computed centroid (got ${ys}, want ${expectedYCm})`).toBe(true)
+    }
+
+    // Square: centroid === bbox center (symmetric body) — the label stays
+    // exactly at the form's own center, unchanged from before this fix.
+    const sq = bareSquare('CS1', { x: 500, y: 0 }, { name: 'sq' })
+    const sqCenter = formCenterPx(sq)
+    const d2 = emptyDiagram()
+    d2.forms.push(sq)
+    const sqVerts = formBodyVerticesPx(sq)!
+    const sqMinX = Math.min(...sqVerts.map((v) => v.x))
+    const sqMaxY = Math.max(...sqVerts.map((v) => v.y))
+    const sqTikz = diagramToTikzCore(d2)
+    const sqLine = sqTikz.split('\n').find((l) => l.includes('{$sq$}'))
+    const sqM = sqLine?.match(/at \(([-\d.]+),([-\d.]+)\)/)
+    expect(!!sqM, "the square label's coordinate parses").toBe(true)
+    if (sqM) {
+      const [, xs, ys] = sqM
+      expect(approx(Number(xs), (sqCenter.x - sqMinX) / 100, 1e-3), 'square label x stays at the bbox/centroid-coincident center').toBe(true)
+      expect(approx(Number(ys), (sqMaxY - sqCenter.y) / 100, 1e-3), 'square label y stays at the bbox/centroid-coincident center').toBe(true)
+    }
+  })
+
+  it("Test 14: a ROTATED triangle's form-name label sits at the ROTATED centroid", () => {
+    const tri: Form = { id: 'RT1', shape: 'triangle', position: { x: 0, y: 0 }, rotation: 40, edges: { a: [], b: [], c: [], peak: [] }, name: 'r' }
+    const geom = geometryFor('triangle')
+    const n = geom.nodeSize(tri)
+    const [cfx, cfy] = bodyCentroid(geom.body)
+    const preRotationAbs = { x: tri.position.x + cfx * n, y: tri.position.y + cfy * n }
+    const center = formCenterPx(tri)
+    const expectedCentroidPx = rotateAbout(preRotationAbs, center, tri.rotation!)
+
+    const d = emptyDiagram()
+    d.forms.push(tri)
+    const verts = formBodyVerticesPx(tri)!
+    const allX = [...verts.map((v) => v.x), expectedCentroidPx.x]
+    const allY = [...verts.map((v) => v.y), expectedCentroidPx.y]
+    const minX = Math.min(...allX)
+    const maxY = Math.max(...allY)
+    const expectedXCm = (expectedCentroidPx.x - minX) / 100
+    const expectedYCm = (maxY - expectedCentroidPx.y) / 100
+
+    const tikz = diagramToTikzCore(d)
+    const line = tikz.split('\n').find((l) => l.includes('{$r$}'))
+    expect(!!line, 'rotated triangle form-name label node is emitted').toBe(true)
+    const m = line?.match(/at \(([-\d.]+),([-\d.]+)\)/)
+    expect(!!m, "the label's coordinate parses").toBe(true)
+    if (m) {
+      const [, xs, ys] = m
+      expect(approx(Number(xs), expectedXCm, 1e-3), `rotated triangle label x matches the rotated centroid (got ${xs}, want ${expectedXCm})`).toBe(true)
+      expect(approx(Number(ys), expectedYCm, 1e-3), `rotated triangle label y matches the rotated centroid (got ${ys}, want ${expectedYCm})`).toBe(true)
     }
   })
 })

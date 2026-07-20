@@ -309,7 +309,13 @@ function Canvas({ topRight }: CanvasContentProps) {
           targetHandle: tp.handleId,
           type: 'line',
           animated: true,
-          data: { label: line.name ?? line.id, color: line.color, sourceGap: glyphGap(line.source), targetGap: glyphGap(tid) },
+          // Label ONLY the first target's segment (i === 0) — a hyperedge
+          // (one line, 2+ targets) used to get its name/id drawn on EVERY
+          // segment; now once per line, same rule export/tikz.ts and
+          // export/html.ts already followed (ir/geometry-ir.ts's
+          // buildLineCmds). Other segments get `label: undefined`, which
+          // LineEdge.tsx reads as "render neither the text nor its mask".
+          data: { label: i === 0 ? (line.name ?? line.id) : undefined, color: line.color, sourceGap: glyphGap(line.source), targetGap: glyphGap(tid) },
         })
       })
     }

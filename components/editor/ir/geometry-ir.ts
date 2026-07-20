@@ -19,7 +19,7 @@
 //   2. Backend-specific unit conversion (px -> TikZ cm, or raw px for SVG)
 //      happens downstream, in each backend module — not here.
 
-import { geometryFor, pointIdsAt, POINT_SIZE, type Body } from '../domain/forms'
+import { geometryFor, pointIdsAt, bodyCentroid, POINT_SIZE, type Body } from '../domain/forms'
 import type { Diagram, Form, Point, Shape, Color } from '../domain/types'
 
 export interface Vec { x: number; y: number }
@@ -130,7 +130,14 @@ export type DrawCmd =
   | { kind: 'pointCircle'; pos: Vec; radiusPx: number; fillColor: Color }
   | { kind: 'pointPolygon'; pts: Vec[]; fillColor: Color }
   | { kind: 'line'; from: Vec; to: Vec; color: Color | 'black'; widthPt: number }
-  | { kind: 'label'; at: Vec; text: string; anchor?: 'east' | 'west' | 'north' | 'south' }
+  // masked: true for LINE-name and POINT-name labels — canvas masks a
+  // canvas-colored band behind those (LineEdge.tsx, PointVisual.tsx) so the
+  // wire's dashes don't strike through the text; exports mirror that with an
+  // opaque white backing (assumed-white export page — see WHITE below).
+  // FORM names are never masked: a white box over a colored form's own tint
+  // would look wrong, and canvas doesn't mask them either (FormNode.tsx's
+  // name label has no mask sibling).
+  | { kind: 'label'; at: Vec; text: string; anchor?: 'east' | 'west' | 'north' | 'south'; masked: boolean }
 
 // Form body: fill 0.18 opacity (theme.node.fillOpacity — see FormNode.tsx's
 // BodyView, unselected state; export has no "selected" concept), border
@@ -246,7 +253,16 @@ function buildFormCmds(form: Form, cmds: DrawCmd[]) {
   }
 
   if (geom.showName) {
-    cmds.push({ kind: 'label', at: layout.center, text: mathWrap(form.name ?? form.id) })
+    // Centroid, not layout.center (bbox center) — a triangle's centroid sits
+    // toward its base, not its bounding-box middle (see domain/forms.ts's
+    // bodyCentroid, the SAME helper FormNode.tsx's canvas label uses). The
+    // centroid is in local node-space fractions; run it through the form's
+    // own rotation via layout.toAbs, same as every other local point here.
+    // Circle/'empty' bodies: bodyCentroid returns [0.5, 0.5], which toAbs
+    // maps to exactly layout.center — unchanged from before for those kinds.
+    const [cfx, cfy] = bodyCentroid(body)
+    const labelAt = layout.toAbs({ x: cfx * layout.n, y: cfy * layout.n })
+    cmds.push({ kind: 'label', at: labelAt, text: mathWrap(form.name ?? form.id), masked: false })
   }
 }
 
@@ -259,7 +275,7 @@ function buildPointLabelCmd(pt: Point, px: PointPx): DrawCmd | null {
   if (!pt.name) return null
   const { offset, anchor } = labelAnchorFor(px.cardinal)
   const at = px.layout.toAbs({ x: px.local.x + offset.x, y: px.local.y + offset.y })
-  return { kind: 'label', at, text: mathWrap(pt.name), anchor }
+  return { kind: 'label', at, text: mathWrap(pt.name), anchor, masked: true }
 }
 
 // Wires are drawn full-length, endpoint to endpoint — no gap/shortening
@@ -267,7 +283,16 @@ function buildPointLabelCmd(pt: Point, px: PointPx): DrawCmd | null {
 // glyph fill is opaque (WHITE, or a color flattened over white — see
 // buildPointCmds) and is emitted AFTER lines in buildDrawCmds below, so it
 // simply paints over the wire's end. Exports assume a white background.
+// Line labels are collected into a SEPARATE array and appended only after
+// EVERY line draw command (across the whole diagram, not just this line's
+// own segments) — a masked label must paint AFTER every wire it could cross,
+// including another segment of the SAME hyperedge that might pass near its
+// midpoint. Pushing the label inline (right after its own segment 0 draw, as
+// this used to do) left it UNDER later segments/lines drawn afterward, which
+// could then strike through its white backing. Collect-then-append is the
+// simplest fix that doesn't need per-label crossing detection.
 function buildLineCmds(diagram: Diagram, positions: Map<string, PointPx>, cmds: DrawCmd[]) {
+  const labelCmds: DrawCmd[] = []
   for (const line of diagram.lines) {
     const src = positions.get(line.source)
     if (!src) continue
@@ -275,12 +300,17 @@ function buildLineCmds(diagram: Diagram, positions: Map<string, PointPx>, cmds: 
       const tgt = positions.get(tid)
       if (!tgt) return
       cmds.push({ kind: 'line', from: src.pos, to: tgt.pos, color: line.color ?? 'black', widthPt: LINE_STROKE_PT })
+      // ONCE per line (hyperedge), on its first target's segment only — a
+      // line with 2+ targets used to get its name label drawn on EVERY
+      // segment; canvas's builtEdges (ui/Canvas.tsx) now mirrors this same
+      // first-segment-only rule.
       if (i === 0 && line.name) {
         const mid = { x: (src.pos.x + tgt.pos.x) / 2, y: (src.pos.y + tgt.pos.y) / 2 }
-        cmds.push({ kind: 'label', at: mid, text: mathWrap(line.name) })
+        labelCmds.push({ kind: 'label', at: mid, text: mathWrap(line.name), masked: true })
       }
     })
   }
+  cmds.push(...labelCmds)
 }
 
 // Names render through ui/Tex.tsx, which ALWAYS runs katex.renderToString on
