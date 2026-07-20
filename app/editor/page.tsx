@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { createDiagram, listDiagrams } from '@/lib/actions/diagrams'
 import { serverCallbackUrl, serverEditorHref } from '@/lib/editor-url'
-import AnonymousEditor from '@/components/editor2/AnonymousEditor'
+import AnonymousEditor from '@/components/editor/AnonymousEditor'
 import AuthSharePill from '@/components/AuthSharePill'
 
 export default async function EditorIndex() {

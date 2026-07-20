@@ -3,10 +3,10 @@
 //
 //   npx tsx _tests/file/import.test.ts
 
-import { extractFragment } from '../../components/editor2/importText'
-import { diagramToTikz } from '../../components/editor2/tikz'
-import { encodeDiagramToFragment, decodeDiagramFromFragment } from '../../components/editor2/share'
-import type { Diagram, Form } from '../../components/editor2/types'
+import { extractFragment } from '../../components/editor/importText'
+import { diagramToTikz } from '../../components/editor/tikz'
+import { encodeDiagramToFragment, decodeDiagramFromFragment } from '../../components/editor/share'
+import type { Diagram, Form } from '../../components/editor/types'
 
 let pass = 0
 let fail = 0

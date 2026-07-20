@@ -2,8 +2,8 @@
 //
 //   npx tsx _tests/file/html.test.ts
 
-import { diagramToHtmlCore, diagramToHtml } from '../../components/editor2/html'
-import type { Diagram, Form } from '../../components/editor2/types'
+import { diagramToHtmlCore, diagramToHtml } from '../../components/editor/html'
+import type { Diagram, Form } from '../../components/editor/types'
 
 let pass = 0
 let fail = 0

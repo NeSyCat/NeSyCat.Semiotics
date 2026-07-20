@@ -5,7 +5,7 @@ import { desc } from 'drizzle-orm'
 import { COOKIE_DOMAIN, editorHrefForHost } from '@/lib/editor-url'
 import { withRLS } from '@/lib/db'
 import { diagrams } from '@/_concept/03-orm-schema/schema'
-import type { Diagram } from '@/components/editor2/types'
+import type { Diagram } from '@/components/editor/types'
 
 const NESYCAT_HOSTS = new Set(['nesycat.org', 'www.nesycat.org', 'semiotics.nesycat.org'])
 

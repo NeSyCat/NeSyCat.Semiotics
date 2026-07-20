@@ -7,9 +7,8 @@ import { pruneLines } from './mutations'
 // each record in canonical field order (Postgres JSONB reorders object keys on
 // insert, so we re-canonicalize to keep autosave's JSON dedupe stable).
 //
-// Diagrams saved under the OLD editor model ({nodes, edges}) have no
-// forms/points/lines, so they restore as an empty diagram — expected for the
-// from-scratch rebuild.
+// Unrecognized/legacy JSON (anything without forms/points/lines) simply
+// restores as an empty diagram — there is no migration path.
 //
 // Two deliberate breaking data-model simplifications, DROPPED SILENTLY (no
 // migration): forms no longer have corner (vertex) slots — only side/arc

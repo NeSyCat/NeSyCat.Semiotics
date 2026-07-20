@@ -7,9 +7,9 @@
 // Plain assertions; prints one PASS/FAIL line per check and exits non-zero
 // if anything failed.
 
-import { insertionIndex } from '../../components/editor2/forms'
-import { addPoint } from '../../components/editor2/mutations'
-import type { Diagram, Form } from '../../components/editor2/types'
+import { insertionIndex } from '../../components/editor/forms'
+import { addPoint } from '../../components/editor/mutations'
+import type { Diagram, Form } from '../../components/editor/types'
 
 let pass = 0
 let fail = 0

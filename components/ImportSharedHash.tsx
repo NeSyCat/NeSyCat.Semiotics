@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { decodeDiagramFromFragment } from '@/components/editor2/share'
+import { decodeDiagramFromFragment } from '@/components/editor/share'
 import { createDiagram, saveDiagram } from '@/lib/actions/diagrams'
 
 interface Props {

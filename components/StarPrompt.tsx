@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Button from '@/components/ui/button'
-import { selectionGlow } from '@/components/editor2/theme'
+import { selectionGlow } from '@/components/editor/theme'
 
 // localStorage is the state store — no DB column needed, and a signed-in user
 // who nukes their browser storage will just see the prompt again, which is fine.
