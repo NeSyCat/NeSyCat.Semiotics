@@ -1,9 +1,13 @@
-// NeSyCat Semiotics — Export to LaTeX/TikZ.
+// NeSyCat Semiotics — shared drawing IR.
 //
-// Pure geometry + string generation — NO DOM, no React, so the core runs in
-// plain node (see _tests/file/tikz.test.ts, `npx tsx _tests/file/tikz.test.ts`).
+// Pure geometry + a backend-agnostic draw-command list — NO DOM, no React,
+// no string emission. This is the ONE geometry pass both export backends
+// (export/tikz.ts, export/html.ts) build on, so the two export formats can
+// never drift apart on what geometry/color/opacity rules they follow (see
+// buildDrawCmds below).
+//
 // Deliberately re-derives the SAME numbers FormNode.tsx renders on screen
-// (same n = geometryFor(kind).nodeSize(form)*(scale??1), same
+// (same n = geometryFor(form.shape).nodeSize(form)*(scale??1), same
 // geom.pointAnchor, same rotation) rather than any independent geometry, so
 // the exported picture matches what's actually on the canvas.
 //
@@ -12,17 +16,11 @@
 //      form.position + local node-space geometry (0..n), rotated about the
 //      form's own center by exactly the CSS `rotate(deg)` FormNode applies
 //      to the whole node div (body + points + names, one rigid unit).
-//   2. px -> TikZ cm, once, at the very end: x_cm = (x - minX) / 100,
-//      y_cm = (maxY - y) / 100 — a y-flip (flow space is Y-down, TikZ/LaTeX
-//      is Y-up) plus normalizing the whole picture to start at the origin.
-//      100px = 1cm, chosen so grid.ts's 50px pitch lands on clean 0.5cm
-//      multiples. Bare TikZ coordinate numbers are already centimeters (a
-//      tikzpicture's default unit vectors are 1cm/1cm) — no `cm` suffix
-//      needed.
+//   2. Backend-specific unit conversion (px -> TikZ cm, or raw px for SVG)
+//      happens downstream, in each backend module — not here.
 
-import { geometryFor, pointIdsAt, type Body } from './forms'
-import { encodeDiagramToFragment } from './share'
-import type { Diagram, Form, Point, Shape, Color } from './types'
+import { geometryFor, pointIdsAt, type Body } from '../domain/forms'
+import type { Diagram, Form, Point, Shape, Color } from '../domain/types'
 
 export interface Vec { x: number; y: number }
 
@@ -58,7 +56,7 @@ interface FormLayout {
 }
 
 function layoutForm(form: Form): FormLayout {
-  const geom = geometryFor(form.kind)
+  const geom = geometryFor(form.shape)
   const n = geom.nodeSize(form) * (form.scale ?? 1)
   const center = { x: form.position.x + n / 2, y: form.position.y + n / 2 }
   const rotation = form.rotation ?? 0
@@ -77,7 +75,7 @@ export function formCenterPx(form: Form): Vec {
 // plain circle (center + radius n/2 — rotation-invariant, so no vertex list
 // is needed for those).
 export function formBodyVerticesPx(form: Form): Vec[] | null {
-  const geom = geometryFor(form.kind)
+  const geom = geometryFor(form.shape)
   if (geom.body.type !== 'polygon') return null
   const { n, toAbs } = layoutForm(form)
   return geom.body.pointsFrac.map(([fx, fy]) => toAbs({ x: fx * n, y: fy * n }))
@@ -102,7 +100,7 @@ export function pointPositionsPx(diagram: Diagram): Map<string, PointPx> {
   const out = new Map<string, PointPx>()
   for (const form of diagram.forms) {
     const layout = layoutForm(form)
-    const geom = geometryFor(form.kind)
+    const geom = geometryFor(form.shape)
     for (const edgeKey of geom.edgeKeys) {
       const ids = pointIdsAt(form, edgeKey)
       ids.forEach((pid, index) => {
@@ -115,7 +113,7 @@ export function pointPositionsPx(diagram: Diagram): Map<string, PointPx> {
   return out
 }
 
-// ── Drawing IR — built entirely in px, converted to cm once at the end ──
+// ── Drawing IR — built entirely in px, converted to backend units once ──
 
 export type DrawCmd =
   | { kind: 'polygon'; pts: Vec[]; fillColor?: Color; fillOpacity: number; strokeColor: Color | 'black'; strokeWidthPt: number }
@@ -131,7 +129,11 @@ export type DrawCmd =
 // rgba(0,0,0,bodyOpacity)`, never the accent) and drawn only when
 // bodyOpacity > 0 ('empty' forms are invisible carriers — skipped entirely).
 const FORM_FILL_OPACITY = 0.18
-const FORM_STROKE_PT = 0.4
+// Exported: export/tikz.ts's emitCmd falls back to this for a DrawCmd whose
+// strokeWidthPt is unset (defensive default for the 'circle' variant's
+// optional field — buildFormCmds below always sets it explicitly, but the
+// type allows other producers).
+export const FORM_STROKE_PT = 0.4
 const LINE_STROKE_PT = 0.4
 // ~11px across (~0.11cm) — the ticket's reference size for point glyphs
 // other than the quiver-style fixed-size dot.
@@ -187,7 +189,7 @@ function buildPointCmds(pt: Point, px: PointPx, cmds: DrawCmd[]) {
 }
 
 function buildFormCmds(form: Form, cmds: DrawCmd[]) {
-  const geom = geometryFor(form.kind)
+  const geom = geometryFor(form.shape)
   if (geom.bodyOpacity <= 0) return // 'empty' — an invisible carrier, nothing to draw
   const layout = layoutForm(form)
   const body: Body = geom.body
@@ -246,102 +248,19 @@ function buildLineCmds(diagram: Diagram, positions: Map<string, PointPx>, cmds: 
   }
 }
 
-// Names render through Tex.tsx (components/editor/Tex.tsx), which ALWAYS
-// runs katex.renderToString on the raw text regardless of `$` delimiters —
-// there is no plain-text mode in this editor, every name is math. Mirrored
-// here by always wrapping in `$...$` for TikZ's own math-mode rendering.
+// Names render through ui/Tex.tsx, which ALWAYS runs katex.renderToString on
+// the raw text regardless of `$` delimiters — there is no plain-text mode in
+// this editor, every name is math. Mirrored here by always wrapping in
+// `$...$` for TikZ's own math-mode rendering (html.ts's SVG backend unwraps
+// this single layer back off — see its unwrapMath).
 function mathWrap(text: string): string {
   return `$${text}$`
-}
-
-// ── px -> cm + string emission ──────────────────────────────────────────
-
-function fmt(n: number): string {
-  if (!Number.isFinite(n)) return '0' // guards against NaN/undefined ever reaching the output
-  const rounded = Math.round(n * 1000) / 1000
-  let s = rounded.toFixed(3).replace(/0+$/, '').replace(/\.$/, '')
-  if (s === '' || s === '-0') s = '0'
-  return s
-}
-
-function coord(v: Vec, minX: number, maxY: number): string {
-  return `${fmt((v.x - minX) / 100)},${fmt((maxY - v.y) / 100)}`
-}
-
-// Any length (radius, offset) in px -> the same 100px=1cm scale, as a bare
-// delta (no min/max normalization — lengths aren't positions).
-function lenCm(px: number): string {
-  return fmt(px / 100)
-}
-
-class ColorRegistry {
-  private names = new Map<string, string>()
-  private lines: string[] = []
-  key(c: Color): string {
-    const k = c.map((ch) => fmt(ch)).join(',')
-    const existing = this.names.get(k)
-    if (existing) return existing
-    const name = `nesyColor${this.names.size}`
-    this.names.set(k, name)
-    this.lines.push(`\\definecolor{${name}}{rgb}{${k}}`)
-    return name
-  }
-  definitions(): string[] {
-    return this.lines
-  }
-}
-
-function tikzColorRef(c: Color | 'black' | undefined, registry: ColorRegistry): string {
-  if (c === undefined || c === 'black') return 'black'
-  return registry.key(c)
-}
-
-function emitCmd(cmd: DrawCmd, registry: ColorRegistry, minX: number, maxY: number): string {
-  const c = (v: Vec) => coord(v, minX, maxY)
-  switch (cmd.kind) {
-    case 'polygon': {
-      const path = cmd.pts.map((p) => `(${c(p)})`).join(' -- ')
-      const stroke = tikzColorRef(cmd.strokeColor, registry)
-      if (cmd.fillColor) {
-        const fill = tikzColorRef(cmd.fillColor, registry)
-        return `\\filldraw[fill=${fill}, fill opacity=${fmt(cmd.fillOpacity)}, draw=${stroke}, line width=${cmd.strokeWidthPt}pt] ${path} -- cycle;`
-      }
-      return `\\draw[draw=${stroke}, line width=${cmd.strokeWidthPt}pt] ${path} -- cycle;`
-    }
-    case 'circle': {
-      const stroke = cmd.strokeColor ? tikzColorRef(cmd.strokeColor, registry) : null
-      const r = lenCm(cmd.radiusPx)
-      if (cmd.fillColor) {
-        const fill = tikzColorRef(cmd.fillColor, registry)
-        return `\\filldraw[fill=${fill}, fill opacity=${fmt(cmd.fillOpacity)}, draw=${stroke ?? 'black'}, line width=${cmd.strokeWidthPt ?? FORM_STROKE_PT}pt] (${c(cmd.center)}) circle (${r});`
-      }
-      return `\\draw[draw=${stroke ?? 'black'}, line width=${cmd.strokeWidthPt ?? FORM_STROKE_PT}pt] (${c(cmd.center)}) circle (${r});`
-    }
-    case 'pointCircle': {
-      const color = tikzColorRef(cmd.color, registry)
-      return `\\draw[${color}] (${c(cmd.pos)}) circle (${lenCm(cmd.radiusPx)});`
-    }
-    case 'pointPolygon': {
-      const color = tikzColorRef(cmd.color, registry)
-      const path = cmd.pts.map((p) => `(${c(p)})`).join(' -- ')
-      return `\\draw[${color}] ${path} -- cycle;`
-    }
-    case 'line': {
-      const color = tikzColorRef(cmd.color, registry)
-      return `\\draw[${color}, line width=${cmd.widthPt}pt] (${c(cmd.from)}) -- (${c(cmd.to)});`
-    }
-    case 'label': {
-      const opt = cmd.anchor ? `[anchor=${cmd.anchor}] ` : ' '
-      return `\\node${opt}at (${c(cmd.at)}) {${cmd.text}};`
-    }
-  }
 }
 
 // All coordinates a DrawCmd touches — for the bounding box pass (min/max
 // must see EVERY position that ends up in the output, including labels, or
 // a label could land outside the normalized [0, width] x [0, height] box).
-// Exported so other backends (html.ts) sharing this IR can compute their own
-// bounding box the same way.
+// Exported so both backends can compute their own bounding box the same way.
 export function cmdVecs(cmd: DrawCmd): Vec[] {
   switch (cmd.kind) {
     case 'polygon': return cmd.pts
@@ -356,16 +275,17 @@ export function cmdVecs(cmd: DrawCmd): Vec[] {
 export const SHARE_BASE = 'https://semiotics.nesycat.org/editor'
 
 // The full form+point+line draw-command list, in px — the shared IR both
-// diagramToTikzCore (below) and html.ts's SVG emitter consume, so the two
-// export formats can never drift apart on what geometry/color/opacity rules
-// they follow (one geometry pass, two string backends).
+// export/tikz.ts's diagramToTikzCore and export/html.ts's SVG emitter
+// consume, so the two export formats can never drift apart on what
+// geometry/color/opacity rules they follow (one geometry pass, two string
+// backends).
 export function buildDrawCmds(diagram: Diagram): DrawCmd[] {
   const cmds: DrawCmd[] = []
   for (const form of diagram.forms) buildFormCmds(form, cmds)
 
   const positions = pointPositionsPx(diagram)
   for (const form of diagram.forms) {
-    const geom = geometryFor(form.kind)
+    const geom = geometryFor(form.shape)
     for (const edgeKey of geom.edgeKeys) {
       pointIdsAt(form, edgeKey).forEach((pid) => {
         const pt = diagram.points[pid]
@@ -380,41 +300,4 @@ export function buildDrawCmds(diagram: Diagram): DrawCmd[] {
 
   buildLineCmds(diagram, positions, cmds)
   return cmds
-}
-
-// The pure, synchronous core — geometry + string generation only. Takes an
-// already-computed share fragment (or none, if the header line should be
-// omitted) so it never needs the browser-only compression APIs
-// encodeDiagramToFragment relies on (see share.ts). This is what
-// _tests/file/tikz.test.ts calls directly.
-export function diagramToTikzCore(diagram: Diagram, fragment?: string): string {
-  const cmds = buildDrawCmds(diagram)
-  const allVecs = cmds.flatMap(cmdVecs)
-  const minX = allVecs.length ? Math.min(...allVecs.map((v) => v.x)) : 0
-  const maxY = allVecs.length ? Math.max(...allVecs.map((v) => v.y)) : 0
-
-  const registry = new ColorRegistry()
-  const body = cmds.map((cmd) => emitCmd(cmd, registry, minX, maxY))
-
-  const header = [
-    '% Exported from NeSyCat Semiotics',
-    fragment ? `% ${SHARE_BASE}#${fragment}` : null,
-  ].filter((l): l is string => l !== null)
-
-  return [
-    ...header,
-    '\\begin{tikzpicture}',
-    ...registry.definitions().map((l) => `  ${l}`),
-    ...body.map((l) => `  ${l}`),
-    '\\end{tikzpicture}',
-  ].join('\n')
-}
-
-// Async wrapper — pulls in the quiver-style re-import link via share.ts's
-// encodeDiagramToFragment, which is genuinely async (CompressionStream) and
-// browser-oriented (though it also runs fine under modern node, which is why
-// the test script can exercise this path too, not just diagramToTikzCore).
-export async function diagramToTikz(diagram: Diagram): Promise<string> {
-  const fragment = await encodeDiagramToFragment(diagram)
-  return diagramToTikzCore(diagram, fragment)
 }

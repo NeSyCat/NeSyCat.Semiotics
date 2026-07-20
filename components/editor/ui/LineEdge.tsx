@@ -10,10 +10,10 @@ import {
   type EdgeProps,
 } from '@xyflow/react'
 import theme from './theme'
-import { useStore } from './store'
+import { useStore } from '../state/store'
 import { Tex } from './Tex'
-import { toRgbTriple } from './color'
-import type { Color } from './types'
+import { toRgbTriple } from '../domain/color'
+import type { Color } from '../domain/types'
 
 interface LineEdgeData {
   label: string

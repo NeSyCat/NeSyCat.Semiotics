@@ -1,11 +1,11 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
-import { useStore, isHydrating } from './store'
+import { useStore, isHydrating } from '../state/store'
 import { saveDiagram } from '@/lib/actions/diagrams'
 import { restoreDiagram } from './io'
 import { encodeJsonToFragment } from './share'
-import type { Diagram } from './types'
+import type { Diagram } from '../domain/types'
 
 const DEBOUNCE_MS = 300
 

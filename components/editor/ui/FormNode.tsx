@@ -1,23 +1,22 @@
 'use client'
 
 import { memo, useEffect, useRef } from 'react'
-import { Handle, Position, useConnection, useReactFlow, useUpdateNodeInternals, type NodeProps } from '@xyflow/react'
+import { Handle, useConnection, useReactFlow, useUpdateNodeInternals, type NodeProps } from '@xyflow/react'
 import theme from './theme'
-import { geometryFor, pointIdsAt, insertionIndex, shrunkBodyPoints, CENTER_SHRINK, type Body, type RegionShape } from './forms'
-import { encodeHandle, encodePhantomHandle, decodePhantomHandle } from './handles'
-import { toRgbTriple } from './color'
-import { useStore } from './store'
+import { geometryFor, pointIdsAt, insertionIndex, shrunkBodyPoints, CENTER_SHRINK, type Body, type RegionShape } from '../domain/forms'
+import { encodeHandle, encodePhantomHandle, decodePhantomHandle } from '../domain/handles'
+import { toRgbTriple } from '../domain/color'
+import { useStore } from '../state/store'
 import { Tex } from './Tex'
-import type { Form, Point, Shape } from './types'
+import { PointVisual } from './PointVisual'
+import type { Form, Point } from '../domain/types'
 
 export interface FormNodeData {
   form: Form
   points: Record<string, Point>
 }
 
-const POINT_GLYPH = 15
 const FORM_NAME_SIZE = 16 // forms and lines share this size
-const POINT_NAME_SIZE = 12 // points a little smaller
 
 // Visual centre of a form body — for centring its name label. A triangle's
 // centroid is not its bounding-box centre.
@@ -28,31 +27,13 @@ function bodyCentroid(body: Body): [number, number] {
   for (const [x, y] of pts) { sx += x; sy += y }
   return [sx / pts.length, sy / pts.length]
 }
-// A point's glyph is drawn from the SAME sprite as the toolbar (see Canvas's
-// ToolbarSprite), rendered small and filled in the point's colour — so a point
-// shares the form/Shape-rail shape vocabulary. 'square' uses kind-rectangle.
-function PointGlyph({ shape, color }: { shape: Shape; color: string }) {
-  if (shape === 'empty') return null // Empty = nothing rendered; the dashed circle is only the toolbar symbol
-  const sym = shape === 'square' ? 'kind-rectangle' : `kind-${shape}`
-  return (
-    <svg
-      width={POINT_GLYPH}
-      height={POINT_GLYPH}
-      viewBox="0 0 24 24"
-      style={{ display: 'block', color, fill: color, stroke: color, strokeWidth: 1.6, strokeLinejoin: 'round', strokeLinecap: 'round' }}
-    >
-      <use href={`#${sym}`} />
-    </svg>
-  )
-}
 
 // Quiver-style point-creation region overlay: a gray-tint stripe along an
-// edge, or the whole body for 'empty's single self-region. REGION_CORNER_SIZE
-// doubles as a point's grab-pad size so a point's draggable area coincides
-// exactly with its visual hover circle (it's not corner-only — see its uses
-// below in the point glyph/label rendering).
+// edge, or the whole body for 'empty's single self-region. (PointVisual's own
+// REGION_CORNER_SIZE doubles as a point's grab-pad size so a point's
+// draggable area coincides exactly with its visual hover circle — it's not
+// corner-only, despite the name.)
 const REGION_STRIPE_WIDTH = 26
-const REGION_CORNER_SIZE = 28
 
 // The visual hover tint for a point-creation region — an INDICATOR of which
 // edge the cursor's zone maps to. Purely decorative; the grabbable area is
@@ -203,7 +184,7 @@ function BodyView({ body, n, accent, selected, bodyOpacity, hasCenterZone }: {
 
 function FormNode({ id, data, selected }: NodeProps) {
   const { form, points } = data as unknown as FormNodeData
-  const geom = geometryFor(form.kind)
+  const geom = geometryFor(form.shape)
   // Scale is a size multiplier applied right here — every zone/anchor/handle
   // below derives from n, so they all scale automatically along with it.
   const n = geom.nodeSize(form) * (form.scale ?? 1)
@@ -304,110 +285,25 @@ function FormNode({ id, data, selected }: NodeProps) {
       if (!pt) return
       const anchor = geom.pointAnchor(edgeKey, index, ids.length, n)
       const isSel = selectedPoints.includes(pid)
-      // A point's own color wins over the form's accent (the inherited tint).
-      const glyphTriple = pt.color ? toRgbTriple(pt.color) : accent
-      const fill = glyphTriple ? (isSel ? `rgb(${glyphTriple})` : `rgba(${glyphTriple}, 0.85)`) : theme.text.ink
       const hid = encodeHandle(edgeKey, index)
-      // The name label sits OUTSIDE the point, in its edge's outward direction
-      // (apex point → right, left-edge point → left, etc.). Counter-rotate so
-      // it stays upright/readable when the form is rotated — same billboard
-      // trick as the form's own name label.
-      const GAP = 11
-      const counterRotate = ` rotate(${-(form.rotation ?? 0)}deg)`
-      const lblPos: React.CSSProperties =
-        anchor.position === Position.Left ? { left: anchor.x - GAP, top: anchor.y, transform: `translate(-100%, -50%)${counterRotate}` }
-          : anchor.position === Position.Right ? { left: anchor.x + GAP, top: anchor.y, transform: `translate(0, -50%)${counterRotate}` }
-            : anchor.position === Position.Top ? { left: anchor.x, top: anchor.y - GAP, transform: `translate(-50%, -100%)${counterRotate}` }
-              : { left: anchor.x, top: anchor.y + GAP, transform: `translate(-50%, 0)${counterRotate}` }
-      // Handles are 1px AT the glyph centre, so a line anchors dead-centre on the
-      // point (RF pins a handle to its position-edge — a large handle offsets the
-      // line). The source carries an ~18px transparent grab pad; its pointer
-      // events bubble up to the handle, so the point is still easy to grab/drag.
-      const dotStyle: React.CSSProperties = {
-        position: 'absolute', top: anchor.y, left: anchor.x, transform: 'translate(-50%, -50%)',
-        width: 1, height: 1, minWidth: 1, minHeight: 1, background: 'transparent', border: 'none', padding: 0, zIndex: 5,
-      }
       // A point's own drag-region hover always wins over the form's
       // region/center hover (decided centrally in Canvas.tsx's
       // nearestPointWithin) — a selected point gets the darker tint instead,
       // quiver's hover/select language, not the blue form-selection accent.
       const isHovered = hover?.kind === 'point' && hover.pointId === pid
-      const regionTint = isSel ? theme.node.regionSelected : isHovered ? theme.node.regionHover : null
       pointVisuals.push(
-        <span key={`pt-${pid}`}>
-          {/* drag-region tint — a consistent circle for ALL points (incl. empty) */}
-          {regionTint && (
-            <div style={{
-              position: 'absolute', top: anchor.y, left: anchor.x, transform: 'translate(-50%, -50%)',
-              width: REGION_CORNER_SIZE, height: REGION_CORNER_SIZE, borderRadius: '50%', zIndex: 3, pointerEvents: 'none',
-              background: regionTint,
-            }} />
-          )}
-          {/* glyph: visual only, behind the handles */}
-          <div style={{
-            position: 'absolute', top: anchor.y, left: anchor.x, transform: 'translate(-50%, -50%)',
-            zIndex: 4, pointerEvents: 'none', lineHeight: 0,
-          }}>
-            <PointGlyph shape={pt.shape} color={fill} />
-          </div>
-          {/* Once 'empty's middle point EXISTS, it behaves exactly like any
-              other kind's point — default isConnectableStart, so it can
-              both receive a dropped wire AND start a new one by dragging
-              straight from it. (Explicitly setting isConnectableStart to
-              false here also happened to give the Handle no
-              `connectionindicator` class, which React Flow's own CSS ties
-              `pointer-events` to — base.css defaults `.react-flow__handle`
-              to `pointer-events: none` and only re-enables it via
-              `.connectionindicator`/`.connectingfrom`. That silently ate
-              plain clicks too, since they inherit pointer-events from this
-              parent: the grab pad never received them, so they fell
-              through to the form body underneath and selected the FORM
-              instead of the point — the direct-click-doesn't-select bug.
-              Only the form's BODY still can't spawn a wire/new point — see
-              the phantom-skip below, which is what makes plain node-drag
-              reachable there at all.) */}
-          <Handle type="target" position={anchor.position} id={hid} style={dotStyle} />
-          <Handle type="source" position={anchor.position} id={hid} style={dotStyle} onClick={(e) => selectPoint(e, pid)}>
-            {/* grab pad — easy to grab; events bubble to the handle above */}
-            <span style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%, -50%)', width: REGION_CORNER_SIZE, height: REGION_CORNER_SIZE, borderRadius: '50%', cursor: 'crosshair', display: 'block' }} />
-          </Handle>
-          {/* point name — click it to select the point too; hidden via .points-hidden
-              (see globals.css) when the Points toggle is off. data-point-id lets
-              Canvas.tsx's onNodeMouseMove recognize a real hover here directly
-              from the DOM event target — the label's rendered width varies with
-              the name text, so a fixed proximity radius around the anchor alone
-              can't reliably reach it. */}
-          {/* Canvas-coloured mask so wires don't strike through the name — same
-              idea as the line label's mask (LineEdge.tsx). A SEPARATE inert
-              sibling at zIndex 0: above the edges layer (masks the wire) but
-              below every tint overlay (zIndex 1+), so form hover/selection
-              states sweep straight across the name instead of being notched.
-              It positions/sizes itself with a hidden copy of the label text;
-              the actual fill is an INSET band, tighter than KaTeX's tall line
-              box, so the mask doesn't blank the wire farther out than the
-              glyphs themselves. */}
-          <div
-            className="point-label"
-            aria-hidden="true"
-            style={{ position: 'absolute', ...lblPos, zIndex: 0, pointerEvents: 'none' }}
-          >
-            <span style={{ visibility: 'hidden' }}>
-              <Tex fontSize={POINT_NAME_SIZE} color={theme.text.ink}>{pt.name ?? pid}</Tex>
-            </span>
-            <span style={{
-              position: 'absolute', left: -2, right: -2, top: '15%', bottom: '15%',
-              background: theme.canvas.background, borderRadius: 5,
-            }} />
-          </div>
-          <div
-            className="point-label"
-            data-point-id={pid}
-            onClick={(e) => selectPoint(e, pid)}
-            style={{ position: 'absolute', ...lblPos, zIndex: 4, cursor: 'pointer' }}
-          >
-            <Tex fontSize={POINT_NAME_SIZE} color={theme.text.ink}>{pt.name ?? pid}</Tex>
-          </div>
-        </span>,
+        <PointVisual
+          key={`pt-${pid}`}
+          pid={pid}
+          pt={pt}
+          anchor={anchor}
+          hid={hid}
+          isSelected={isSel}
+          isHovered={isHovered}
+          accent={accent}
+          formRotation={form.rotation ?? 0}
+          onSelect={selectPoint}
+        />,
       )
     })
   }
@@ -449,7 +345,7 @@ function FormNode({ id, data, selected }: NodeProps) {
           instead of a connection drag). The one middle point ITSELF, once
           it exists, is a real point Handle like any other kind's — see
           above — so dragging FROM it does start a wire. */}
-      {form.kind !== 'empty' && phantomEdgeKey && phantomSlot != null && (() => {
+      {form.shape !== 'empty' && phantomEdgeKey && phantomSlot != null && (() => {
         const count = pointIdsAt(form, phantomEdgeKey).length
         const anchor = geom.pointAnchor(phantomEdgeKey, phantomSlot, count + 1, n)
         const hid = encodePhantomHandle(phantomEdgeKey)

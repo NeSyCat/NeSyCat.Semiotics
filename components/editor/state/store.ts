@@ -1,6 +1,6 @@
 import { create } from 'zustand'
-import type { Diagram, Shape, Color } from './types'
-import * as M from './mutations'
+import type { Diagram, Shape, Color } from '../domain/types'
+import * as M from '../domain/mutations'
 
 const MAX_HISTORY = 100
 
@@ -68,13 +68,13 @@ interface State {
   setHoveredEdgeId: (id: string | null) => void
 
   // Mutations (delegate to pure functions; one history entry each)
-  addForm: (kind: Shape, position: { x: number; y: number }, color?: Color | null) => string
+  addForm: (shape: Shape, position: { x: number; y: number }, color?: Color | null) => string
   deleteForm: (id: string) => void
   moveForm: (id: string, position: { x: number; y: number }) => void
   moveForms: (updates: Array<{ id: string; position: { x: number; y: number } }>) => void
   renameForm: (id: string, name: string) => void
   renameForms: (ids: string[], name: string) => void
-  setFormsKind: (ids: string[], kind: Shape) => void
+  setFormsShape: (ids: string[], shape: Shape) => void
   setFormsRotation: (ids: string[], rotation: number) => void
   setFormsScale: (ids: string[], scale: number) => void
   setFormsColor: (ids: string[], color: Color | null) => void
@@ -184,8 +184,8 @@ export const useStore = create<State>((set, get) => {
       if (get().hoveredEdgeId !== id) set({ hoveredEdgeId: id })
     },
 
-    addForm: (kind, position, color) => {
-      const [d, id] = M.addForm(get().diagram, kind, position, color)
+    addForm: (shape, position, color) => {
+      const [d, id] = M.addForm(get().diagram, shape, position, color)
       setCur(d)
       return id
     },
@@ -194,7 +194,7 @@ export const useStore = create<State>((set, get) => {
     moveForms: (updates) => { if (updates.length) setCur(M.moveForms(get().diagram, updates)) },
     renameForm: (id, name) => setCur(M.renameForm(get().diagram, id, name)),
     renameForms: (ids, name) => { if (ids.length) setCur(M.renameForms(get().diagram, ids, name), 'name:forms:' + [...ids].sort().join(',')) },
-    setFormsKind: (ids, kind) => { if (ids.length) setCur(M.setFormsKind(get().diagram, ids, kind)) },
+    setFormsShape: (ids, shape) => { if (ids.length) setCur(M.setFormsShape(get().diagram, ids, shape)) },
     setFormsRotation: (ids, rotation) => { if (ids.length) setCur(M.setFormsRotation(get().diagram, ids, rotation), 'rotation:forms:' + [...ids].sort().join(',')) },
     setFormsScale: (ids, scale) => { if (ids.length) setCur(M.setFormsScale(get().diagram, ids, scale), 'scale:forms:' + [...ids].sort().join(',')) },
     setFormsColor: (ids, color) => { if (ids.length) setCur(M.setFormsColor(get().diagram, ids, color)) },

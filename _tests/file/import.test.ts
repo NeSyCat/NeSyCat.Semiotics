@@ -1,54 +1,50 @@
-// Standalone test script for the Import panel's text-sniffing (round-trip
-// with the TikZ/share exporters) — runs directly under tsx:
+// Test suite for the Import panel's text-sniffing (round-trip with the
+// TikZ/share exporters). Runs under Vitest:
 //
-//   npx tsx _tests/file/import.test.ts
+//   npm test
 
-import { extractFragment } from '../../components/editor/importText'
-import { diagramToTikz } from '../../components/editor/tikz'
-import { encodeDiagramToFragment, decodeDiagramFromFragment } from '../../components/editor/share'
-import type { Diagram, Form } from '../../components/editor/types'
-
-let pass = 0
-let fail = 0
-function assert(cond: boolean, msg: string) {
-  if (cond) { pass++; console.log(`PASS: ${msg}`) } else { fail++; console.log(`FAIL: ${msg}`) }
-}
+import { describe, expect, it } from 'vitest'
+import { extractFragment } from '../../components/editor/export/importText'
+import { diagramToTikz } from '../../components/editor/export/tikz'
+import { encodeDiagramToFragment, decodeDiagramFromFragment } from '../../components/editor/persist/share'
+import type { Diagram, Form } from '../../components/editor/domain/types'
 
 function bareSquare(id: string, position: { x: number; y: number }): Form {
-  return { id, kind: 'square', position, edges: {} }
+  return { id, shape: 'square', position, edges: {} }
 }
 
-async function main() {
-  const d: Diagram = { schemaVersion: 1, forms: [bareSquare('X1', { x: 0, y: 0 })], points: {}, lines: [] }
+const d: Diagram = { schemaVersion: 1, forms: [bareSquare('X1', { x: 0, y: 0 })], points: {}, lines: [] }
 
-  // ── extractFragment on plain/URL-wrapped fragments ────────────────────
-  assert(extractFragment('d=0.abc-DEF_123') === 'd=0.abc-DEF_123', 'extractFragment finds a bare fragment')
-  assert(
-    extractFragment('https://semiotics.nesycat.org/editor#d=1.XyZ_-9') === 'd=1.XyZ_-9',
-    'extractFragment finds a fragment inside a full share URL',
-  )
-  assert(extractFragment('no fragment in here') === null, 'extractFragment returns null when nothing matches')
+describe('import panel text-sniffing', () => {
+  it('extractFragment on plain/URL-wrapped fragments', () => {
+    expect(extractFragment('d=0.abc-DEF_123'), 'extractFragment finds a bare fragment').toBe('d=0.abc-DEF_123')
+    expect(
+      extractFragment('https://semiotics.nesycat.org/editor#d=1.XyZ_-9'),
+      'extractFragment finds a fragment inside a full share URL',
+    ).toBe('d=1.XyZ_-9')
+    expect(extractFragment('no fragment in here'), 'extractFragment returns null when nothing matches').toBeNull()
+  })
 
-  // ── round trip: export TikZ -> extract -> decode -> same diagram shape ─
-  const tikz = await diagramToTikz(d)
-  const fromTikz = extractFragment(tikz)
-  assert(fromTikz !== null, 'extractFragment finds the fragment embedded in exported TikZ')
-  if (fromTikz) {
-    const decoded = await decodeDiagramFromFragment(fromTikz)
-    assert(decoded !== null, 'the fragment recovered from TikZ decodes back to a diagram')
-    assert(decoded?.forms.length === 1 && decoded.forms[0].id === 'X1', 'the round-tripped diagram matches the original (form id X1 present)')
-  }
+  it('round trip: export TikZ -> extract -> decode -> same diagram shape', async () => {
+    const tikz = await diagramToTikz(d)
+    const fromTikz = extractFragment(tikz)
+    expect(fromTikz, 'extractFragment finds the fragment embedded in exported TikZ').not.toBeNull()
+    if (fromTikz) {
+      const decoded = await decodeDiagramFromFragment(fromTikz)
+      expect(decoded, 'the fragment recovered from TikZ decodes back to a diagram').not.toBeNull()
+      expect(
+        decoded?.forms.length === 1 && decoded.forms[0].id === 'X1',
+        'the round-tripped diagram matches the original (form id X1 present)',
+      ).toBe(true)
+    }
+  })
 
-  // ── round trip: encode -> full URL -> extract -> decode ────────────────
-  const frag = await encodeDiagramToFragment(d)
-  const url = `https://semiotics.nesycat.org/editor#${frag}`
-  const fromUrl = extractFragment(url)
-  assert(fromUrl === frag, 'extractFragment recovers the exact fragment from a share URL')
-  const decodedFromUrl = fromUrl ? await decodeDiagramFromFragment(fromUrl) : null
-  assert(decodedFromUrl?.forms[0]?.id === 'X1', 'the URL round trip decodes back to the original diagram')
-
-  console.log(`\n${pass} passed, ${fail} failed`)
-  process.exit(fail > 0 ? 1 : 0)
-}
-
-main()
+  it('round trip: encode -> full URL -> extract -> decode', async () => {
+    const frag = await encodeDiagramToFragment(d)
+    const url = `https://semiotics.nesycat.org/editor#${frag}`
+    const fromUrl = extractFragment(url)
+    expect(fromUrl, 'extractFragment recovers the exact fragment from a share URL').toBe(frag)
+    const decodedFromUrl = fromUrl ? await decodeDiagramFromFragment(fromUrl) : null
+    expect(decodedFromUrl?.forms[0]?.id, 'the URL round trip decodes back to the original diagram').toBe('X1')
+  })
+})

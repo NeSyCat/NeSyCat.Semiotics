@@ -31,7 +31,7 @@ export type Body =
   | { type: 'circle' }
 
 export interface FormGeometry {
-  kind: Shape
+  shape: Shape
   displayName: string
   // Side/arc keys. A point sits on one of these.
   edgeKeys: readonly EdgeKey[]
@@ -83,7 +83,7 @@ function clamp01(v: number) {
 // for linear sides (t = (i+1)/(count+1)) and circle arcs (t = angle
 // fraction) without needing a separate closed-form per kind.
 export function insertionIndex(form: Form, edgeKey: EdgeKey, rx: number, ry: number): number {
-  const geom = geometryFor(form.kind)
+  const geom = geometryFor(form.shape)
   const ids = form.edges[edgeKey] ?? []
   const count = ids.length
   if (count === 0) return 0
@@ -204,7 +204,7 @@ function triSlant(side: 'a' | 'b', t: number, n: number): [number, number] {
 }
 
 const triangleGeometry: FormGeometry = {
-  kind: 'triangle',
+  shape: 'triangle',
   displayName: 'Triangle',
   edgeKeys: TRI_EDGES,
   body: { type: 'polygon', pointsFrac: [[TRI_APEX_X, 0.5], [TRI_BASE_X, 1], [TRI_BASE_X, 0]] },
@@ -244,7 +244,7 @@ const triangleGeometry: FormGeometry = {
 const SQUARE_EDGES = ['top', 'right', 'bottom', 'left'] as const
 
 const squareGeometry: FormGeometry = {
-  kind: 'square',
+  shape: 'square',
   displayName: 'Square',
   edgeKeys: SQUARE_EDGES,
   body: { type: 'polygon', pointsFrac: [[0, 0], [1, 0], [1, 1], [0, 1]] },
@@ -316,7 +316,7 @@ function arcRegionPoints(edgeKey: string): Array<[number, number]> {
 }
 
 const circleGeometry: FormGeometry = {
-  kind: 'circle',
+  shape: 'circle',
   displayName: 'Circle',
   edgeKeys: CIRCLE_EDGES,
   body: { type: 'circle' },
@@ -365,7 +365,7 @@ const lerp = (a: readonly [number, number], b: readonly [number, number], t: num
   [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]
 
 const rhombusGeometry: FormGeometry = {
-  kind: 'rhombus',
+  shape: 'rhombus',
   displayName: 'Rhombus',
   edgeKeys: RHOMBUS_EDGES,
   body: { type: 'polygon', pointsFrac: [[0.5, 0], [1, 0.5], [0.5, 1], [0, 0.5]] },
@@ -420,7 +420,7 @@ const EMPTY_EDGE = 'self'
 const EMPTY_MAX_POINTS = 1
 
 const emptyGeometry: FormGeometry = {
-  kind: 'empty',
+  shape: 'empty',
   displayName: 'Empty',
   edgeKeys: [EMPTY_EDGE],
   body: { type: 'circle' },
@@ -450,8 +450,8 @@ export const formRegistry: Record<Shape, FormGeometry> = {
   empty: emptyGeometry,
 }
 
-export function geometryFor(kind: Shape): FormGeometry {
-  return formRegistry[kind]
+export function geometryFor(shape: Shape): FormGeometry {
+  return formRegistry[shape]
 }
 
 // The full, runtime-checkable set of valid Shapes — formRegistry's own keys,

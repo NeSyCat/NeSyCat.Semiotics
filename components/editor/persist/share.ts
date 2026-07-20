@@ -10,7 +10,7 @@
 // fragments, so `d=` here can never collide with it.
 
 import { restoreDiagram } from './io'
-import type { Diagram } from './types'
+import type { Diagram } from '../domain/types'
 
 const PREFIX = 'd='
 
