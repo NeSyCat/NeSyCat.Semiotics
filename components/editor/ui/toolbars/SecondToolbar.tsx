@@ -5,10 +5,7 @@ import { SHAPE_RAIL, COLOR_RAIL, sameColor, swatchStyle } from '../rails'
 import { NameField } from '../fields/NameField'
 import { RangeField } from '../fields/RangeField'
 import type { SelectionTarget } from '../Canvas'
-
-const PILL_POSITION: React.CSSProperties = {
-  position: 'absolute', top: 70, left: 'calc(50% + (var(--sidebar-offset, 0px) / 2))', transform: 'translateX(-50%)', zIndex: 10, transition: 'left 200ms',
-}
+import { CenteredPillRow } from './CenteredPillRow'
 
 // Second toolbar — the conditional rail/field directly below the category
 // spine: Shape rail / Color rail / Name field / Rotation slider / Scale
@@ -43,7 +40,7 @@ export function SecondToolbar({
     <>
       {/* Second toolbar — the Shape rail. Only triangle/circle/square work. */}
       {activeCategory === 'shape' && (
-        <div style={PILL_POSITION}>
+        <CenteredPillRow top={70}>
           <div className="pill editor-pill" role="group" aria-label="Shape">
             {SHAPE_RAIL.map((s) => {
               const active = selectedPoints.length > 0 ? s.shape === selectedPointShape : s.shape === activeShape
@@ -66,14 +63,14 @@ export function SecondToolbar({
               )
             })}
           </div>
-        </div>
+        </CenteredPillRow>
       )}
 
       {/* Second toolbar — the Color rail. Same target as the Name field
           (points > forms > lines); White resets to the default. Sizes to
           content, like the Shape rail. */}
       {activeCategory === 'color' && (
-        <div style={PILL_POSITION}>
+        <CenteredPillRow top={70}>
           <div className="pill editor-pill" role="group" aria-label="Color">
             {COLOR_RAIL.map((c) => {
               // With a selection, the rail reflects its shared color; without
@@ -94,43 +91,43 @@ export function SecondToolbar({
               )
             })}
           </div>
-        </div>
+        </CenteredPillRow>
       )}
 
       {/* Name field — the whole pill is a text input renaming the current
           selection (points > forms > lines). Same width as the Shape rail. */}
       {activeCategory === 'name' && (
-        <div style={PILL_POSITION}>
+        <CenteredPillRow top={70}>
           <div className="pill editor-pill" style={{ width: 360, padding: '0 4px' }}>
             <NameField sig={nameInfo.sig} initial={nameInfo.value} placeholder={nameInfo.placeholder} disabled={!selectionTarget || nameInfo.disabled} onChange={onName} />
           </div>
-        </div>
+        </CenteredPillRow>
       )}
 
       {/* Rotation field — a 0-359° slider over the selected form(s). Same
           width as the Shape rail. */}
       {activeCategory === 'rotation' && (
-        <div style={PILL_POSITION}>
+        <CenteredPillRow top={70}>
           <div className="pill editor-pill" style={{ width: 360, padding: '0 4px' }}>
             <RangeField
               sig={rotationInfo.sig} initial={rotationInfo.value} disabled={selectedFormIds.length === 0} onChange={onRotate}
               min={0} max={360} step={1} unit="°" snapMarks={[0, 90, 180, 270, 360]} wrap disabledValue={0}
             />
           </div>
-        </div>
+        </CenteredPillRow>
       )}
 
       {/* Scale field — a 25-400% slider over the selected form(s). Same
           width/position as the Rotation pill. */}
       {activeCategory === 'scale' && (
-        <div style={PILL_POSITION}>
+        <CenteredPillRow top={70}>
           <div className="pill editor-pill" style={{ width: 360, padding: '0 4px' }}>
             <RangeField
               sig={scaleInfo.sig} initial={scaleInfo.value} disabled={selectedFormIds.length === 0} onChange={onScale}
               min={25} max={400} step={5} unit="%" snapMarks={[100, 200, 300, 400]} wrap={false} disabledValue={100}
             />
           </div>
-        </div>
+        </CenteredPillRow>
       )}
     </>
   )

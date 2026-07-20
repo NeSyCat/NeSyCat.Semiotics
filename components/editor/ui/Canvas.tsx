@@ -315,7 +315,10 @@ function Canvas({ topRight }: CanvasContentProps) {
           // export/html.ts already followed (ir/geometry-ir.ts's
           // buildLineCmds). Other segments get `label: undefined`, which
           // LineEdge.tsx reads as "render neither the text nor its mask".
-          data: { label: i === 0 ? (line.name ?? line.id) : undefined, color: line.color, sourceGap: glyphGap(line.source), targetGap: glyphGap(tid) },
+          // Every branch of a hyperedge carries the line's name (user
+          // decision: a fork's branches each show the type, not just the
+          // first) — matching the exports' per-branch labels.
+          data: { label: line.name ?? line.id, color: line.color, sourceGap: glyphGap(line.source), targetGap: glyphGap(tid) },
         })
       })
     }

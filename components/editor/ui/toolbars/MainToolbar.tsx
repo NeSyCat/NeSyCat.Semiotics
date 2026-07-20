@@ -3,6 +3,7 @@
 import type { Color } from '../../domain/types'
 import { CATEGORIES, swatchStyle } from '../rails'
 import type { SelectionTarget } from '../Canvas'
+import { CenteredPillRow } from './CenteredPillRow'
 
 // General toolbar — the mockup's category Spine (DS .pill, scaled up),
 // centred over the canvas. Most categories are placeholders; clicking
@@ -18,7 +19,7 @@ export function MainToolbar({
   activeColor: Color | null
 }) {
   return (
-    <div style={{ position: 'absolute', top: 16, left: 'calc(50% + (var(--sidebar-offset, 0px) / 2))', transform: 'translateX(-50%)', zIndex: 10, transition: 'left 200ms' }}>
+    <CenteredPillRow top={16}>
       <div className="pill editor-pill" role="toolbar" aria-label="Categories">
         {CATEGORIES.map((cat) => (
           <button
@@ -35,6 +36,6 @@ export function MainToolbar({
           </button>
         ))}
       </div>
-    </div>
+    </CenteredPillRow>
   )
 }

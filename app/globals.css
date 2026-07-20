@@ -207,6 +207,41 @@ input[type="search"]::-webkit-search-results-decoration {
 .editor-pill.pill .btn.btn-icon { width: 36px; }
 .editor-pill.pill .btn svg { width: 21px; height: 21px; }
 
+/* Centered toolbar pill track (MainToolbar/SecondToolbar, via
+   CenteredPillRow) — see that component's comment for the collision-
+   avoidance mechanism. --topright-width is set by TopRightPills (ref +
+   ResizeObserver, mirroring how EditorSidebar sets --sidebar-offset); the
+   240px fallback approximates its measured width before the effect runs. */
+.toolbar-center-row {
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  display: flex;
+  align-items: flex-start;
+  pointer-events: none;
+}
+.toolbar-center-row .toolbar-center-spacer {
+  flex: 1 1 0;
+  min-width: 0;
+}
+.toolbar-center-row .toolbar-center-spacer.is-left {
+  /* NOT /2: both spacers share flex-grow:1, so growing the left spacer's
+     basis by X only nets a final-position shift of X/2 once the remaining
+     free space is split evenly between the two — the equal grow silently
+     cancels half of it. To reproduce the old calc(50% + offset/2) bias
+     exactly, the basis needs the FULL --sidebar-offset. */
+  flex-basis: var(--sidebar-offset, 0px);
+  transition: flex-basis 200ms;
+}
+.toolbar-center-row .toolbar-center-spacer.is-right {
+  min-width: calc(var(--topright-width, 240px) + 32px);
+}
+.toolbar-center-row .toolbar-center-content {
+  flex: 0 0 auto;
+  pointer-events: auto;
+}
+
 /* Sidebar row's delete Pill — same DS .pill/.btn, hover tints destructive
    (red) instead of the neutral grey every other .btn hover uses. */
 .diagram-item-delete:hover {
