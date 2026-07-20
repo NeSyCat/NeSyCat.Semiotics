@@ -248,12 +248,49 @@ export function deleteLineTarget(d: Diagram, lineId: string, idx: number): Diagr
   }
 }
 
+// COPY-NODE rename propagation: renaming a wire cascades DOWNSTREAM through
+// copy points. Starting from the renamed lines, whenever a renamed line
+// TARGETS a copy point's middle point (pointIsForm — the empty form), every
+// line SOURCED at that point takes the same name too, and the cascade
+// continues through chains of copy points (depth-first, visited-guarded,
+// so copy cycles terminate). Downstream only: renaming an outgoing branch
+// directly renames just that branch — it never syncs back upstream or
+// across to sibling branches.
+function copyDownstreamLineIds(d: Diagram, seedIds: Set<string>): Set<string> {
+  const isCopyPoint = (pid: string): boolean => {
+    const pt = d.points[pid]
+    const form = pt && d.forms.find((f) => f.id === pt.formId)
+    return !!form && !!geometryFor(form.shape).pointIsForm
+  }
+  const all = new Set(seedIds)
+  const queue = [...seedIds]
+  while (queue.length > 0) {
+    const id = queue.pop()
+    const line = d.lines.find((l) => l.id === id)
+    if (!line) continue
+    for (const pid of line.targets) {
+      if (!isCopyPoint(pid)) continue
+      for (const out of d.lines) {
+        if (out.source === pid && !all.has(out.id)) {
+          all.add(out.id)
+          queue.push(out.id)
+        }
+      }
+    }
+  }
+  return all
+}
+
 export function renameLine(d: Diagram, id: string, name: string): Diagram {
-  return { ...d, lines: d.lines.map((l) => (l.id === id ? { ...l, name } : l)) }
+  const set = copyDownstreamLineIds(d, new Set([id]))
+  // Same clearing rule as renameLines: '' clears the name (undefined), and
+  // that clearing propagates through copy points like any other rename.
+  const nm = name === '' ? undefined : name
+  return { ...d, lines: d.lines.map((l) => (set.has(l.id) ? { ...l, name: nm } : l)) }
 }
 
 export function renameLines(d: Diagram, ids: string[], name: string): Diagram {
-  const set = new Set(ids)
+  const set = copyDownstreamLineIds(d, new Set(ids))
   const nm = name === '' ? undefined : name
   return { ...d, lines: d.lines.map((l) => (set.has(l.id) ? { ...l, name: nm } : l)) }
 }

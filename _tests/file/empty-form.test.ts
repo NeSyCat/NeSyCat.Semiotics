@@ -7,7 +7,7 @@
 
 import { describe, expect, it } from 'vitest'
 import { geometryFor } from '../../components/editor/domain/forms'
-import { addPoint, addForm, addLine, removePoint } from '../../components/editor/domain/mutations'
+import { addPoint, addForm, addLine, removePoint, renameLines } from '../../components/editor/domain/mutations'
 import { useStore, initStore } from '../../components/editor/state/store'
 import { restoreDiagram } from '../../components/editor/persist/io'
 import type { Diagram, Form } from '../../components/editor/domain/types'
@@ -297,5 +297,90 @@ describe("copy-node naming (empty form's middle point)", () => {
     const noIn: Diagram = { ...bare, lines: [] }
     const [d1, id1] = addLine(noIn, 'CP', 'TP1')
     expect(d1.lines.find((l) => l.id === id1)?.name, 'nothing to inherit').toBeUndefined()
+  })
+})
+
+// ── COPY-NODE rename PROPAGATION: renaming the inflow renames every
+// outflow of the copy point, live — cascading through chains of copy
+// points; renaming a branch directly stays local. ──────────────────────
+describe('copy-node rename propagation', () => {
+  // SQ(DP) --IN1--> copy CN(CP) --OUT1--> TG(TP1)
+  //                            \--OUT2--> TG(TP2)
+  function rig(): Diagram {
+    return {
+      schemaVersion: 1,
+      forms: [
+        { id: 'SQ', shape: 'square', position: { x: 0, y: 0 }, edges: { top: [], right: ['DP'], bottom: [], left: [] } },
+        { id: 'CN', shape: 'empty', position: { x: 300, y: 0 }, edges: { self: ['CP'] } },
+        { id: 'TG', shape: 'square', position: { x: 600, y: 0 }, edges: { top: [], right: [], bottom: [], left: ['TP1', 'TP2'] } },
+      ],
+      points: {
+        DP: { id: 'DP', shape: 'empty', formId: 'SQ', edgeKey: 'right' },
+        CP: { id: 'CP', shape: 'empty', formId: 'CN', edgeKey: 'self' },
+        TP1: { id: 'TP1', shape: 'empty', formId: 'TG', edgeKey: 'left' },
+        TP2: { id: 'TP2', shape: 'empty', formId: 'TG', edgeKey: 'left' },
+      },
+      lines: [
+        { id: 'IN1', name: 'Nat', source: 'DP', targets: ['CP'] },
+        { id: 'OUT1', name: 'Nat', source: 'CP', targets: ['TP1'] },
+        { id: 'OUT2', name: 'Nat', source: 'CP', targets: ['TP2'] },
+      ],
+    }
+  }
+
+  it('renaming the inflow renames every outflow of the copy point', () => {
+    const d = renameLines(rig(), ['IN1'], 'Natasc')
+    expect(d.lines.find((l) => l.id === 'OUT1')?.name, 'OUT1 follows').toBe('Natasc')
+    expect(d.lines.find((l) => l.id === 'OUT2')?.name, 'OUT2 follows').toBe('Natasc')
+  })
+
+  it('cascades through a CHAIN of copy points', () => {
+    const base = rig()
+    // add a second copy node fed by OUT1: CN2(CP2), OUT1 retargeted to CP2, OUT3 out of CP2
+    const chained: Diagram = {
+      ...base,
+      forms: [...base.forms, { id: 'CN2', shape: 'empty', position: { x: 450, y: 0 }, edges: { self: ['CP2'] } }],
+      points: { ...base.points, CP2: { id: 'CP2', shape: 'empty', formId: 'CN2', edgeKey: 'self' } },
+      lines: [
+        base.lines[0],
+        { id: 'OUT1', name: 'Nat', source: 'CP', targets: ['CP2'] },
+        base.lines[2],
+        { id: 'OUT3', name: 'Nat', source: 'CP2', targets: ['TP1'] },
+      ],
+    }
+    const d = renameLines(chained, ['IN1'], 'Natasc')
+    expect(d.lines.find((l) => l.id === 'OUT1')?.name, 'first hop follows').toBe('Natasc')
+    expect(d.lines.find((l) => l.id === 'OUT3')?.name, 'second hop follows through the chain').toBe('Natasc')
+  })
+
+  it('renaming a BRANCH directly stays local — no upstream or sibling sync', () => {
+    const d = renameLines(rig(), ['OUT1'], 'Special')
+    expect(d.lines.find((l) => l.id === 'OUT1')?.name, 'renamed branch').toBe('Special')
+    expect(d.lines.find((l) => l.id === 'IN1')?.name, 'inflow untouched').toBe('Nat')
+    expect(d.lines.find((l) => l.id === 'OUT2')?.name, 'sibling untouched').toBe('Nat')
+  })
+
+  it('copy CYCLES terminate (visited guard)', () => {
+    const base = rig()
+    // CN2 cycle: CP -> CP2 -> CP
+    const cyclic: Diagram = {
+      ...base,
+      forms: [...base.forms, { id: 'CN2', shape: 'empty', position: { x: 450, y: 0 }, edges: { self: ['CP2'] } }],
+      points: { ...base.points, CP2: { id: 'CP2', shape: 'empty', formId: 'CN2', edgeKey: 'self' } },
+      lines: [
+        base.lines[0],
+        { id: 'OUT1', name: 'Nat', source: 'CP', targets: ['CP2'] },
+        { id: 'BACK', name: 'Nat', source: 'CP2', targets: ['CP'] },
+      ],
+    }
+    const d = renameLines(cyclic, ['IN1'], 'Natasc')
+    expect(d.lines.find((l) => l.id === 'OUT1')?.name, 'cycle hop 1 renamed').toBe('Natasc')
+    expect(d.lines.find((l) => l.id === 'BACK')?.name, 'cycle hop 2 renamed, no infinite loop').toBe('Natasc')
+  })
+
+  it('clearing the inflow name (empty string) clears the branches too', () => {
+    const d = renameLines(rig(), ['IN1'], '')
+    expect(d.lines.find((l) => l.id === 'OUT1')?.name, 'branch cleared').toBeUndefined()
+    expect(d.lines.find((l) => l.id === 'OUT2')?.name, 'branch cleared').toBeUndefined()
   })
 })
