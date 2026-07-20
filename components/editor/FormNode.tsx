@@ -203,7 +203,7 @@ function BodyView({ body, n, accent, selected, bodyOpacity, hasCenterZone }: {
 
 function FormNode({ id, data, selected }: NodeProps) {
   const { form, points } = data as unknown as FormNodeData
-  const geom = geometryFor(form.kind)
+  const geom = geometryFor(form.shape)
   // Scale is a size multiplier applied right here — every zone/anchor/handle
   // below derives from n, so they all scale automatically along with it.
   const n = geom.nodeSize(form) * (form.scale ?? 1)
@@ -449,7 +449,7 @@ function FormNode({ id, data, selected }: NodeProps) {
           instead of a connection drag). The one middle point ITSELF, once
           it exists, is a real point Handle like any other kind's — see
           above — so dragging FROM it does start a wire. */}
-      {form.kind !== 'empty' && phantomEdgeKey && phantomSlot != null && (() => {
+      {form.shape !== 'empty' && phantomEdgeKey && phantomSlot != null && (() => {
         const count = pointIdsAt(form, phantomEdgeKey).length
         const anchor = geom.pointAnchor(phantomEdgeKey, phantomSlot, count + 1, n)
         const hid = encodePhantomHandle(phantomEdgeKey)

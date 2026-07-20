@@ -10,7 +10,7 @@ import { encodeDiagramToFragment, decodeDiagramFromFragment } from '../../compon
 import type { Diagram, Form } from '../../components/editor/types'
 
 function bareSquare(id: string, position: { x: number; y: number }): Form {
-  return { id, kind: 'square', position, edges: {} }
+  return { id, shape: 'square', position, edges: {} }
 }
 
 const d: Diagram = { schemaVersion: 1, forms: [bareSquare('X1', { x: 0, y: 0 })], points: {}, lines: [] }

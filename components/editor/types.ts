@@ -2,8 +2,8 @@
 //
 // Deliberately SIMPLE and NON-RECURSIVE. There are two distinct types:
 //   • Form  — a "big shape" (triangle / square / circle). Has its own shape
-//             (kind) and sides (each an ORDERED LIST of points — a wire run
-//             can take any number).
+//             and sides (each an ORDERED LIST of points — a wire run can
+//             take any number).
 //   • Point — a separate, leaf type. A point also HAS a shape (its own small
 //             glyph), but it is differentiated from a form: it sits on a
 //             form's edge, can be wired by lines, and contains NOTHING.
@@ -11,13 +11,13 @@
 
 export type Color = [number, number, number] // normalized RGB, each in [0,1]
 
-// ── Shapes — the ONE vocabulary shared by a Form's own kind and a Point's
-// (small) glyph. There is no separate FormKind/PointShape split: a Form and
+// ── Shapes — the ONE vocabulary shared by a Form's own shape and a Point's
+// (small) glyph. There is no separate FormShape/PointShape split: a Form and
 // a Point simply pick from the same 5-member set.
 export type Shape = 'triangle' | 'square' | 'circle' | 'rhombus' | 'empty'
 // Have real edges that points can attach to; 'empty' renders as an edgeless placeholder body.
 
-// An edge key names one side/arc of a form. Validated per-kind by the form
+// An edge key names one side/arc of a form. Validated per-shape by the form
 // registry (forms.ts):
 //   triangle: 'a' | 'b' | 'c'
 //   square:   'top' | 'right' | 'bottom' | 'left'
@@ -26,7 +26,7 @@ export type EdgeKey = string
 
 export interface Form {
   id: string
-  kind: Shape
+  shape: Shape
   name?: string
   color?: Color // undefined = no colour (the default)
   rotation?: number // degrees, 0-359; undefined = 0 (no rotation)
@@ -37,7 +37,7 @@ export interface Form {
 }
 
 // ── Points (leaves; distinct from forms) ─────────────────────────────
-// A point's shape is drawn from the SAME vocabulary as a Form's own kind
+// A point's shape is drawn from the SAME vocabulary as a Form's own shape
 // (Shape, above), just rendered small.
 
 export interface Point {

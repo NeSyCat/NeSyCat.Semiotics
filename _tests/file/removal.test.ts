@@ -1,6 +1,9 @@
 // Test suite for the two coupled breaking removals — CORNER POINTS
-// (Form.corners, per-kind vertex slots) and the 'point' FormKind (a
-// standalone dot-bodied form). Runs under Vitest:
+// (Form.corners, per-shape vertex slots) and the 'point' Form shape (a
+// standalone dot-bodied form) — plus io.ts's kind->shape read shim (Phase C:
+// saved diagrams may still carry the old `kind` field name; canonForm reads
+// `f.shape ?? f.kind`, and dropRemovedShapes' own 'point'-shape check reads
+// both spellings since it runs on RAW pre-canon data). Runs under Vitest:
 //
 //   npm test
 
@@ -10,27 +13,27 @@ import { addPoint } from '../../components/editor/mutations'
 import { restoreDiagram } from '../../components/editor/io'
 import type { Diagram, Form, Shape } from '../../components/editor/types'
 
-function bareForm(id: string, kind: Form['kind'], extra: Partial<Form> = {}): Form {
-  return { id, kind, position: { x: 0, y: 0 }, edges: {}, ...extra }
+function bareForm(id: string, shape: Form['shape'], extra: Partial<Form> = {}): Form {
+  return { id, shape, position: { x: 0, y: 0 }, edges: {}, ...extra }
 }
 
-const REMAINING_KINDS: Shape[] = ['triangle', 'square', 'circle', 'rhombus', 'empty']
+const REMAINING_SHAPES: Shape[] = ['triangle', 'square', 'circle', 'rhombus', 'empty']
 
-describe('corner points and point-kind form removal', () => {
+describe('corner points and point-shape form removal', () => {
   it('(i) no geometry exposes corner keys', () => {
     expect(
       Object.keys(formRegistry).sort().join(','),
-      `formRegistry has exactly the 5 remaining kinds, no 'point' (got [${Object.keys(formRegistry).join(',')}])`,
-    ).toBe([...REMAINING_KINDS].sort().join(','))
-    for (const kind of REMAINING_KINDS) {
-      const geom = geometryFor(kind)
+      `formRegistry has exactly the 5 remaining shapes, no 'point' (got [${Object.keys(formRegistry).join(',')}])`,
+    ).toBe([...REMAINING_SHAPES].sort().join(','))
+    for (const shape of REMAINING_SHAPES) {
+      const geom = geometryFor(shape)
       const cornerKeys = geom.edgeKeys.filter((k) => /^v\d+$/.test(k))
-      expect(cornerKeys.length, `${kind}'s edgeKeys contain no 'v#' corner key (got [${geom.edgeKeys.join(',')}])`).toBe(0)
-      expect('corners' in geom, `${kind}'s geometry object has no 'corners' field`).toBe(false)
+      expect(cornerKeys.length, `${shape}'s edgeKeys contain no 'v#' corner key (got [${geom.edgeKeys.join(',')}])`).toBe(0)
+      expect('corners' in geom, `${shape}'s geometry object has no 'corners' field`).toBe(false)
     }
   })
 
-  it("(ii) restoreDiagram DROPS a 'point'-kind form + its points + prunes their lines", () => {
+  it("(ii) restoreDiagram DROPS a 'point'-shape form (legacy raw `kind` field) + its points + prunes their lines", () => {
     const raw = {
       schemaVersion: 1,
       forms: [
@@ -50,7 +53,7 @@ describe('corner points and point-kind form removal', () => {
     const d = restoreDiagram(raw)
     expect(
       d.forms.length === 1 && d.forms[0].id === 'SQ',
-      `the 'point'-kind form is dropped entirely (got forms=[${d.forms.map((f) => f.id).join(',')}])`,
+      `the 'point'-shape form is dropped entirely (got forms=[${d.forms.map((f) => f.id).join(',')}])`,
     ).toBe(true)
     expect(d.points.P1 === undefined && d.points.P2 === undefined, `the dropped form's points (P1, P2) are gone`).toBe(true)
     expect(d.points.PA !== undefined, `the surviving form's own point (PA) is untouched`).toBe(true)
@@ -126,9 +129,9 @@ describe('corner points and point-kind form removal', () => {
     const d = restoreDiagram(raw)
     expect(
       d.forms.length,
-      `both the 'point'-kind form is dropped and the corner point's form kept (got forms=[${d.forms.map((f) => f.id).join(',')}])`,
+      `both the 'point'-shape form is dropped and the corner point's form kept (got forms=[${d.forms.map((f) => f.id).join(',')}])`,
     ).toBe(2)
-    expect(d.forms.find((f) => f.id === 'PT4'), `'point'-kind form PT4 dropped`).toBeUndefined()
+    expect(d.forms.find((f) => f.id === 'PT4'), `'point'-shape form PT4 dropped`).toBeUndefined()
     const sq4 = d.forms.find((f) => f.id === 'SQ4')!
     expect(sq4.edges.top?.[0], `SQ4's side point survives`).toBe('PA4')
     expect(
@@ -165,8 +168,8 @@ describe('corner points and point-kind form removal', () => {
     const raw: Diagram = {
       schemaVersion: 1,
       forms: [
-        { id: 'RT1', kind: 'square', position: { x: 10, y: 20 }, edges: { top: ['RP1'], right: [], bottom: [], left: [] } },
-        { id: 'RT2', kind: 'circle', position: { x: 300, y: 20 }, edges: { up: [], right: [], down: [], left: ['RP2'] } },
+        { id: 'RT1', shape: 'square', position: { x: 10, y: 20 }, edges: { top: ['RP1'], right: [], bottom: [], left: [] } },
+        { id: 'RT2', shape: 'circle', position: { x: 300, y: 20 }, edges: { up: [], right: [], down: [], left: ['RP2'] } },
       ],
       points: {
         RP1: { id: 'RP1', shape: 'circle', name: 'x', formId: 'RT1', edgeKey: 'top' },
@@ -178,5 +181,110 @@ describe('corner points and point-kind form removal', () => {
     expect(JSON.stringify(restored), `a normal diagram with no removed shapes round-trips byte-for-byte unchanged`).toBe(JSON.stringify(raw))
     const restoredAgain = restoreDiagram(restored)
     expect(JSON.stringify(restoredAgain), `...and stays unchanged on a second restore (idempotent)`).toBe(JSON.stringify(restored))
+  })
+})
+
+// ── kind -> shape read shim (Phase C) ───────────────────────────────────
+// canonForm reads `f.shape ?? f.kind` — new field preferred, old accepted —
+// so every diagram saved before this rename keeps loading. Everything
+// WRITTEN from now on (JSON.stringify of a restored Diagram, e.g. via
+// share.ts's encodeDiagramToFragment or the DB autosave path) uses `shape`
+// only; there is no write-shim, and Form itself no longer has a `kind` field
+// at all (canonForm's own output is always `{ shape, ... }`).
+describe('io.ts kind -> shape read shim', () => {
+  it('a raw form with `shape` only (current format) loads correctly', () => {
+    const raw = {
+      schemaVersion: 1,
+      forms: [{ id: 'A', shape: 'triangle', position: { x: 0, y: 0 }, edges: { a: [], b: [], c: [] } }],
+      points: {}, lines: [],
+    }
+    const d = restoreDiagram(raw)
+    expect(d.forms[0].shape, `shape-only raw form loads with the right shape (got ${d.forms[0].shape})`).toBe('triangle')
+  })
+
+  it('a raw form with `kind` only (legacy format) loads correctly via the shim', () => {
+    const raw = {
+      schemaVersion: 1,
+      forms: [{ id: 'B', kind: 'rhombus', position: { x: 0, y: 0 }, edges: { 'top-right': [], 'bottom-right': [], 'bottom-left': [], 'top-left': [] } }],
+      points: {}, lines: [],
+    }
+    const d = restoreDiagram(raw)
+    expect(d.forms[0].shape, `kind-only raw form loads via the shim, landing on Form.shape (got ${d.forms[0].shape})`).toBe('rhombus')
+    expect('kind' in d.forms[0], `the restored Form carries no 'kind' field at all — only 'shape'`).toBe(false)
+  })
+
+  it('`shape` wins over `kind` when a raw form somehow carries both (new field preferred)', () => {
+    const raw = {
+      schemaVersion: 1,
+      forms: [{ id: 'C', shape: 'circle', kind: 'square', position: { x: 0, y: 0 }, edges: { up: [], right: [], down: [], left: [] } }],
+      points: {}, lines: [],
+    }
+    const d = restoreDiagram(raw)
+    expect(d.forms[0].shape, `shape ('circle') wins over the stale kind ('square') (got ${d.forms[0].shape})`).toBe('circle')
+  })
+
+  it("the legacy 'point'-shape drop still works via BOTH field spellings (dropRemovedShapes reads raw, pre-canon data)", () => {
+    const rawKindSpelling = {
+      schemaVersion: 1,
+      forms: [
+        { id: 'SQ5', kind: 'square', position: { x: 0, y: 0 }, edges: { top: ['PA5'] } },
+        { id: 'PT5', kind: 'point', position: { x: 300, y: 0 }, edges: { self: ['P15'] } },
+      ],
+      points: {
+        PA5: { id: 'PA5', shape: 'point', formId: 'SQ5', edgeKey: 'top' },
+        P15: { id: 'P15', shape: 'point', formId: 'PT5', edgeKey: 'self' },
+      },
+      lines: [],
+    }
+    const dKind = restoreDiagram(rawKindSpelling)
+    expect(dKind.forms.length, `old-spelling 'kind: point' form is dropped (got forms=[${dKind.forms.map((f) => f.id).join(',')}])`).toBe(1)
+    expect(dKind.forms[0].id, `only the surviving square remains`).toBe('SQ5')
+    expect(dKind.points.P15, `the dropped point-shape form's own point is gone too`).toBeUndefined()
+
+    const rawShapeSpelling = {
+      schemaVersion: 1,
+      forms: [
+        { id: 'SQ6', shape: 'square', position: { x: 0, y: 0 }, edges: { top: ['PA6'] } },
+        { id: 'PT6', shape: 'point', position: { x: 300, y: 0 }, edges: { self: ['P16'] } },
+      ],
+      points: {
+        PA6: { id: 'PA6', shape: 'point', formId: 'SQ6', edgeKey: 'top' },
+        P16: { id: 'P16', shape: 'point', formId: 'PT6', edgeKey: 'self' },
+      },
+      lines: [],
+    }
+    const dShape = restoreDiagram(rawShapeSpelling)
+    expect(dShape.forms.length, `new-spelling 'shape: point' form is ALSO dropped (got forms=[${dShape.forms.map((f) => f.id).join(',')}])`).toBe(1)
+    expect(dShape.forms[0].id, `only the surviving square remains`).toBe('SQ6')
+    expect(dShape.points.P16, `the dropped point-shape form's own point is gone too`).toBeUndefined()
+  })
+
+  it('DATA-PATH PROOF: a diagram saved pre-rename (raw `kind`) round-trips — load resolves the right shapes, and re-encoding (JSON.stringify, same as share.ts) writes `shape`, never `kind`', () => {
+    const legacySave = {
+      schemaVersion: 1,
+      forms: [
+        { id: 'L1', kind: 'triangle', position: { x: 0, y: 0 }, edges: { a: ['LP1'], b: [], c: [] } },
+        { id: 'L2', kind: 'empty', position: { x: 300, y: 0 }, edges: { self: ['LP2'] } },
+      ],
+      points: {
+        LP1: { id: 'LP1', shape: 'square', name: 'x', formId: 'L1', edgeKey: 'a' },
+        LP2: { id: 'LP2', shape: 'empty', formId: 'L2', edgeKey: 'self' },
+      },
+      lines: [{ id: 'LL1', source: 'LP1', targets: ['LP2'] }],
+    }
+    const loaded = restoreDiagram(legacySave)
+    expect(loaded.forms.find((f) => f.id === 'L1')?.shape, `loads the triangle's shape correctly from the legacy 'kind' field`).toBe('triangle')
+    expect(loaded.forms.find((f) => f.id === 'L2')?.shape, `loads the empty carrier's shape correctly from the legacy 'kind' field`).toBe('empty')
+
+    // Re-encode exactly like share.ts's encodeDiagramToFragment does
+    // (JSON.stringify(diagram)) — and like the autosave path persists to the
+    // DB. The output must carry `shape`, never `kind`.
+    const reencoded = JSON.stringify(loaded)
+    expect(reencoded.includes('"shape":"triangle"'), `re-encoded JSON writes the new field name 'shape' (got: ${reencoded})`).toBe(true)
+    expect(reencoded.includes('"kind"'), `re-encoded JSON carries NO 'kind' field anywhere — the shim is read-only, nothing writes the old name`).toBe(false)
+
+    // And it loads right back the same way, byte for byte.
+    const reloaded = restoreDiagram(JSON.parse(reencoded))
+    expect(JSON.stringify(reloaded), `the re-encoded (shape-only) save round-trips byte-for-byte through restoreDiagram again`).toBe(reencoded)
   })
 })

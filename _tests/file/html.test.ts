@@ -7,7 +7,7 @@ import { diagramToHtmlCore, diagramToHtml } from '../../components/editor/html'
 import type { Diagram, Form } from '../../components/editor/types'
 
 function bareSquare(id: string, position: { x: number; y: number }, extra: Partial<Form> = {}): Form {
-  return { id, kind: 'square', position, edges: {}, ...extra }
+  return { id, shape: 'square', position, edges: {}, ...extra }
 }
 
 const d: Diagram = {
@@ -21,11 +21,11 @@ const d: Diagram = {
 }
 const html = diagramToHtmlCore(d)
 
-// A lone circle-kind form (r = n/2 = 100) — shared by the viewBox-containment
+// A lone circle-shape form (r = n/2 = 100) — shared by the viewBox-containment
 // check and the stroke-width check below.
 const circleOnly: Diagram = {
   schemaVersion: 1,
-  forms: [{ id: 'C1', kind: 'circle', position: { x: 0, y: 0 }, edges: {} }],
+  forms: [{ id: 'C1', shape: 'circle', position: { x: 0, y: 0 }, edges: {} }],
   points: {},
   lines: [],
 }
@@ -103,7 +103,7 @@ describe('HTML/SVG exporter', () => {
   it('point-label side: TikZ anchor=east (label LEFT of the point) must become SVG text-anchor="end" (text ends at the point, extending left), not "start" — the two conventions are inverses', () => {
     const named: Diagram = {
       schemaVersion: 1,
-      forms: [{ id: 'N1', kind: 'square', position: { x: 0, y: 0 }, edges: { left: ['p1'] } }],
+      forms: [{ id: 'N1', shape: 'square', position: { x: 0, y: 0 }, edges: { left: ['p1'] } }],
       points: { p1: { id: 'p1', shape: 'circle', name: 'in', formId: 'N1', edgeKey: 'left' } },
       lines: [],
     }

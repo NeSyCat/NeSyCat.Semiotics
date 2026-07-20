@@ -62,7 +62,7 @@ function unrotateLocal(localX: number, localY: number, w: number, h: number, rot
 function nodeLocalFraction(
   flowX: number, flowY: number, node: Node, form: Form,
 ): { rx: number; ry: number; lx: number; ly: number; n: number } {
-  const geom = geometryFor(form.kind)
+  const geom = geometryFor(form.shape)
   const n = node.measured?.width ?? node.width ?? geom.nodeSize(form) * (form.scale ?? 1)
   const [lx, ly] = unrotateLocal(flowX - node.position.x, flowY - node.position.y, n, n, form.rotation ?? 0)
   return { rx: lx / n, ry: ly / n, lx, ly, n }
@@ -120,7 +120,7 @@ function resolveDropPoint(
     // the grid, not wherever the drop happened to end.
     const topLeft = { x: position.x - size / 2, y: position.y - size / 2 }
     const snapped = useStore.getState().gridEnabled
-      ? snapCenterPosition({ kind: 'empty', scale: undefined, edges: {} }, topLeft)
+      ? snapCenterPosition({ shape: 'empty', scale: undefined, edges: {} }, topLeft)
       : topLeft
     const newFormId = useStore.getState().addForm('empty', snapped)
     return useStore.getState().addPoint(newFormId, 'self') || null
@@ -128,7 +128,7 @@ function resolveDropPoint(
   const d = useStore.getState().diagram
   const targetForm = d.forms.find((f) => f.id === dropTarget.id)
   if (!targetForm) return null
-  const geom = geometryFor(targetForm.kind)
+  const geom = geometryFor(targetForm.shape)
   const { rx, ry } = nodeLocalFraction(position.x, position.y, dropTarget, targetForm)
   // Dropped in the center zone — that's the whole-form-selection region, not
   // point-creation territory, so this is a no-op, same as a center-zone
@@ -257,7 +257,7 @@ function ToolbarSprite() {
         {/* 'kind-hexagon' is NOT a Shape value (the vocabulary is just the 5
             in types.ts) — it survives here only as the generic decorative
             "shape" glyph used by the top-pill's Shape category icon and its
-            activeKindSymbol fallback below. */}
+            activeShapeSymbol fallback below. */}
         <symbol id="kind-hexagon" viewBox="0 0 24 24"><path d="M12 2.75 L20.011 7.375 L20.011 16.625 L12 21.25 L3.989 16.625 L3.989 7.375 Z" /></symbol>
         <symbol id="kind-circle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9.25" /></symbol>
         <symbol id="kind-rectangle" viewBox="0 0 24 24"><rect x="2.75" y="2.75" width="18.5" height="18.5" rx="0" ry="0" /></symbol>
@@ -282,15 +282,16 @@ const CATEGORIES: Array<{ key: string; label: string; content: React.ReactNode }
 ]
 
 // Second toolbar — the Shape rail. Every tile sets the shape of the SELECTED
-// POINT(S). For FORMS, only tiles with a `kind` are functional; the rest are
-// point-only placeholders. The rail covers the full Shape vocabulary
-// (types.ts) — 5 tiles, no disabled/legacy-only entries.
-const SHAPE_RAIL: Array<{ label: string; symbol: string; pshape: Shape; kind?: Shape }> = [
-  { label: 'Empty', symbol: 'kind-empty', pshape: 'empty', kind: 'empty' },
-  { label: 'Triangle', symbol: 'kind-triangle', pshape: 'triangle', kind: 'triangle' },
-  { label: 'Rhombus', symbol: 'kind-rhombus', pshape: 'rhombus', kind: 'rhombus' },
-  { label: 'Circle', symbol: 'kind-circle', pshape: 'circle', kind: 'circle' },
-  { label: 'Square', symbol: 'kind-rectangle', pshape: 'square', kind: 'square' },
+// POINT(S), and — since a point's glyph and a form's own shape share the
+// SAME Shape vocabulary (types.ts) — the SAME `shape` field also transforms
+// the selected FORM(S)/sets the create-tool default. The rail covers the
+// full 5-member vocabulary, no disabled/legacy-only entries.
+const SHAPE_RAIL: Array<{ label: string; symbol: string; shape: Shape }> = [
+  { label: 'Empty', symbol: 'kind-empty', shape: 'empty' },
+  { label: 'Triangle', symbol: 'kind-triangle', shape: 'triangle' },
+  { label: 'Rhombus', symbol: 'kind-rhombus', shape: 'rhombus' },
+  { label: 'Circle', symbol: 'kind-circle', shape: 'circle' },
+  { label: 'Square', symbol: 'kind-rectangle', shape: 'square' },
 ]
 
 // Second toolbar — the Color rail. Applies to the SELECTION (points > forms >
@@ -337,7 +338,11 @@ function swatchStyle(color: Color | null | undefined, active: boolean, size: num
 // Which toolbar tool/category is active is a UI preference, not diagram data —
 // persisted to localStorage (not the store/history) so it survives a reload
 // without becoming an undo step or part of the saved diagram.
-const ACTIVE_KIND_KEY = 'nesycat.editor.activeKind'
+// New key; ACTIVE_SHAPE_KEY_LEGACY is the pre-rename key ('activeKind') —
+// still read as a fallback so an existing user's saved tool selection
+// survives the rename, but nothing writes to it going forward.
+const ACTIVE_SHAPE_KEY = 'nesycat.editor.activeShape'
+const ACTIVE_SHAPE_KEY_LEGACY = 'nesycat.editor.activeKind'
 const ACTIVE_COLOR_KEY = 'nesycat.editor.activeColor'
 const ACTIVE_CATEGORY_KEY = 'nesycat.editor.activeCategory'
 
@@ -663,17 +668,17 @@ function Canvas({ topRight }: CanvasContentProps) {
   const [importOpen, setImportOpen] = useState(false)
   const { screenToFlowPosition, getNodes } = useReactFlow()
 
-  const [activeKind, setActiveKind] = useState<Shape>(() => {
-    const stored = readLocalStorage(ACTIVE_KIND_KEY)
-    return stored && SHAPE_RAIL.some((s) => s.kind === stored) ? (stored as Shape) : 'square'
+  const [activeShape, setActiveShape] = useState<Shape>(() => {
+    const stored = readLocalStorage(ACTIVE_SHAPE_KEY) ?? readLocalStorage(ACTIVE_SHAPE_KEY_LEGACY)
+    return stored && SHAPE_RAIL.some((s) => s.shape === stored) ? (stored as Shape) : 'square'
   })
   const [activeCategory, setActiveCategory] = useState<string>(() => {
     const stored = readLocalStorage(ACTIVE_CATEGORY_KEY)
     return stored != null && (stored === '' || CATEGORIES.some((c) => c.key === stored)) ? stored : 'shape'
   })
-  useEffect(() => { writeLocalStorage(ACTIVE_KIND_KEY, activeKind) }, [activeKind])
+  useEffect(() => { writeLocalStorage(ACTIVE_SHAPE_KEY, activeShape) }, [activeShape])
 
-  // The active color — the creation default, exactly like activeKind: new
+  // The active color — the creation default, exactly like activeShape: new
   // forms are born with it, and the Color rail edits it when nothing is
   // selected. null = the White default.
   const [activeColor, setActiveColor] = useState<Color | null>(() => {
@@ -696,7 +701,7 @@ function Canvas({ topRight }: CanvasContentProps) {
   }, [selectedPoints, diagram.points])
 
   // The top-pill Shape icon mirrors the active/selected form's shape.
-  const activeKindSymbol = SHAPE_RAIL.find((s) => s.kind === activeKind)?.symbol ?? 'kind-hexagon'
+  const activeShapeSymbol = SHAPE_RAIL.find((s) => s.shape === activeShape)?.symbol ?? 'kind-hexagon'
 
   // ── Build RF nodes from forms ──────────────────────────────────────
   const builtNodes: Node[] = useMemo(() => {
@@ -709,7 +714,7 @@ function Canvas({ topRight }: CanvasContentProps) {
       // DragHandleZone) — the ring is exclusively point-creation/line-pulling
       // territory. Kinds with no center zone (point/empty) keep the whole
       // node draggable, matching their existing "one shared region" model.
-      ...(geometryFor(form.kind).hasCenterZone ? { dragHandle: `.${DRAG_HANDLE_CLASS}` } : {}),
+      ...(geometryFor(form.shape).hasCenterZone ? { dragHandle: `.${DRAG_HANDLE_CLASS}` } : {}),
     }))
   }, [diagram])
 
@@ -799,8 +804,8 @@ function Canvas({ topRight }: CanvasContentProps) {
     // (nothing's been dropped on it) -> nothing to rename; blank + disabled.
     if (selectionTarget.kind === 'forms' && selectionTarget.ids.length === 1) {
       const form = diagram.forms.find((f) => f.id === selectionTarget.ids[0])
-      if (form?.kind === 'empty') {
-        const midId = pointIdsAt(form, geometryFor(form.kind).edgeKeys[0])[0]
+      if (form?.shape === 'empty') {
+        const midId = pointIdsAt(form, geometryFor(form.shape).edgeKeys[0])[0]
         if (!midId) return { value: '', placeholder: '', sig: 'empty:' + form.id, disabled: true }
         return { value: diagram.points[midId]?.name ?? '', placeholder: midId, sig: 'points:' + midId, disabled: false }
       }
@@ -822,8 +827,8 @@ function Canvas({ topRight }: CanvasContentProps) {
     if (!selectionTarget) return
     if (selectionTarget.kind === 'forms' && selectionTarget.ids.length === 1) {
       const form = diagram.forms.find((f) => f.id === selectionTarget.ids[0])
-      if (form?.kind === 'empty') {
-        const midId = pointIdsAt(form, geometryFor(form.kind).edgeKeys[0])[0]
+      if (form?.shape === 'empty') {
+        const midId = pointIdsAt(form, geometryFor(form.shape).edgeKeys[0])[0]
         if (midId) renamePoints([midId], value)
         return // no point yet -> the field is disabled, nothing to do
       }
@@ -894,10 +899,10 @@ function Canvas({ topRight }: CanvasContentProps) {
   // exactly the kind's own default — same SizableForm shape grid.ts's
   // snapCenterPosition expects.
   const createForm = useCallback(
-    (kind: Shape, center: { x: number; y: number }) => {
-      setActiveKind(kind)
-      const freshForm = { kind, scale: undefined, edges: {} }
-      const n = geometryFor(kind).nodeSize(freshForm as Form)
+    (shape: Shape, center: { x: number; y: number }) => {
+      setActiveShape(shape)
+      const freshForm = { shape, scale: undefined, edges: {} }
+      const n = geometryFor(shape).nodeSize(freshForm as Form)
       const topLeft = { x: center.x - n / 2, y: center.y - n / 2 }
       // Grid ON: snapCenterPosition re-derives the center from `topLeft` (as
       // topLeft + n/2, i.e. our original `center`) and snaps THAT — so
@@ -905,7 +910,7 @@ function Canvas({ topRight }: CanvasContentProps) {
       // not the top-left corner, while reusing the one snap definition
       // instead of duplicating it here.
       const position = gridEnabled ? snapCenterPosition(freshForm, topLeft) : topLeft
-      useStore.getState().addForm(kind, position, activeColor)
+      useStore.getState().addForm(shape, position, activeColor)
     },
     [activeColor, gridEnabled],
   )
@@ -913,19 +918,18 @@ function Canvas({ topRight }: CanvasContentProps) {
   // Click a Shape-rail tile. The SAME rail picks both point shapes and form
   // shapes, applied to the current selection:
   //   • point(s) selected → set their shape (any of the 5);
-  //   • else form(s) selected (and the tile is a form kind) → transform them;
+  //   • else form(s) selected → transform them;
   //   • else just set the active form tool (used by double-click / drag-create).
   const onPickShape = useCallback(
-    (entry: { kind?: Shape; pshape: Shape }) => {
+    (entry: { shape: Shape }) => {
       const pts = useStore.getState().selectedPoints
       if (pts.length > 0) {
-        useStore.getState().setPointsShape(pts, entry.pshape)
+        useStore.getState().setPointsShape(pts, entry.shape)
         return
       }
-      if (!entry.kind) return
-      setActiveKind(entry.kind)
+      setActiveShape(entry.shape)
       const ids = getNodes().filter((n) => n.selected).map((n) => n.id)
-      if (ids.length > 0) useStore.getState().setFormsKind(ids, entry.kind)
+      if (ids.length > 0) useStore.getState().setFormsShape(ids, entry.shape)
     },
     [getNodes],
   )
@@ -938,10 +942,10 @@ function Canvas({ topRight }: CanvasContentProps) {
   const onDrop = useCallback(
     (e: React.DragEvent) => {
       e.preventDefault()
-      const kind = e.dataTransfer.getData('application/form-kind') as Shape
-      if (!kind) return
+      const shape = e.dataTransfer.getData('application/form-shape') as Shape
+      if (!shape) return
       const flow = screenToFlowPosition({ x: e.clientX, y: e.clientY })
-      createForm(kind, flow) // flow IS the intended center; createForm derives top-left per-kind
+      createForm(shape, flow) // flow IS the intended center; createForm derives top-left per-shape
     },
     [screenToFlowPosition, createForm],
   )
@@ -953,13 +957,13 @@ function Canvas({ topRight }: CanvasContentProps) {
       const now = Date.now()
       if (now - lastPaneClickRef.current < 350) {
         const flow = screenToFlowPosition({ x: event.clientX, y: event.clientY })
-        createForm(activeKind, flow) // flow IS the intended center; createForm derives top-left per-kind
+        createForm(activeShape, flow) // flow IS the intended center; createForm derives top-left per-shape
         lastPaneClickRef.current = 0
         return
       }
       lastPaneClickRef.current = now
     },
-    [screenToFlowPosition, clearSelection, createForm, activeKind],
+    [screenToFlowPosition, clearSelection, createForm, activeShape],
   )
 
   // Selecting form(s) clears any selected point (the other half of exclusivity).
@@ -969,7 +973,7 @@ function Canvas({ topRight }: CanvasContentProps) {
     // reflect the selected form's shape in the active tool (and so the top pill)
     if (sel.length === 1) {
       const form = useStore.getState().diagram.forms.find((f) => f.id === sel[0].id)
-      if (form) setActiveKind(form.kind)
+      if (form) setActiveShape(form.shape)
     }
   }, [])
 
@@ -1068,7 +1072,7 @@ function Canvas({ topRight }: CanvasContentProps) {
     const d = useStore.getState().diagram
     const form = d.forms.find((f) => f.id === node.id)
     if (!form) return
-    const geom = geometryFor(form.kind)
+    const geom = geometryFor(form.shape)
     const { rx, ry } = formLocalPoint(event, node, form)
     if (!geom.hasCenterZone || isInCenterZone(geom.body, rx, ry)) return
     setNodes((nds) => (nds.some((n) => n.selected) ? nds.map((n) => (n.selected ? { ...n, selected: false } : n)) : nds))
@@ -1081,7 +1085,7 @@ function Canvas({ topRight }: CanvasContentProps) {
     const d = useStore.getState().diagram
     const form = d.forms.find((f) => f.id === node.id)
     if (!form) return
-    const geom = geometryFor(form.kind)
+    const geom = geometryFor(form.shape)
     const { rx, ry } = formLocalPoint(event, node, form)
     if (geom.hasCenterZone && isInCenterZone(geom.body, rx, ry)) return
     const edgeKey = geom.edgeAt(clamp01(rx), clamp01(ry))
@@ -1102,7 +1106,7 @@ function Canvas({ topRight }: CanvasContentProps) {
     const d = useStore.getState().diagram
     const form = d.forms.find((f) => f.id === node.id)
     if (!form) return
-    const geom = geometryFor(form.kind)
+    const geom = geometryFor(form.shape)
 
     // A point's name label extends outward by a variable amount (its own
     // rendered text width) — no fixed proximity radius around the anchor can
@@ -1229,7 +1233,7 @@ function Canvas({ topRight }: CanvasContentProps) {
       if (node.type !== 'form') continue
       const form = diagram.forms.find((f) => f.id === node.id)
       if (!form) continue
-      const geom = geometryFor(form.kind)
+      const geom = geometryFor(form.shape)
       const n = node.measured?.width ?? node.width ?? geom.nodeSize(form) * (form.scale ?? 1)
       const band = geom.hasCenterZone ? (n * (1 - CENTER_SHRINK)) / 2 : n / 2
       if (band > maxBand) maxBand = band
@@ -1368,7 +1372,7 @@ function Canvas({ topRight }: CanvasContentProps) {
               onClick={() => setActiveCategory((c) => (c === cat.key ? '' : cat.key))}
             >
               {cat.key === 'shape'
-                ? <svg aria-hidden="true"><use href={`#${activeKindSymbol}`} /></svg>
+                ? <svg aria-hidden="true"><use href={`#${activeShapeSymbol}`} /></svg>
                 : cat.key === 'color'
                   ? <span style={swatchStyle(selectionTarget ? (colorInfo.isShared ? colorInfo.shared : undefined) : activeColor, cat.key === activeCategory, 16)} />
                   : cat.content}
@@ -1382,18 +1386,17 @@ function Canvas({ topRight }: CanvasContentProps) {
         <div style={{ position: 'absolute', top: 70, left: 'calc(50% + (var(--sidebar-offset, 0px) / 2))', transform: 'translateX(-50%)', zIndex: 10, transition: 'left 200ms' }}>
           <div className="pill editor-pill" role="group" aria-label="Shape">
             {SHAPE_RAIL.map((s) => {
-              const active = selectedPoints.length > 0 ? s.pshape === selectedPointShape : s.kind === activeKind
+              const active = selectedPoints.length > 0 ? s.shape === selectedPointShape : s.shape === activeShape
               return (
                 <button
                   key={s.label}
                   className={`btn btn-icon${active ? ' is-active' : ''}`}
                   title={selectedPoints.length > 0
                     ? `${s.label} point`
-                    : s.kind ? `${s.label} — apply to selected form, or drag onto canvas to create` : s.label}
-                  draggable={!!s.kind}
+                    : `${s.label} — apply to selected form, or drag onto canvas to create`}
+                  draggable
                   onDragStart={(e) => {
-                    if (!s.kind) { e.preventDefault(); return }
-                    e.dataTransfer.setData('application/form-kind', s.kind)
+                    e.dataTransfer.setData('application/form-shape', s.shape)
                     e.dataTransfer.effectAllowed = 'copy'
                   }}
                   onClick={() => onPickShape(s)}
@@ -1415,7 +1418,7 @@ function Canvas({ topRight }: CanvasContentProps) {
             {COLOR_RAIL.map((c) => {
               // With a selection, the rail reflects its shared color; without
               // one it reflects the active (creation-default) color — same
-              // split as the Shape rail's selectedPointShape/activeKind.
+              // split as the Shape rail's selectedPointShape/activeShape.
               const active = selectionTarget
                 ? colorInfo.isShared && sameColor(colorInfo.shared, c.color)
                 : sameColor(activeColor, c.color)

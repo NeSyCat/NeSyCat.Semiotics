@@ -1,4 +1,4 @@
-// Test suite for the simplified 'empty' FormKind — capacity reuse
+// Test suite for the simplified 'empty' Form shape — capacity reuse
 // (mutations.ts's addPoint), the constant-center anchor (forms.ts's
 // emptyGeometry), and the old-diagram collapse (io.ts's restoreDiagram).
 // Runs under Vitest:
@@ -12,11 +12,11 @@ import { useStore, initStore } from '../../components/editor/store'
 import { restoreDiagram } from '../../components/editor/io'
 import type { Diagram, Form } from '../../components/editor/types'
 
-function bareForm(id: string, kind: Form['kind'], extra: Partial<Form> = {}): Form {
-  return { id, kind, position: { x: 0, y: 0 }, edges: {}, ...extra }
+function bareForm(id: string, shape: Form['shape'], extra: Partial<Form> = {}): Form {
+  return { id, shape, position: { x: 0, y: 0 }, edges: {}, ...extra }
 }
 
-describe("'empty' FormKind", () => {
+describe("'empty' Form shape", () => {
   it('mutations.addPoint — capacity reuse (many drops, one point)', () => {
     const d: Diagram = { schemaVersion: 1, forms: [bareForm('E1', 'empty')], points: {}, lines: [] }
 
@@ -123,7 +123,7 @@ describe("'empty' FormKind", () => {
     ).toBe(0)
   })
 
-  it('mutations.addForm — seeds the middle point for capacity-bearing kinds', () => {
+  it('mutations.addForm — seeds the middle point for capacity-bearing shapes', () => {
     // (the ticket's "when I drag an empty form onto the canvas it should
     // already have a name point" request), in ONE returned Diagram — one undo
     // step covers form + point together.
@@ -142,7 +142,7 @@ describe("'empty' FormKind", () => {
       `the seeded point is attached to the new form's 'self' edge (got formId=${seededPoint?.formId}, edgeKey=${seededPoint?.edgeKey})`,
     ).toBe(true)
 
-    // (ii) addForm for a kind with no maxPoints (e.g. 'square') seeds nothing.
+    // (ii) addForm for a shape with no maxPoints (e.g. 'square') seeds nothing.
     const [d2, formId2] = addForm(empty, 'square', { x: 0, y: 0 })
     const form2 = d2.forms.find((f) => f.id === formId2)!
     const squareEdgeCounts = Object.values(form2.edges).map((l) => l.length)
@@ -186,7 +186,7 @@ describe("'empty' FormKind", () => {
     ).toBe(1)
   })
 
-  // Canvas.tsx per-kind centering (createForm) — NOT independently tested
+  // Canvas.tsx per-shape centering (createForm) — NOT independently tested
   // here. createForm is a client-component-local useCallback, not an exported
   // pure function, and Canvas.tsx itself can't be imported headless under the
   // Vitest node environment (it pulls in '@xyflow/react/dist/style.css' and
@@ -195,11 +195,11 @@ describe("'empty' FormKind", () => {
   // throws `Unexpected token '.'` on the CSS import before any of createForm's
   // own logic runs). Extracting a standalone pure helper was out of scope for
   // this ticket's write set (Canvas.tsx's own math was kept small and read
-  // literally: n = geometryFor(kind).nodeSize(freshForm), position = center -
+  // literally: n = geometryFor(shape).nodeSize(freshForm), position = center -
   // n/2, then the EXISTING snapCenterPosition is reused unmodified for the
   // grid-on case — see the comments at createForm's definition). This
   // composition was instead verified live in the browser (rail-drag +
-  // double-click for both 'empty' and a 200px kind) — see the task report,
+  // double-click for both 'empty' and a 200px shape) — see the task report,
   // not this file.
 
   it('INVARIANT: an empty form never exists without its middle point', () => {

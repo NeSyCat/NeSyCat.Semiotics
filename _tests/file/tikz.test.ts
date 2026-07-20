@@ -17,7 +17,7 @@ function emptyDiagram(): Diagram {
 
 // A bare 200x200 square form (no points attached) — the default nodeSize.
 function bareSquare(id: string, position: { x: number; y: number }, extra: Partial<Form> = {}): Form {
-  return { id, kind: 'square', position, edges: {}, ...extra }
+  return { id, shape: 'square', position, edges: {}, ...extra }
 }
 
 describe('TikZ exporter', () => {
@@ -32,7 +32,7 @@ describe('TikZ exporter', () => {
     {
       // A bare square (n=200) at raw position (137,212): center = (237, 312) ->
       // snaps to (250, 300) -> position = center - n/2 = (150, 200).
-      const snapped = snapCenterPosition({ kind: 'square', scale: undefined, edges: {} }, { x: 137, y: 212 })
+      const snapped = snapCenterPosition({ shape: 'square', scale: undefined, edges: {} }, { x: 137, y: 212 })
       expect(
         snapped.x === 150 && snapped.y === 200,
         'snapCenterPosition (form-aware) matches raw snapPoint result for a bare 200px square',
@@ -41,7 +41,7 @@ describe('TikZ exporter', () => {
   })
 
   it('Test 1: a grid-snapped square exports 0.5-multiple cm coordinates', () => {
-    const position = snapCenterPosition({ kind: 'square', scale: undefined, edges: {} }, { x: 683, y: -419 })
+    const position = snapCenterPosition({ shape: 'square', scale: undefined, edges: {} }, { x: 683, y: -419 })
     const d = emptyDiagram()
     d.forms.push(bareSquare('SQ', position))
     const tikz = diagramToTikzCore(d)

@@ -3,7 +3,7 @@
 // Pure geometry + string generation — NO DOM, no React, so the core runs in
 // plain node (see _tests/file/tikz.test.ts, `npx tsx _tests/file/tikz.test.ts`).
 // Deliberately re-derives the SAME numbers FormNode.tsx renders on screen
-// (same n = geometryFor(kind).nodeSize(form)*(scale??1), same
+// (same n = geometryFor(form.shape).nodeSize(form)*(scale??1), same
 // geom.pointAnchor, same rotation) rather than any independent geometry, so
 // the exported picture matches what's actually on the canvas.
 //
@@ -58,7 +58,7 @@ interface FormLayout {
 }
 
 function layoutForm(form: Form): FormLayout {
-  const geom = geometryFor(form.kind)
+  const geom = geometryFor(form.shape)
   const n = geom.nodeSize(form) * (form.scale ?? 1)
   const center = { x: form.position.x + n / 2, y: form.position.y + n / 2 }
   const rotation = form.rotation ?? 0
@@ -77,7 +77,7 @@ export function formCenterPx(form: Form): Vec {
 // plain circle (center + radius n/2 — rotation-invariant, so no vertex list
 // is needed for those).
 export function formBodyVerticesPx(form: Form): Vec[] | null {
-  const geom = geometryFor(form.kind)
+  const geom = geometryFor(form.shape)
   if (geom.body.type !== 'polygon') return null
   const { n, toAbs } = layoutForm(form)
   return geom.body.pointsFrac.map(([fx, fy]) => toAbs({ x: fx * n, y: fy * n }))
@@ -102,7 +102,7 @@ export function pointPositionsPx(diagram: Diagram): Map<string, PointPx> {
   const out = new Map<string, PointPx>()
   for (const form of diagram.forms) {
     const layout = layoutForm(form)
-    const geom = geometryFor(form.kind)
+    const geom = geometryFor(form.shape)
     for (const edgeKey of geom.edgeKeys) {
       const ids = pointIdsAt(form, edgeKey)
       ids.forEach((pid, index) => {
@@ -187,7 +187,7 @@ function buildPointCmds(pt: Point, px: PointPx, cmds: DrawCmd[]) {
 }
 
 function buildFormCmds(form: Form, cmds: DrawCmd[]) {
-  const geom = geometryFor(form.kind)
+  const geom = geometryFor(form.shape)
   if (geom.bodyOpacity <= 0) return // 'empty' — an invisible carrier, nothing to draw
   const layout = layoutForm(form)
   const body: Body = geom.body
@@ -365,7 +365,7 @@ export function buildDrawCmds(diagram: Diagram): DrawCmd[] {
 
   const positions = pointPositionsPx(diagram)
   for (const form of diagram.forms) {
-    const geom = geometryFor(form.kind)
+    const geom = geometryFor(form.shape)
     for (const edgeKey of geom.edgeKeys) {
       pointIdsAt(form, edgeKey).forEach((pid) => {
         const pt = diagram.points[pid]

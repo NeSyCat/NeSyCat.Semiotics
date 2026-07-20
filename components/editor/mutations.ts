@@ -5,9 +5,9 @@ import { geometryFor } from './forms'
 // All pure: take a Diagram, return a new Diagram (+ new id where relevant).
 // The store snapshots each result into history (one entry per call).
 
-// Fresh, empty edges for a kind — every side starts as [].
-function emptySlots(kind: Shape): { edges: Record<EdgeKey, string[]> } {
-  const geom = geometryFor(kind)
+// Fresh, empty edges for a shape — every side starts as [].
+function emptySlots(shape: Shape): { edges: Record<EdgeKey, string[]> } {
+  const geom = geometryFor(shape)
   const edges: Record<EdgeKey, string[]> = {}
   for (const k of geom.edgeKeys) edges[k] = []
   return { edges }
@@ -21,19 +21,19 @@ function allFormPointIds(form: Form): Set<string> {
 }
 
 // ── Forms ────────────────────────────────────────────────────────────
-export function addForm(d: Diagram, kind: Shape, position: { x: number; y: number }, color?: Color | null): [Diagram, string] {
+export function addForm(d: Diagram, shape: Shape, position: { x: number; y: number }, color?: Color | null): [Diagram, string] {
   const id = newFormId(d)
-  const form: Form = { id, kind, position, ...(color ? { color } : {}), ...emptySlots(kind) }
+  const form: Form = { id, shape, position, ...(color ? { color } : {}), ...emptySlots(shape) }
   const withForm: Diagram = { ...d, forms: [...d.forms, form] }
-  // Kinds whose geometry declares a per-edge capacity (forms.ts's
+  // Shapes whose geometry declares a per-edge capacity (forms.ts's
   // maxPoints — only 'empty' today) start life WITH that point already
   // attached, in the same returned Diagram: the middle point IS the form
   // (emptyGeometry's own comment), so it should exist the moment the form
   // does rather than waiting for a second gesture/history entry. Reuses
   // addPoint itself so id-generation, shape defaults, and capacity all stay
   // defined in exactly one place; the first edge key is the only one a
-  // capacity-bearing kind has.
-  const geom = geometryFor(kind)
+  // capacity-bearing shape has.
+  const geom = geometryFor(shape)
   if (geom.maxPoints !== undefined) {
     const edgeKey = geom.edgeKeys[0]
     if (edgeKey !== undefined) {
@@ -74,21 +74,21 @@ export function renameForms(d: Diagram, ids: string[], name: string): Diagram {
   return { ...d, forms: d.forms.map((f) => (set.has(f.id) ? { ...f, name: nm } : f)) }
 }
 
-// Transform a form to a new kind. Edge keys differ per kind, so the form's
+// Transform a form to a new shape. Edge keys differ per shape, so the form's
 // points can't be carried over — they (and lines touching them) are dropped.
-export function setFormKind(d: Diagram, id: string, kind: Shape): Diagram {
+export function setFormShape(d: Diagram, id: string, shape: Shape): Diagram {
   const form = d.forms.find((f) => f.id === id)
-  if (!form || form.kind === kind) return d
+  if (!form || form.shape === shape) return d
   const ptIds = allFormPointIds(form)
   const points = { ...d.points }
   for (const pid of ptIds) delete points[pid]
-  const forms = d.forms.map((f) => (f.id === id ? { ...f, kind, ...emptySlots(kind) } : f))
+  const forms = d.forms.map((f) => (f.id === id ? { ...f, shape, ...emptySlots(shape) } : f))
   return { ...d, forms, points, lines: pruneLines(d.lines, ptIds) }
 }
 
-export function setFormsKind(d: Diagram, ids: string[], kind: Shape): Diagram {
+export function setFormsShape(d: Diagram, ids: string[], shape: Shape): Diagram {
   let out = d
-  for (const id of ids) out = setFormKind(out, id, kind)
+  for (const id of ids) out = setFormShape(out, id, shape)
   return out
 }
 
@@ -120,7 +120,7 @@ export function setFormsColor(d: Diagram, ids: string[], color: Color | null): D
 export function addPoint(d: Diagram, formId: string, edgeKey: EdgeKey, shape: Shape = 'empty', index?: number): [Diagram, string] {
   const form = d.forms.find((f) => f.id === formId)
   if (!form) return [d, '']
-  const geom = geometryFor(form.kind)
+  const geom = geometryFor(form.shape)
   // A side with a geometry-declared capacity (forms.ts's maxPoints — only
   // 'empty' sets one, for its single middle point): a drop on a full
   // 'empty' form should still CONNECT — it's the same shared point every
@@ -141,11 +141,11 @@ export function addPoint(d: Diagram, formId: string, edgeKey: EdgeKey, shape: Sh
 export function removePoint(d: Diagram, pointId: string): Diagram {
   const pt = d.points[pointId]
   if (!pt) return d
-  // A capacity-1 kind ('empty') IS its middle point — the form must never
+  // A capacity-1 shape ('empty') IS its middle point — the form must never
   // exist without it, so deleting the point deletes the whole form
   // (deleteForm also prunes the point's lines, same as any form removal).
   const owner = d.forms.find((f) => f.id === pt.formId)
-  if (owner && geometryFor(owner.kind).maxPoints !== undefined) {
+  if (owner && geometryFor(owner.shape).maxPoints !== undefined) {
     return deleteForm(d, owner.id)
   }
   const forms = d.forms.map((f) =>
@@ -244,7 +244,7 @@ export function setLinesColor(d: Diagram, ids: string[], color: Color | null): D
 
 // ── Helpers ──────────────────────────────────────────────────────────
 // Exported so io.ts's restoreDiagram can reuse the same dedupe+degenerate-
-// drop logic when drop-silently pruning corner points / 'point'-kind forms
+// drop logic when drop-silently pruning corner points / 'point'-shape forms
 // on load.
 export function pruneLines(lines: Line[], removed: Set<string>): Line[] {
   return lines

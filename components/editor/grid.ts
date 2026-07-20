@@ -26,22 +26,22 @@ export function snapPoint(p: { x: number; y: number }): { x: number; y: number }
   return { x: snapCoord(p.x), y: snapCoord(p.y) }
 }
 
-// The subset of Form that nodeSize() actually reads (forms.ts): every kind's
-// nodeSize looks only at .kind (via geometryFor) and .edges (point counts
-// per side, for the ROW_HEIGHT growth); 'empty' ignores edges' contents
-// entirely. A form-shaped object missing id/position (e.g. one that doesn't
-// exist yet, mid double-click creation) is a valid input here.
-export type SizableForm = Pick<Form, 'kind' | 'scale' | 'edges'>
+// The subset of Form that nodeSize() actually reads (forms.ts): every
+// shape's nodeSize looks only at .shape (via geometryFor) and .edges (point
+// counts per side, for the ROW_HEIGHT growth); 'empty' ignores edges'
+// contents entirely. A form-shaped object missing id/position (e.g. one that
+// doesn't exist yet, mid double-click creation) is a valid input here.
+export type SizableForm = Pick<Form, 'shape' | 'scale' | 'edges'>
 
 // Snaps a form's CENTER — position + n/2, per FormNode.tsx's own n and
-// FormNode's rendering (n = geometryFor(kind).nodeSize(form) * (scale ?? 1))
+// FormNode's rendering (n = geometryFor(shape).nodeSize(form) * (scale ?? 1))
 // — to the nearest grid intersection, returning the corresponding top-left
 // `position`. A form is stored/positioned by its top-left corner, but node
-// size varies per kind/scale/point-count, so the top-left itself is a moving
+// size varies per shape/scale/point-count, so the top-left itself is a moving
 // target; the center is the one stable thing that visually lands on a grid
 // dot, quiver-style.
 export function snapCenterPosition(form: SizableForm, position: { x: number; y: number }): { x: number; y: number } {
-  const n = geometryFor(form.kind).nodeSize(form as Form) * (form.scale ?? 1)
+  const n = geometryFor(form.shape).nodeSize(form as Form) * (form.scale ?? 1)
   const center = snapPoint({ x: position.x + n / 2, y: position.y + n / 2 })
   return { x: center.x - n / 2, y: center.y - n / 2 }
 }

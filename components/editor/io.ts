@@ -12,14 +12,24 @@ import { pruneLines } from './mutations'
 //
 // Two deliberate breaking data-model simplifications, DROPPED SILENTLY (no
 // migration): forms no longer have corner (vertex) slots — only side/arc
-// points — and the 'point' FormKind (a standalone dot-bodied form) no longer
-// exists. A raw diagram saved under the old model may still carry corner
-// points (an old `corners` map, or a point whose edgeKey looks like
-// 'v0'/'v1'/…) and whole 'point'-kind forms; dropRemovedShapes below strips
+// points — and the 'point' FormShape (a standalone dot-bodied form) no
+// longer exists. A raw diagram saved under the old model may still carry
+// corner points (an old `corners` map, or a point whose edgeKey looks like
+// 'v0'/'v1'/…) and whole 'point'-shape forms; dropRemovedShapes below strips
 // both, along with the Points they owned and any Lines that referenced them
 // (via mutations.ts's pruneLines — same dedupe+degenerate-drop logic the
 // empty-form collapse below uses). Runs BEFORE canonForm/canonPoint so
-// geometryFor never sees the no-longer-valid 'point' kind.
+// geometryFor never sees the no-longer-valid 'point' shape.
+//
+// READ SHIM (Phase C, kind -> shape rename): a Form's shape field used to be
+// called `kind`. Saved diagrams (DB jsonb, share-link fragments) may still
+// carry the old field name — canonForm below reads `f.shape ?? f.kind` (new
+// field preferred, old accepted) so every pre-existing save keeps loading.
+// dropRemovedShapes runs on RAW pre-canon data (before that fallback ever
+// applies), so its own 'point'-shape-drop check reads both f.shape and
+// f.kind directly — an old save uses `kind`, a save written from now on uses
+// `shape`. Everything WRITTEN from here on uses `shape` only; there is no
+// corresponding write-shim.
 
 const FALLBACK_COLOR: Color = [52 / 255, 120 / 255, 246 / 255]
 const VALID_SHAPES = new Set<string>(SHAPES)
@@ -31,8 +41,10 @@ function asColor(c: unknown): Color {
 
 function canonForm(f: Record<string, unknown>): Form {
   const pos = (f.position ?? {}) as { x?: unknown; y?: unknown }
-  const kind = f.kind as Form['kind']
-  const geom = geometryFor(kind)
+  // Shim: prefer the new `shape` field; fall back to the legacy `kind` field
+  // for diagrams saved before this rename (see the module-level comment above).
+  const shape = (f.shape ?? f.kind) as Form['shape']
+  const geom = geometryFor(shape)
   const rawEdges = (f.edges as Record<string, string[]>) ?? {}
   const edges: Record<string, string[]> = {}
   for (const k of geom.edgeKeys) {
@@ -40,7 +52,7 @@ function canonForm(f: Record<string, unknown>): Form {
   }
   return {
     id: String(f.id),
-    kind,
+    shape,
     ...(f.name !== undefined ? { name: String(f.name) } : {}),
     ...(f.color != null ? { color: asColor(f.color) } : {}),
     ...(f.rotation != null ? { rotation: Number(f.rotation) } : {}),
@@ -85,13 +97,20 @@ function canonLine(l: Record<string, unknown>): Line {
 const CORNER_KEY_RE = /^v\d+$/
 
 // Strips the two removed shapes from RAW (pre-canon) form/point data — whole
-// 'point'-kind forms, and corner points on any surviving form — BEFORE
-// canonForm ever runs (canonForm calls geometryFor(kind), which would throw
-// on the no-longer-registered 'point' kind). Returns the surviving raw
+// 'point'-shape forms, and corner points on any surviving form — BEFORE
+// canonForm ever runs (canonForm calls geometryFor(shape), which would throw
+// on the no-longer-registered 'point' shape). Returns the surviving raw
 // forms/points plus the full set of dropped point ids, so restoreDiagram can
 // prune Lines against that same set (mutations.ts's pruneLines) once
 // everything else is canonicalized. Idempotent: a diagram with no corner
-// points or 'point'-kind forms passes through with an empty removed set.
+// points or 'point'-shape forms passes through with an empty removed set.
+//
+// This runs on RAW data, before canonForm's `f.shape ?? f.kind` shim ever
+// applies — so the 'point'-shape check below must itself check BOTH
+// spellings: an old save wrote `kind: 'point'`, a save written after this
+// rename would write `shape: 'point'` (moot in practice, since 'point' is no
+// longer offered anywhere in the UI, but the check stays symmetric with the
+// canonForm shim rather than assuming which field an old save used).
 function dropRemovedShapes(
   rawForms: Record<string, unknown>[], rawPoints: Record<string, unknown>,
 ): { forms: Record<string, unknown>[]; points: Record<string, unknown>; removedPointIds: Set<string> } {
@@ -106,7 +125,7 @@ function dropRemovedShapes(
 
   const survivingForms: Record<string, unknown>[] = []
   for (const f of rawForms) {
-    if (f.kind === 'point') { collectOwnedPointIds(f); continue } // whole form dropped
+    if (f.shape === 'point' || f.kind === 'point') { collectOwnedPointIds(f); continue } // whole form dropped
     // A surviving form's old `corners` map is dropped the same way — just
     // the points it names, not the form itself.
     const corners = (f.corners as Record<string, string | undefined>) ?? {}
@@ -141,8 +160,8 @@ function collapseEmptyForms(
   let droppedForm = false
   const nextForms: Form[] = []
   for (const f of forms) {
-    if (f.kind !== 'empty') { nextForms.push(f); continue }
-    const edgeKey = geometryFor(f.kind).edgeKeys[0]
+    if (f.shape !== 'empty') { nextForms.push(f); continue }
+    const edgeKey = geometryFor(f.shape).edgeKeys[0]
     const ids = f.edges[edgeKey] ?? []
     // An empty form IS its middle point — one without any point (a save
     // from before creation seeded it) is an invisible, connectionless

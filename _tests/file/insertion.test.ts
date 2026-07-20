@@ -13,8 +13,8 @@ function emptyDiagram(): Diagram {
   return { schemaVersion: 1, forms: [], points: {}, lines: [] }
 }
 
-function bareForm(id: string, kind: Form['kind'], extra: Partial<Form> = {}): Form {
-  return { id, kind, position: { x: 0, y: 0 }, edges: {}, ...extra }
+function bareForm(id: string, shape: Form['shape'], extra: Partial<Form> = {}): Form {
+  return { id, shape, position: { x: 0, y: 0 }, edges: {}, ...extra }
 }
 
 describe('gesture-driven point insertion', () => {

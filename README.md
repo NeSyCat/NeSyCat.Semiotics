@@ -8,7 +8,7 @@ sign in with GitHub and start drawing.
 
 ## What you can draw
 
-| Kind       | Role in the diagram                                                  |
+| Shape      | Role in the diagram                                                  |
 | ---------- | -------------------------------------------------------------------- |
 | Empty      | Anonymous carrier — a labelled stub with a single side point.        |
 | Point      | A named port on a shape's side (left / right / center, top / bottom).|
@@ -33,8 +33,8 @@ pick the shape.
 | Click `+` on a node side  | Point         |
 | Drag point → point        | Line          |
 
-The Kinds menu in the upper-left shows the same cheat sheet and lets you
-toggle visibility per kind.
+The Shapes menu in the upper-left shows the same cheat sheet and lets you
+toggle visibility per shape.
 
 ## Editing
 
