@@ -25,16 +25,17 @@ export function addForm(d: Diagram, shape: Shape, position: { x: number; y: numb
   const id = newFormId(d)
   const form: Form = { id, shape, position, ...(color ? { color } : {}), ...emptySlots(shape) }
   const withForm: Diagram = { ...d, forms: [...d.forms, form] }
-  // Shapes whose geometry declares a per-edge capacity (forms.ts's
-  // maxPoints — only 'empty' today) start life WITH that point already
-  // attached, in the same returned Diagram: the middle point IS the form
-  // (emptyGeometry's own comment), so it should exist the moment the form
-  // does rather than waiting for a second gesture/history entry. Reuses
-  // addPoint itself so id-generation, shape defaults, and capacity all stay
-  // defined in exactly one place; the first edge key is the only one a
-  // capacity-bearing shape has.
+  // Shapes whose geometry declares pointIsForm (forms.ts's flag — only
+  // 'empty' today) start life WITH that point already attached, in the same
+  // returned Diagram: the middle point IS the form (emptyGeometry's own
+  // comment), so it should exist the moment the form does rather than
+  // waiting for a second gesture/history entry. Reuses addPoint itself so
+  // id-generation, shape defaults, and capacity all stay defined in exactly
+  // one place; the first edge key is the only one a pointIsForm shape has.
+  // A shape with an ordinary OPTIONAL capacity-1 slot (triangle's peak) is
+  // NOT seeded here — pointIsForm, not edgeCapacity, decides seeding.
   const geom = geometryFor(shape)
-  if (geom.maxPoints !== undefined) {
+  if (geom.pointIsForm) {
     const edgeKey = geom.edgeKeys[0]
     if (edgeKey !== undefined) {
       const [seeded] = addPoint(withForm, id, edgeKey)
@@ -121,13 +122,14 @@ export function addPoint(d: Diagram, formId: string, edgeKey: EdgeKey, shape: Sh
   const form = d.forms.find((f) => f.id === formId)
   if (!form) return [d, '']
   const geom = geometryFor(form.shape)
-  // A side with a geometry-declared capacity (forms.ts's maxPoints — only
-  // 'empty' sets one, for its single middle point): a drop on a full
-  // 'empty' form should still CONNECT — it's the same shared point every
-  // wire runs to. So reuse the existing id instead of refusing.
-  if (geom.maxPoints !== undefined) {
+  // An edge with a geometry-declared capacity (forms.ts's edgeCapacity —
+  // 'empty's self, or triangle's peak): a drop on a full edge should still
+  // CONNECT — it's the same shared point every wire runs to. So reuse the
+  // existing id instead of refusing.
+  const capacity = geom.edgeCapacity?.[edgeKey]
+  if (capacity !== undefined) {
     const list = form.edges[edgeKey] ?? []
-    if (list.length >= geom.maxPoints) return [d, list[0]]
+    if (list.length >= capacity) return [d, list[0]]
   }
   const id = newPointId(d)
   const point: Point = { id, shape, formId, edgeKey }
@@ -141,11 +143,14 @@ export function addPoint(d: Diagram, formId: string, edgeKey: EdgeKey, shape: Sh
 export function removePoint(d: Diagram, pointId: string): Diagram {
   const pt = d.points[pointId]
   if (!pt) return d
-  // A capacity-1 shape ('empty') IS its middle point — the form must never
+  // A pointIsForm shape ('empty') IS its middle point — the form must never
   // exist without it, so deleting the point deletes the whole form
   // (deleteForm also prunes the point's lines, same as any form removal).
+  // A capacity-1 edge WITHOUT pointIsForm (triangle's peak) is an ordinary
+  // optional slot instead — falls through to the normal single-point
+  // removal below, leaving the form intact.
   const owner = d.forms.find((f) => f.id === pt.formId)
-  if (owner && geometryFor(owner.shape).maxPoints !== undefined) {
+  if (owner && geometryFor(owner.shape).pointIsForm) {
     return deleteForm(d, owner.id)
   }
   const forms = d.forms.map((f) =>

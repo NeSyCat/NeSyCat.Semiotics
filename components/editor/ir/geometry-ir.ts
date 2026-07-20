@@ -19,7 +19,7 @@
 //   2. Backend-specific unit conversion (px -> TikZ cm, or raw px for SVG)
 //      happens downstream, in each backend module — not here.
 
-import { geometryFor, pointIdsAt, type Body } from '../domain/forms'
+import { geometryFor, pointIdsAt, POINT_SIZE, type Body } from '../domain/forms'
 import type { Diagram, Form, Point, Shape, Color } from '../domain/types'
 
 export interface Vec { x: number; y: number }
@@ -118,8 +118,17 @@ export function pointPositionsPx(diagram: Diagram): Map<string, PointPx> {
 export type DrawCmd =
   | { kind: 'polygon'; pts: Vec[]; fillColor?: Color; fillOpacity: number; strokeColor: Color | 'black'; strokeWidthPt: number }
   | { kind: 'circle'; center: Vec; radiusPx: number; fillColor?: Color; fillOpacity: number; strokeColor?: Color | 'black'; strokeWidthPt?: number }
-  | { kind: 'pointCircle'; pos: Vec; radiusPx: number; color: Color | 'black' }
-  | { kind: 'pointPolygon'; pts: Vec[]; color: Color | 'black' }
+  // Point glyphs — exports ASSUME A WHITE BACKGROUND (unlike the canvas,
+  // which keeps a genuinely transparent interior via FormNode's SVG mask):
+  // fillColor is always a fully-opaque, already-flattened color — white for
+  // an uncolored point, or the point's own/inherited color-tint COMPOSITED
+  // over white (see flattenOverWhite) for a colored one. That flattened
+  // white/tinted fill is what masks the wire/form-border underneath, so no
+  // separate border-gapping or wire-shortening machinery is needed in
+  // exports (contrast FormNode.tsx/LineEdge.tsx on canvas). Stroke is always
+  // black (backends hardcode it, no field needed here).
+  | { kind: 'pointCircle'; pos: Vec; radiusPx: number; fillColor: Color }
+  | { kind: 'pointPolygon'; pts: Vec[]; fillColor: Color }
   | { kind: 'line'; from: Vec; to: Vec; color: Color | 'black'; widthPt: number }
   | { kind: 'label'; at: Vec; text: string; anchor?: 'east' | 'west' | 'north' | 'south' }
 
@@ -135,16 +144,30 @@ const FORM_FILL_OPACITY = 0.18
 // type allows other producers).
 export const FORM_STROKE_PT = 0.4
 const LINE_STROKE_PT = 0.4
-// ~11px across (~0.11cm) — the ticket's reference size for point glyphs
-// other than the quiver-style fixed-size dot.
-const POINT_GLYPH_PX = 11
-const POINT_GLYPH_R = POINT_GLYPH_PX / 2
+// Point glyphs render at the SAME diameter as canvas — POINT_SIZE
+// (domain/forms.ts, also the on-screen glyph/hover/grab-pad size) — so
+// canvas <-> TikZ <-> HTML stay in visual lockstep.
+const POINT_GLYPH_R = POINT_SIZE / 2
 const LABEL_GAP_PX = 11 // matches FormNode.tsx's point-label GAP
+// White, as a Color triple — the export glyph's default (uncolored) fill,
+// and the backing every colored glyph's tint flattens over (see
+// flattenOverWhite). Exports assume a white background (unlike canvas).
+const WHITE: Color = [1, 1, 1]
+
+// Composites `fillOpacity`-worth of `color` over an opaque WHITE backing,
+// analytically, into a single fully-opaque equivalent color — visually
+// identical to layering a translucent tint over a white base (which is what
+// PointVisual.tsx's canvas glyph and FormNode.tsx's BodyView do), but as ONE
+// flat fill instead of two draw commands, since export assumes a white page
+// background anyway.
+function flattenOverWhite(color: Color, fillOpacity: number): Color {
+  return color.map((c) => (1 - fillOpacity) + fillOpacity * c) as unknown as Color
+}
 
 // Small closed-path glyphs for point shapes that aren't circle/empty —
-// simplified regular polygons at the ticket's ~11px-across scale (not a
-// pixel-exact port of the SVG sprite in Canvas.tsx's ToolbarSprite, which
-// the ticket doesn't require).
+// simplified regular polygons at the POINT_GLYPH_R scale (not a pixel-exact
+// port of the SVG sprite in ui/sprite.tsx's ToolbarSprite, which the ticket
+// doesn't require).
 function glyphLocalPoints(shape: Shape): Array<[number, number]> | null {
   const r = POINT_GLYPH_R
   switch (shape) {
@@ -168,21 +191,28 @@ function labelAnchorFor(cardinal: string): { offset: Vec; anchor: 'east' | 'west
   }
 }
 
+// Mirrors PointVisual.tsx's PointGlyph, adapted for an assumed-white export
+// background: outline always black; fill is WHITE for an uncolored point
+// (masking whatever's beneath, same visual effect as canvas's genuinely
+// transparent interior over the white canvas), or the point's own/inherited
+// color flattened over that white backing (flattenOverWhite) — the SAME
+// FORM_FILL_OPACITY form bodies use for their own tint, just pre-composited
+// into one opaque color instead of two draw commands.
 function buildPointCmds(pt: Point, px: PointPx, cmds: DrawCmd[]) {
-  const color: Color | 'black' = pt.color ?? 'black'
+  const fillColor = pt.color ? flattenOverWhite(pt.color, FORM_FILL_OPACITY) : WHITE
   const local = px.layout.toAbs // local (unrotated, node-space) -> absolute rotated px
 
   switch (pt.shape) {
     case 'empty':
       break // nothing drawn — the coordinate still exists as a line endpoint
     case 'circle':
-      cmds.push({ kind: 'pointCircle', pos: px.pos, radiusPx: POINT_GLYPH_R, color })
+      cmds.push({ kind: 'pointCircle', pos: px.pos, radiusPx: POINT_GLYPH_R, fillColor })
       break
     default: {
       const glyph = glyphLocalPoints(pt.shape)
       if (!glyph) break
       const pts = glyph.map(([dx, dy]) => local({ x: px.local.x + dx, y: px.local.y + dy }))
-      cmds.push({ kind: 'pointPolygon', pts, color })
+      cmds.push({ kind: 'pointPolygon', pts, fillColor })
       break
     }
   }
@@ -232,6 +262,11 @@ function buildPointLabelCmd(pt: Point, px: PointPx): DrawCmd | null {
   return { kind: 'label', at, text: mathWrap(pt.name), anchor }
 }
 
+// Wires are drawn full-length, endpoint to endpoint — no gap/shortening
+// needed in exports (unlike canvas's LineEdge): a terminating point's own
+// glyph fill is opaque (WHITE, or a color flattened over white — see
+// buildPointCmds) and is emitted AFTER lines in buildDrawCmds below, so it
+// simply paints over the wire's end. Exports assume a white background.
 function buildLineCmds(diagram: Diagram, positions: Map<string, PointPx>, cmds: DrawCmd[]) {
   for (const line of diagram.lines) {
     const src = positions.get(line.source)
@@ -279,11 +314,19 @@ export const SHARE_BASE = 'https://semiotics.nesycat.org/editor'
 // consume, so the two export formats can never drift apart on what
 // geometry/color/opacity rules they follow (one geometry pass, two string
 // backends).
+//
+// Order matters: forms, THEN lines, THEN points — later commands paint OVER
+// earlier ones, so a point's own opaque glyph fill (buildPointCmds; WHITE or
+// a color flattened over white) is what visually masks a wire's end/a form's
+// border underneath it, with no separate gap geometry needed (see
+// buildLineCmds's own comment).
 export function buildDrawCmds(diagram: Diagram): DrawCmd[] {
   const cmds: DrawCmd[] = []
   for (const form of diagram.forms) buildFormCmds(form, cmds)
 
   const positions = pointPositionsPx(diagram)
+  buildLineCmds(diagram, positions, cmds)
+
   for (const form of diagram.forms) {
     const geom = geometryFor(form.shape)
     for (const edgeKey of geom.edgeKeys) {
@@ -298,6 +341,5 @@ export function buildDrawCmds(diagram: Diagram): DrawCmd[] {
     }
   }
 
-  buildLineCmds(diagram, positions, cmds)
   return cmds
 }

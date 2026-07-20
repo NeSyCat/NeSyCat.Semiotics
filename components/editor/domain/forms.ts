@@ -21,10 +21,30 @@ export interface Anchor {
 // form-fraction [0,1]² space — FormNode scales by node size and strokes/fills
 // it with a gray tint. 'polyline' covers both straight sides (2 points) and
 // circle arcs (sampled points) with one rendering path; 'full' is the whole
-// body (empty's single self-region).
+// body (empty's single self-region); 'spot' is a small circular target at a
+// single form-fraction point — a single-slot vertex attachment region (e.g.
+// triangle's peak), as opposed to a whole side/arc.
 export type RegionShape =
   | { kind: 'polyline'; points: ReadonlyArray<readonly [number, number]> }
   | { kind: 'full' }
+  | { kind: 'spot'; at: readonly [number, number] }
+
+// A point glyph's rendered OUTER diameter (border stroke included, straddle
+// and all — see ui/ShapeBody.tsx, which insets the drawn path by strokeWidth
+// so the painted shape's outer edge lands exactly on this number) — ALSO the
+// drag-grab pad's and the hover/selection tint circle's diameter, ALSO the
+// FormNode.tsx's edge point-creation region's visual stripe breadth
+// (RegionOverlay's polyline strokeWidth), so a glyph sitting on that stripe
+// fits flush inside it rather than overflowing past its edges. One number,
+// five places it must coincide: glyph outline, grab pad, hover/selection
+// tint circle, edge-region stripe breadth, and (via BODY_GAP_R in
+// FormNode.tsx) the radius a form's own border/wires gap around a resident
+// point's glyph. Lives here (domain), not ui/, because the export IR
+// (ir/geometry-ir.ts) sits BELOW ui/ in the layer rule and can't import from
+// it — this is the one place both ui/ and ir/ can reach. Also the radius
+// used to gap a form's border/wires around a resident point's glyph, on
+// canvas and in both export backends.
+export const POINT_SIZE = 26
 
 export type Body =
   | { type: 'polygon'; pointsFrac: ReadonlyArray<readonly [number, number]> }
@@ -53,11 +73,25 @@ export interface FormGeometry {
   regionShape: (edgeKey: EdgeKey) => RegionShape
   // Hard per-edge attachment cap this kind declares, so capacity lives here
   // (geometry) instead of scattered "if kind === 'empty'" checks through
-  // mutations/Canvas. undefined = unbounded (every kind but 'empty'). When a
-  // side is at capacity, mutations.addPoint REUSES its existing point rather
-  // than refusing — a drop on a full side should still CONNECT (many wires,
-  // one point).
-  maxPoints?: number
+  // mutations/Canvas. Only edges present as keys are capped; an edge absent
+  // from the map (or the whole field undefined) is unbounded. When a capped
+  // edge is at capacity, mutations.addPoint REUSES its existing point rather
+  // than refusing — a drop on a full edge should still CONNECT (many wires,
+  // one point). 'empty' declares {self: 1} (its single middle point);
+  // 'triangle' declares {peak: 1} (its apex point-attachment slot) — every
+  // other edge (triangle's a/b/c, every side of every other shape) is
+  // unbounded.
+  edgeCapacity?: Partial<Record<EdgeKey, number>>
+  // True ONLY for 'empty': its single point (self, capacity 1) IS the form
+  // itself — the form can never exist without it. Drives removePoint's
+  // cascade-to-deleteForm, addForm's own-point seeding, and Canvas's
+  // name-field retargeting (renaming "the form" really renames its one
+  // point). A capacity-1 edge on another shape (triangle's peak) is an
+  // ordinary OPTIONAL attachment slot instead — the point can be absent, and
+  // deleting it deletes just the point, leaving its form intact — so
+  // pointIsForm stays false/undefined there even though edgeCapacity caps it
+  // at 1 too.
+  pointIsForm?: boolean
   // The INVERSE of pointAnchor's own spacing formula for a SIDE edgeKey: given
   // a normalized cursor (rx, ry) ∈ [0,1]² already known to be on/near this
   // edge, returns the same t ∈ [0,1] ordering parameter pointAnchor's t
@@ -192,8 +226,18 @@ function insetSegment(
 //   c = left side (top-left → bottom-left, vertical).
 const SQRT3_4 = Math.sqrt(3) / 4
 const TRI_APEX_X = 0.5 + SQRT3_4 // ≈ 0.933 (rightmost point)
+const TRI_APEX_Y = 0.5
 const TRI_BASE_X = 0.5 - SQRT3_4 // ≈ 0.067 (the left, vertical base)
-const TRI_EDGES = ['a', 'b', 'c'] as const
+// 'peak' is the triangle's apex vertex — a single point-attachment SLOT (at
+// most one point, like 'empty's middle point, but optional: the triangle
+// survives without it — see edgeCapacity/pointIsForm below) rather than an
+// ordinary side that fans out multiple points.
+const TRI_EDGES = ['a', 'b', 'c', 'peak'] as const
+// Radius (form-fraction units) within which a cursor near the apex resolves
+// to the 'peak' slot, checked BEFORE side (a/b/c) attribution — same
+// magnitude as CORNER_R (the side-stripe inset), for the same "near a
+// vertex" feel.
+const PEAK_R = CORNER_R
 
 // A point along slant 'a' (from the top-left base vertex) or 'b' (bottom-left),
 // running to the apex on the right.
@@ -212,13 +256,23 @@ const triangleGeometry: FormGeometry = {
   showName: true,
   hasCenterZone: true,
   nodeSize: sizeFor(TRI_EDGES),
+  edgeCapacity: { peak: 1 },
   pointAnchor: (edgeKey, index, count, n) => {
+    // 'peak' has capacity 1 — always the apex itself, regardless of
+    // index/count (same "constant anchor" pattern as emptyGeometry's middle
+    // point). Facing Position.Right: the triangle points right, so its own
+    // label/handle should face further right, away from the body.
+    if (edgeKey === 'peak') return { x: TRI_APEX_X * n, y: TRI_APEX_Y * n, position: Position.Right }
     const t = (index + 1) / (count + 1)
     if (edgeKey === 'a') { const [x, y] = triSlant('a', t, n); return { x, y, position: Position.Top } }
     if (edgeKey === 'b') { const [x, y] = triSlant('b', t, n); return { x, y, position: Position.Bottom } }
     return { x: TRI_BASE_X * n, y: t * n, position: Position.Left } // c = left vertical side
   },
   edgeAt: (rx, ry) => {
+    // The apex slot wins over side attribution within PEAK_R — checked
+    // first, since 'a' and 'b' both terminate exactly at the apex and would
+    // otherwise always claim a cursor there.
+    if (Math.hypot(rx - TRI_APEX_X, ry - TRI_APEX_Y) <= PEAK_R) return 'peak'
     const da = distToSeg(rx, ry, TRI_BASE_X, 0, TRI_APEX_X, 0.5) // a = top slant
     const db = distToSeg(rx, ry, TRI_BASE_X, 1, TRI_APEX_X, 0.5) // b = bottom slant
     const dc = distToSeg(rx, ry, TRI_BASE_X, 0, TRI_BASE_X, 1) // c = left side
@@ -227,13 +281,17 @@ const triangleGeometry: FormGeometry = {
     return 'c'
   },
   regionShape: (edgeKey) => {
+    if (edgeKey === 'peak') return { kind: 'spot', at: [TRI_APEX_X, TRI_APEX_Y] }
     if (edgeKey === 'a') return { kind: 'polyline', points: insetSegment([TRI_BASE_X, 0], [TRI_APEX_X, 0.5], CORNER_R) }
     if (edgeKey === 'b') return { kind: 'polyline', points: insetSegment([TRI_BASE_X, 1], [TRI_APEX_X, 0.5], CORNER_R) }
     return { kind: 'polyline', points: insetSegment([TRI_BASE_X, 0], [TRI_BASE_X, 1], CORNER_R) } // c
   },
   // Inverse of triSlant's t (y runs 0→0.5 for 'a', 1→0.5 for 'b') / the
-  // direct t=y assignment for 'c' (see pointAnchor above).
+  // direct t=y assignment for 'c' (see pointAnchor above). 'peak' has no
+  // ordering (capacity 1, like 'empty's self) — the constant 0 is the
+  // trivial (and only) valid inverse.
   edgeParam: (edgeKey, _rx, ry) => {
+    if (edgeKey === 'peak') return 0
     if (edgeKey === 'a') return clamp01(2 * ry)
     if (edgeKey === 'b') return clamp01(2 * (1 - ry))
     return clamp01(ry) // c
@@ -412,10 +470,10 @@ const rhombusGeometry: FormGeometry = {
 // Deliberately the simplest kind: it holds AT MOST ONE point — the middle
 // point IS the form, always rendered dead-center regardless of how many
 // wires run to it (many lines, one point; see mutations.addPoint's
-// maxPoints reuse). A wire dragged out into empty canvas space auto-creates
-// one of these to land on (see Canvas.tsx's onConnectEnd); dropping on an
-// existing one reuses its point instead of fanning a second one out beside
-// it.
+// edgeCapacity reuse). A wire dragged out into empty canvas space
+// auto-creates one of these to land on (see Canvas.tsx's onConnectEnd);
+// dropping on an existing one reuses its point instead of fanning a second
+// one out beside it.
 const EMPTY_EDGE = 'self'
 const EMPTY_MAX_POINTS = 1
 
@@ -427,7 +485,8 @@ const emptyGeometry: FormGeometry = {
   bodyOpacity: 0,
   showName: false,
   hasCenterZone: false,
-  maxPoints: EMPTY_MAX_POINTS,
+  edgeCapacity: { [EMPTY_EDGE]: EMPTY_MAX_POINTS },
+  pointIsForm: true,
   nodeSize: () => BASE_SIZE / 2,
   // Constant center, regardless of index/count — there's no fan to place:
   // the one middle point always sits at the form's own centre. Position

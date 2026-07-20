@@ -65,7 +65,7 @@ describe('unified Shape vocabulary', () => {
   it("a form of each of the 5 shapes constructs, and its point can take each of the 5 shapes", () => {
     // 'empty' seeds its own (capacity-1) point via addForm — setPointShape
     // (not another addPoint, which would just REUSE that single point per
-    // forms.ts's maxPoints capacity) cycles it through every shape; the
+    // forms.ts's edgeCapacity) cycles it through every shape; the
     // other shapes get a fresh point via addPoint.
     const empty: Diagram = { schemaVersion: 1, forms: [], points: {}, lines: [] }
     for (const shape of VALID_SHAPES) {

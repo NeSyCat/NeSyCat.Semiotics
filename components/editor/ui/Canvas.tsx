@@ -22,7 +22,7 @@ import FormNode, { DRAG_HANDLE_CLASS } from './FormNode'
 import LineEdge from './LineEdge'
 import { useStore, initStore } from '../state/store'
 import { useAutosave, useLocalAutosave } from '../persist/save'
-import { geometryFor, pointIdsAt, isInsideBody, isInCenterZone, insertionIndex, BASE_SIZE, CENTER_SHRINK, type FormGeometry } from '../domain/forms'
+import { geometryFor, pointIdsAt, isInsideBody, isInCenterZone, insertionIndex, BASE_SIZE, CENTER_SHRINK, POINT_SIZE, type FormGeometry } from '../domain/forms'
 import { encodeHandle, decodeHandle, decodePhantomHandle } from '../domain/handles'
 import { GRID_SIZE, snapCenterPosition } from '../domain/grid'
 import ImportPanel from './ImportPanel'
@@ -290,6 +290,10 @@ function Canvas({ topRight }: CanvasContentProps) {
 
   // ── Build RF edges from lines (one RF edge per target) ─────────────
   const builtEdges: Edge[] = useMemo(() => {
+    // A wire's drawn path stops short of a terminating point's own glyph
+    // (PointVisual's PointGlyph, POINT_SIZE across) rather than running
+    // through its center — 0 gap for a point that renders no glyph ('empty').
+    const glyphGap = (pid: string) => (diagram.points[pid]?.shape !== 'empty' ? POINT_SIZE / 2 : 0)
     const out: Edge[] = []
     for (const line of diagram.lines) {
       const sp = pointToHandle(diagram, line.source)
@@ -305,7 +309,7 @@ function Canvas({ topRight }: CanvasContentProps) {
           targetHandle: tp.handleId,
           type: 'line',
           animated: true,
-          data: { label: line.name ?? line.id, color: line.color },
+          data: { label: line.name ?? line.id, color: line.color, sourceGap: glyphGap(line.source), targetGap: glyphGap(tid) },
         })
       })
     }
@@ -374,7 +378,7 @@ function Canvas({ topRight }: CanvasContentProps) {
     // (nothing's been dropped on it) -> nothing to rename; blank + disabled.
     if (selectionTarget.kind === 'forms' && selectionTarget.ids.length === 1) {
       const form = diagram.forms.find((f) => f.id === selectionTarget.ids[0])
-      if (form?.shape === 'empty') {
+      if (form && geometryFor(form.shape).pointIsForm) {
         const midId = pointIdsAt(form, geometryFor(form.shape).edgeKeys[0])[0]
         if (!midId) return { value: '', placeholder: '', sig: 'empty:' + form.id, disabled: true }
         return { value: diagram.points[midId]?.name ?? '', placeholder: midId, sig: 'points:' + midId, disabled: false }
@@ -397,7 +401,7 @@ function Canvas({ topRight }: CanvasContentProps) {
     if (!selectionTarget) return
     if (selectionTarget.kind === 'forms' && selectionTarget.ids.length === 1) {
       const form = diagram.forms.find((f) => f.id === selectionTarget.ids[0])
-      if (form?.shape === 'empty') {
+      if (form && geometryFor(form.shape).pointIsForm) {
         const midId = pointIdsAt(form, geometryFor(form.shape).edgeKeys[0])[0]
         if (midId) renamePoints([midId], value)
         return // no point yet -> the field is disabled, nothing to do

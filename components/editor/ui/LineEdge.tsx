@@ -18,6 +18,31 @@ import type { Color } from '../domain/types'
 interface LineEdgeData {
   label: string
   color?: Color
+  // Radius (px, flow space) to pull each end of the drawn path back by, so it
+  // stops at the edge of a resident point's glyph instead of running through
+  // its center — 0 when that end's point renders no glyph (shape 'empty').
+  // Set by Canvas.tsx's builtEdges from POINT_SIZE/2 (domain/forms.ts), the
+  // SAME radius BodyView gaps a form's border by, so a wire and the border it
+  // crosses stop at the identical boundary. Approximation: computed along the
+  // STRAIGHT line between the raw endpoints even in 'smoothstep' mode, where
+  // the actual path may leave each endpoint in a different direction — close
+  // enough at the pull-back distances involved (~14px).
+  sourceGap?: number
+  targetGap?: number
+}
+
+// Pulls (sx,sy)/(tx,ty) toward each other along their own straight line by
+// gs/gt respectively — capped at half the total distance each, so two large
+// gaps on a very short wire can't cross past one another.
+function shrinkEndpoints(sx: number, sy: number, tx: number, ty: number, gs: number, gt: number) {
+  const dx = tx - sx
+  const dy = ty - sy
+  const len = Math.hypot(dx, dy) || 1
+  const ux = dx / len
+  const uy = dy / len
+  const s = Math.min(gs, len / 2)
+  const t = Math.min(gt, len / 2)
+  return { sx: sx + ux * s, sy: sy + uy * s, tx: tx - ux * t, ty: ty - uy * t }
 }
 
 function LineEdge({
@@ -36,9 +61,14 @@ function LineEdge({
   const mode = useStore((s) => s.edgePath)
   const hovered = useStore((s) => s.hoveredEdgeId === id)
 
+  const { sx, sy, tx, ty } = (() => {
+    const shrunk = shrinkEndpoints(sourceX, sourceY, targetX, targetY, d.sourceGap ?? 0, d.targetGap ?? 0)
+    return { sx: shrunk.sx, sy: shrunk.sy, tx: shrunk.tx, ty: shrunk.ty }
+  })()
+
   const [edgePath, labelX, labelY] = mode === 'smoothstep'
-    ? getSmoothStepPath({ sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition })
-    : getStraightPath({ sourceX, sourceY, targetX, targetY })
+    ? getSmoothStepPath({ sourceX: sx, sourceY: sy, sourcePosition, targetX: tx, targetY: ty, targetPosition })
+    : getStraightPath({ sourceX: sx, sourceY: sy, targetX: tx, targetY: ty })
 
   const lineColor = d.color ? `rgb(${toRgbTriple(d.color)})` : '#000000' // no colour → black
   const edgeStyle = useMemo(
