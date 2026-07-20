@@ -52,6 +52,23 @@ function round(n: number): number {
   return Math.round(n * 100) / 100
 }
 
+// Padding (px) around a masked label's white backing rect / the bounding-box
+// pad for it — small, so the white patch doesn't grow noticeably past the
+// canvas mask band it mirrors (PointVisual.tsx/LineEdge.tsx).
+const MASK_PAD = 2
+
+// Anchor-aware horizontal half-extents of an (already unwrapMath'd) label's
+// text, via the SAME LABEL_CHAR_W estimate cmdBoundsVecs uses for its
+// bounding-box pass — shared by that bounding-box pass AND emitCmd's masked-
+// label backing rect, so the rect is sized by the identical estimate that
+// guarantees the label fits inside the SVG viewBox in the first place.
+function labelHalfExtents(text: string, anchor: Extract<DrawCmd, { kind: 'label' }>['anchor']): { left: number; right: number } {
+  const w = text.length * LABEL_CHAR_W
+  const left = anchor === 'west' ? 0 : anchor === 'east' ? w : w / 2
+  const right = anchor === 'east' ? 0 : anchor === 'west' ? w : w / 2
+  return { left, right }
+}
+
 // TikZ anchors name the side of the TEXT that touches the coordinate —
 // anchor=east puts the text's east edge there, so the text extends LEFT.
 // SVG's text-anchor names where the text STARTS relative to x. The two are
@@ -85,7 +102,24 @@ function emitCmd(cmd: DrawCmd): string {
       return `<line x1="${round(cmd.from.x)}" y1="${round(cmd.from.y)}" x2="${round(cmd.to.x)}" y2="${round(cmd.to.y)}" stroke="${colorRef(cmd.color)}" stroke-width="1.5"/>`
     case 'label': {
       const anchor = cmd.anchor ? (ANCHOR_MAP[cmd.anchor] ?? 'middle') : 'middle'
-      return `<text x="${round(cmd.at.x)}" y="${round(cmd.at.y)}" text-anchor="${anchor}" dominant-baseline="middle" font-family="ui-monospace, SFMono-Regular, monospace" font-size="14" fill="${INK}">${esc(unwrapMath(cmd.text))}</text>`
+      const text = unwrapMath(cmd.text)
+      const textEl = `<text x="${round(cmd.at.x)}" y="${round(cmd.at.y)}" text-anchor="${anchor}" dominant-baseline="middle" font-family="ui-monospace, SFMono-Regular, monospace" font-size="14" fill="${INK}">${esc(text)}</text>`
+      if (!cmd.masked) return textEl
+      // masked (line-name/point-name labels): a white rect painted
+      // IMMEDIATELY BEFORE its <text> (so it paints first, under the text,
+      // but after the line/point-glyph draws already emitted earlier in the
+      // cmds list) — mirrors canvas's own canvas-colored mask bands
+      // (LineEdge.tsx/PointVisual.tsx). Sized via the SAME LABEL_CHAR_W/
+      // LABEL_HALF_H estimate cmdBoundsVecs uses for the bounding-box pass,
+      // plus a small MASK_PAD so the white patch doesn't hug the glyphs too
+      // tightly.
+      const { left, right } = labelHalfExtents(text, cmd.anchor)
+      const rectX = cmd.at.x - left - MASK_PAD
+      const rectY = cmd.at.y - LABEL_HALF_H - MASK_PAD
+      const rectW = left + right + MASK_PAD * 2
+      const rectH = LABEL_HALF_H * 2 + MASK_PAD * 2
+      const rect = `<rect x="${round(rectX)}" y="${round(rectY)}" width="${round(rectW)}" height="${round(rectH)}" fill="white"/>`
+      return `${rect}\n  ${textEl}`
     }
   }
 }
@@ -108,13 +142,13 @@ function cmdBoundsVecs(cmd: DrawCmd): { x: number; y: number }[] {
     case 'label': {
       // Anchor-aware horizontal extent, mirroring ANCHOR_MAP: 'east' means
       // the text ENDS at the point (grows leftward), 'west' starts there
-      // (grows rightward), default middle both ways.
-      const w = unwrapMath(cmd.text).length * LABEL_CHAR_W
-      const left = cmd.anchor === 'west' ? 0 : cmd.anchor === 'east' ? w : w / 2
-      const right = cmd.anchor === 'east' ? 0 : cmd.anchor === 'west' ? w : w / 2
+      // (grows rightward), default middle both ways. +MASK_PAD on every side
+      // so a masked label's white backing rect (emitCmd) never pokes past
+      // the computed viewBox and gets clipped.
+      const { left, right } = labelHalfExtents(unwrapMath(cmd.text), cmd.anchor)
       return [
-        { x: cmd.at.x - left, y: cmd.at.y - LABEL_HALF_H },
-        { x: cmd.at.x + right, y: cmd.at.y + LABEL_HALF_H },
+        { x: cmd.at.x - left - MASK_PAD, y: cmd.at.y - LABEL_HALF_H - MASK_PAD },
+        { x: cmd.at.x + right + MASK_PAD, y: cmd.at.y + LABEL_HALF_H + MASK_PAD },
       ]
     }
     default:

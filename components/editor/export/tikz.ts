@@ -102,7 +102,16 @@ function emitCmd(cmd: DrawCmd, registry: ColorRegistry, minX: number, maxY: numb
       return `\\draw[${color}, line width=${cmd.widthPt}pt] (${c(cmd.from)}) -- (${c(cmd.to)});`
     }
     case 'label': {
-      const opt = cmd.anchor ? `[anchor=${cmd.anchor}] ` : ' '
+      // masked (line-name/point-name labels): a white-filled node so the
+      // wire it sits on doesn't strike through the text, matching canvas's
+      // own canvas-colored mask bands (LineEdge.tsx/PointVisual.tsx) —
+      // exports assume a white page, so plain white stands in for "canvas
+      // background". inner sep=2pt keeps the white box tight around the
+      // text, matching the canvas band's own tightness. Form-name labels
+      // stay unmasked (masked: false) — a white box over a colored form's
+      // tint would look wrong, and canvas doesn't mask form names either.
+      const opts = [...(cmd.masked ? ['fill=white', 'inner sep=2pt'] : []), ...(cmd.anchor ? [`anchor=${cmd.anchor}`] : [])]
+      const opt = opts.length ? `[${opts.join(', ')}] ` : ' '
       return `\\node${opt}at (${c(cmd.at)}) {${cmd.text}};`
     }
   }

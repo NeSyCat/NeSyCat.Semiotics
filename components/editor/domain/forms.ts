@@ -50,6 +50,19 @@ export type Body =
   | { type: 'polygon'; pointsFrac: ReadonlyArray<readonly [number, number]> }
   | { type: 'circle' }
 
+// Visual centre of a form body, in form-fraction [0,1]² space — a triangle's
+// centroid is not its bounding-box centre. Lives here (domain), not ui/, so
+// BOTH ui/FormNode.tsx (canvas name-label placement) and ir/geometry-ir.ts
+// (export name-label placement) can consume the SAME pure math — export
+// otherwise sat below ui/ in the layer rule and couldn't import from it.
+export function bodyCentroid(body: Body): [number, number] {
+  if (body.type === 'circle') return [0.5, 0.5]
+  const pts = body.pointsFrac
+  let sx = 0, sy = 0
+  for (const [x, y] of pts) { sx += x; sy += y }
+  return [sx / pts.length, sy / pts.length]
+}
+
 export interface FormGeometry {
   shape: Shape
   displayName: string
