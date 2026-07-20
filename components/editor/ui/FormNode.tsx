@@ -33,8 +33,10 @@ function bodyCentroid(body: Body): [number, number] {
 // edge, or the whole body for 'empty's single self-region. (PointVisual's own
 // REGION_CORNER_SIZE doubles as a point's grab-pad size so a point's
 // draggable area coincides exactly with its visual hover circle — it's not
-// corner-only, despite the name.)
-const REGION_STRIPE_WIDTH = 26
+// corner-only, despite the name.) The stripe's breadth IS POINT_SIZE — see
+// its own comment in domain/forms.ts — so a glyph sitting on this stripe
+// fits flush inside it, outer edge to outer edge, instead of overflowing.
+const REGION_STRIPE_WIDTH = POINT_SIZE
 
 // The visual hover tint for a point-creation region — an INDICATOR of which
 // edge the cursor's zone maps to. Purely decorative; the grabbable area is

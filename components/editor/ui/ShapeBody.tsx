@@ -95,11 +95,20 @@ export function ShapeBody({ body, n, fill, strokeWidth = 1.5, borderOpacity = 1,
   ) : null
   const maskAttr = mask ? { mask: `url(#${maskId})` } : {}
 
+  // A stroke straddles its own path — half INSIDE, half OUTSIDE — so a path
+  // drawn edge-to-edge across the full n×n box overflows past n by
+  // strokeWidth/2 on every side. Insetting the drawn path by strokeWidth
+  // (half on each side, via `inset` below) puts the path itself at
+  // strokeWidth/2..n-strokeWidth/2, so path ± half-stroke lands the shape's
+  // OUTER visual edge exactly on 0..n — the shape's rendered footprint
+  // (border included) is n×n on the nose, not n+strokeWidth. This is what
+  // lets a point's glyph sit flush inside FormNode.tsx's REGION_STRIPE_WIDTH
+  // edge-hover stripe (n === that stripe's breadth) instead of overflowing
+  // it. Applies uniformly to both body types through ShapeBody — the one
+  // shared place both a form's own body and a point's glyph draw from.
+  const inset = strokeWidth / 2
   if (body.type === 'circle') {
-    // r inset by half the stroke width so the stroke's OUTER edge lands
-    // exactly at n/2 — the shape spans its full n×n box edge to edge, same
-    // convention a form's own node box uses.
-    const r = n / 2 - strokeWidth / 2
+    const r = n / 2 - inset
     return (
       <svg width={n} height={n} style={{ position: 'absolute', inset: 0, overflow: 'visible', ...style }}>
         {mask && <defs>{mask}</defs>}
@@ -107,7 +116,8 @@ export function ShapeBody({ body, n, fill, strokeWidth = 1.5, borderOpacity = 1,
       </svg>
     )
   }
-  const polyPts = body.pointsFrac.map(([x, y]) => `${x * n},${y * n}`).join(' ')
+  const d = n - strokeWidth
+  const polyPts = body.pointsFrac.map(([x, y]) => `${inset + x * d},${inset + y * d}`).join(' ')
   return (
     <svg width={n} height={n} style={{ position: 'absolute', inset: 0, overflow: 'visible', ...style }}>
       {mask && <defs>{mask}</defs>}

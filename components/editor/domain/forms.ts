@@ -29,15 +29,22 @@ export type RegionShape =
   | { kind: 'full' }
   | { kind: 'spot'; at: readonly [number, number] }
 
-// A point glyph's rendered diameter — ALSO the drag-grab pad's and the
-// hover/selection tint circle's diameter, so all three coincide exactly (a
-// point's clickable/hoverable area matches its visual glyph, pixel for
-// pixel). Lives here (domain), not ui/, because the export IR
+// A point glyph's rendered OUTER diameter (border stroke included, straddle
+// and all — see ui/ShapeBody.tsx, which insets the drawn path by strokeWidth
+// so the painted shape's outer edge lands exactly on this number) — ALSO the
+// drag-grab pad's and the hover/selection tint circle's diameter, ALSO the
+// FormNode.tsx's edge point-creation region's visual stripe breadth
+// (RegionOverlay's polyline strokeWidth), so a glyph sitting on that stripe
+// fits flush inside it rather than overflowing past its edges. One number,
+// five places it must coincide: glyph outline, grab pad, hover/selection
+// tint circle, edge-region stripe breadth, and (via BODY_GAP_R in
+// FormNode.tsx) the radius a form's own border/wires gap around a resident
+// point's glyph. Lives here (domain), not ui/, because the export IR
 // (ir/geometry-ir.ts) sits BELOW ui/ in the layer rule and can't import from
 // it — this is the one place both ui/ and ir/ can reach. Also the radius
 // used to gap a form's border/wires around a resident point's glyph, on
 // canvas and in both export backends.
-export const POINT_SIZE = 28
+export const POINT_SIZE = 26
 
 export type Body =
   | { type: 'polygon'; pointsFrac: ReadonlyArray<readonly [number, number]> }

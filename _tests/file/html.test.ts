@@ -112,7 +112,7 @@ describe('HTML/SVG exporter', () => {
     expect(nsvg, 'left-edge point label anchors text-anchor="end" (extends away from the form)').toMatch(/<text[^>]*text-anchor="end"[^>]*>in<\/text>/)
   })
 
-  it('point-glyph export parity — 28px-diameter (r=14) circle, white fill when uncolored, its own color flattened over white when colored, always a plain black 1.5px stroke', () => {
+  it('point-glyph export parity — 26px-diameter (r=13) circle, white fill when uncolored, its own color flattened over white when colored, always a plain black 1.5px stroke', () => {
     const g: Diagram = {
       schemaVersion: 1,
       forms: [{ id: 'GF1', shape: 'square', position: { x: 0, y: 0 }, edges: { top: [], right: ['GP1', 'GP2'], bottom: [], left: [] } }],
@@ -123,13 +123,13 @@ describe('HTML/SVG exporter', () => {
       lines: [],
     }
     const gsvg = diagramToHtmlCore(g)
-    // POINT_SIZE (domain/forms.ts) is 28px -> glyph radius 14px, in raw SVG
+    // POINT_SIZE (domain/forms.ts) is 26px -> glyph radius 13px, in raw SVG
     // user units (no px->cm conversion, unlike TikZ).
-    expect(gsvg, 'uncolored point glyph: r=14, opaque white fill, black stroke').toMatch(/<circle[^>]*r="14"[^>]*fill="rgb\(255, 255, 255\)"[^>]*stroke="black" stroke-width="1\.5"\/>/)
+    expect(gsvg, 'uncolored point glyph: r=13, opaque white fill, black stroke').toMatch(/<circle[^>]*r="13"[^>]*fill="rgb\(255, 255, 255\)"[^>]*stroke="black" stroke-width="1\.5"\/>/)
     // Red [1,0,0] tinted at FORM_FILL_OPACITY (0.18) over white flattens to
     // (255, 209, 209) — same math as geometry-ir.ts's flattenOverWhite.
-    expect(gsvg, 'red point glyph flattens to rgb(255, 209, 209) over white').toMatch(/<circle[^>]*r="14"[^>]*fill="rgb\(255, 209, 209\)"[^>]*stroke="black" stroke-width="1\.5"\/>/)
-    expect(gsvg, 'no leftover fill-opacity attribute on a point glyph (export flattens to one opaque color)').not.toMatch(/r="14"[^>]*fill-opacity/)
+    expect(gsvg, 'red point glyph flattens to rgb(255, 209, 209) over white').toMatch(/<circle[^>]*r="13"[^>]*fill="rgb\(255, 209, 209\)"[^>]*stroke="black" stroke-width="1\.5"\/>/)
+    expect(gsvg, 'no leftover fill-opacity attribute on a point glyph (export flattens to one opaque color)').not.toMatch(/r="13"[^>]*fill-opacity/)
   })
 
   it("triangle 'peak' point exports at the apex vertex, matching pointPositionsPx (raw px, no unit conversion)", () => {
@@ -141,7 +141,7 @@ describe('HTML/SVG exporter', () => {
     }
     const expected = pointPositionsPx(tri).get('PK1')!.pos
     const psvg = diagramToHtmlCore(tri)
-    const m = psvg.match(/<circle cx="([-\d.]+)" cy="([-\d.]+)" r="14"/)
+    const m = psvg.match(/<circle cx="([-\d.]+)" cy="([-\d.]+)" r="13"/)
     expect(!!m, 'the peak point glyph is emitted').toBe(true)
     if (m) {
       // round() (html.ts) rounds to 2 decimal places — tolerance covers that.
