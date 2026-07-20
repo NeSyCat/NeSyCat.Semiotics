@@ -2,21 +2,19 @@
 //
 // Deliberately SIMPLE and NON-RECURSIVE. There are two distinct types:
 //   • Form  — a "big shape" (triangle / square / circle). Has its own shape
-//             (kind), sides (each an ORDERED LIST of points — a wire run
-//             can take any number), and corners (each AT MOST ONE point — a
-//             vertex is a single addressable slot, not a list).
+//             (kind) and sides (each an ORDERED LIST of points — a wire run
+//             can take any number).
 //   • Point — a separate, leaf type. A point also HAS a shape (its own small
 //             glyph), but it is differentiated from a form: it sits on a
-//             form's edge or corner, can be wired by lines, and contains
-//             NOTHING.
+//             form's edge, can be wired by lines, and contains NOTHING.
 // Lines connect points. No nesting, no recursion anywhere.
 
 export type Color = [number, number, number] // normalized RGB, each in [0,1]
 
 // ── Forms (the big shapes) ───────────────────────────────────────────
-export type FormKind = 'triangle' | 'square' | 'circle' | 'rhombus' | 'empty' | 'point'
+export type FormKind = 'triangle' | 'square' | 'circle' | 'rhombus' | 'empty'
 // Have real edges that points can attach to; 'empty' renders as an edgeless placeholder body.
-export const PRIORITY_KINDS = ['triangle', 'square', 'circle', 'rhombus', 'point'] as const
+export const PRIORITY_KINDS = ['triangle', 'square', 'circle', 'rhombus'] as const
 
 // An edge key names one side/arc of a form. Validated per-kind by the form
 // registry (forms.ts):
@@ -35,9 +33,6 @@ export interface Form {
   position: { x: number; y: number }
   // Side keys -> ordered list of point ids (unbounded — a side is a wire run).
   edges: Record<EdgeKey, string[]>
-  // Corner (vertex) keys -> at most one point id. A corner is a single slot,
-  // never a list — you can't stack multiple points on one vertex.
-  corners: Record<EdgeKey, string | undefined>
 }
 
 // ── Points (leaves; distinct from forms) ─────────────────────────────

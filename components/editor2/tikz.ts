@@ -73,7 +73,7 @@ export function formCenterPx(form: Form): Vec {
 }
 
 // Rotated, absolute-px outline of a polygon-bodied form (triangle/square/
-// rhombus). null for circle/dot bodies, which FormNode instead renders as a
+// rhombus). null for circle bodies, which FormNode instead renders as a
 // plain circle (center + radius n/2 — rotation-invariant, so no vertex list
 // is needed for those).
 export function formBodyVerticesPx(form: Form): Vec[] | null {
@@ -120,7 +120,6 @@ export function pointPositionsPx(diagram: Diagram): Map<string, PointPx> {
 export type DrawCmd =
   | { kind: 'polygon'; pts: Vec[]; fillColor?: Color; fillOpacity: number; strokeColor: Color | 'black'; strokeWidthPt: number }
   | { kind: 'circle'; center: Vec; radiusPx: number; fillColor?: Color; fillOpacity: number; strokeColor?: Color | 'black'; strokeWidthPt?: number }
-  | { kind: 'dot'; center: Vec; radiusPx: number; fillColor: Color | 'ink' }
   | { kind: 'pointDot'; pos: Vec; color: Color | 'black' } // quiver-style fixed-size point glyph (2.5pt, NOT scaled by px->cm)
   | { kind: 'pointCircle'; pos: Vec; radiusPx: number; color: Color | 'black' }
   | { kind: 'pointPolygon'; pts: Vec[]; color: Color | 'black' }
@@ -237,7 +236,7 @@ function buildFormCmds(form: Form, cmds: DrawCmd[]) {
       strokeColor: 'black',
       strokeWidthPt: FORM_STROKE_PT,
     })
-  } else if (body.type === 'circle') {
+  } else {
     cmds.push({
       kind: 'circle',
       center: layout.center,
@@ -247,9 +246,6 @@ function buildFormCmds(form: Form, cmds: DrawCmd[]) {
       strokeColor: 'black',
       strokeWidthPt: FORM_STROKE_PT,
     })
-  } else {
-    // 'dot' — the point-kind form's own body: solid fill, no stroke (BodyView).
-    cmds.push({ kind: 'dot', center: layout.center, radiusPx: layout.n / 2, fillColor: form.color ?? 'ink' })
   }
 
   if (geom.showName) {
@@ -330,15 +326,8 @@ class ColorRegistry {
   }
 }
 
-// theme.ts's text.ink (#111111) — FormNode's fallback fill for an uncolored
-// 'dot' body (the point-kind form). Not a Diagram Color; a fixed constant
-// resolved through the SAME registry as any other color so it emits one
-// consistent \definecolor instead of a one-off hex literal.
-const INK: Color = [0x11 / 255, 0x11 / 255, 0x11 / 255]
-
-function tikzColorRef(c: Color | 'black' | 'ink' | undefined, registry: ColorRegistry): string {
+function tikzColorRef(c: Color | 'black' | undefined, registry: ColorRegistry): string {
   if (c === undefined || c === 'black') return 'black'
-  if (c === 'ink') return registry.key(INK)
   return registry.key(c)
 }
 
@@ -362,10 +351,6 @@ function emitCmd(cmd: DrawCmd, registry: ColorRegistry, minX: number, maxY: numb
         return `\\filldraw[fill=${fill}, fill opacity=${fmt(cmd.fillOpacity)}, draw=${stroke ?? 'black'}, line width=${cmd.strokeWidthPt ?? FORM_STROKE_PT}pt] (${c(cmd.center)}) circle (${r});`
       }
       return `\\draw[draw=${stroke ?? 'black'}, line width=${cmd.strokeWidthPt ?? FORM_STROKE_PT}pt] (${c(cmd.center)}) circle (${r});`
-    }
-    case 'dot': {
-      const fill = tikzColorRef(cmd.fillColor, registry)
-      return `\\fill[${fill}] (${c(cmd.center)}) circle (${lenCm(cmd.radiusPx)});`
     }
     case 'pointDot': {
       const color = tikzColorRef(cmd.color, registry)
@@ -404,7 +389,6 @@ export function cmdVecs(cmd: DrawCmd): Vec[] {
   switch (cmd.kind) {
     case 'polygon': return cmd.pts
     case 'circle': return [cmd.center]
-    case 'dot': return [cmd.center]
     case 'pointDot': return [cmd.pos]
     case 'pointCircle': return [cmd.pos]
     case 'pointPolygon': return cmd.pts

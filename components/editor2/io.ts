@@ -1,5 +1,6 @@
 import type { Diagram, Form, Point, Line, Color, PointShape } from './types'
 import { geometryFor } from './forms'
+import { pruneLines } from './mutations'
 
 // Single load-boundary normalizer. Persisted JSON arrives from Supabase
 // (`diagrams.data` jsonb) or a JSON import; this fills defaults and rebuilds
@@ -9,6 +10,17 @@ import { geometryFor } from './forms'
 // Diagrams saved under the OLD editor model ({nodes, edges}) have no
 // forms/points/lines, so they restore as an empty diagram — expected for the
 // from-scratch rebuild.
+//
+// Two deliberate breaking data-model simplifications, DROPPED SILENTLY (no
+// migration): forms no longer have corner (vertex) slots — only side/arc
+// points — and the 'point' FormKind (a standalone dot-bodied form) no longer
+// exists. A raw diagram saved under the old model may still carry corner
+// points (an old `corners` map, or a point whose edgeKey looks like
+// 'v0'/'v1'/…) and whole 'point'-kind forms; dropRemovedShapes below strips
+// both, along with the Points they owned and any Lines that referenced them
+// (via mutations.ts's pruneLines — same dedupe+degenerate-drop logic the
+// empty-form collapse below uses). Runs BEFORE canonForm/canonPoint so
+// geometryFor never sees the no-longer-valid 'point' kind.
 
 const FALLBACK_COLOR: Color = [52 / 255, 120 / 255, 246 / 255]
 
@@ -22,18 +34,9 @@ function canonForm(f: Record<string, unknown>): Form {
   const kind = f.kind as Form['kind']
   const geom = geometryFor(kind)
   const rawEdges = (f.edges as Record<string, string[]>) ?? {}
-  const rawCorners = (f.corners as Record<string, string | undefined>) ?? {}
   const edges: Record<string, string[]> = {}
-  const corners: Record<string, string | undefined> = {}
   for (const k of geom.edgeKeys) {
-    if (k in geom.corners) {
-      // Corners moved from `edges` (an array) to their own single-slot
-      // `corners` map. Migrate old data by keeping just the first point —
-      // a corner was never meant to hold more than one.
-      corners[k] = rawCorners[k] ?? (Array.isArray(rawEdges[k]) ? rawEdges[k][0] : undefined)
-    } else {
-      edges[k] = Array.isArray(rawEdges[k]) ? rawEdges[k] : []
-    }
+    edges[k] = Array.isArray(rawEdges[k]) ? rawEdges[k] : []
   }
   return {
     id: String(f.id),
@@ -46,7 +49,6 @@ function canonForm(f: Record<string, unknown>): Form {
       : {}),
     position: { x: Number(pos.x ?? 0), y: Number(pos.y ?? 0) },
     edges,
-    corners,
   }
 }
 
@@ -69,6 +71,55 @@ function canonLine(l: Record<string, unknown>): Line {
     source: String(l.source),
     targets: Array.isArray(l.targets) ? l.targets.map(String) : [],
   }
+}
+
+// A raw point's own edgeKey matching the old vertex-key shape ('v0', 'v1',
+// …) — the single robust signal that it was a CORNER point, regardless of
+// whether it was filed under a form's old `corners` map or (older still)
+// directly in `edges['v0']`.
+const CORNER_KEY_RE = /^v\d+$/
+
+// Strips the two removed shapes from RAW (pre-canon) form/point data — whole
+// 'point'-kind forms, and corner points on any surviving form — BEFORE
+// canonForm ever runs (canonForm calls geometryFor(kind), which would throw
+// on the no-longer-registered 'point' kind). Returns the surviving raw
+// forms/points plus the full set of dropped point ids, so restoreDiagram can
+// prune Lines against that same set (mutations.ts's pruneLines) once
+// everything else is canonicalized. Idempotent: a diagram with no corner
+// points or 'point'-kind forms passes through with an empty removed set.
+function dropRemovedShapes(
+  rawForms: Record<string, unknown>[], rawPoints: Record<string, unknown>,
+): { forms: Record<string, unknown>[]; points: Record<string, unknown>; removedPointIds: Set<string> } {
+  const removedPointIds = new Set<string>()
+
+  const collectOwnedPointIds = (f: Record<string, unknown>) => {
+    const edges = (f.edges as Record<string, string[]>) ?? {}
+    for (const k of Object.keys(edges)) for (const pid of edges[k] ?? []) removedPointIds.add(String(pid))
+    const corners = (f.corners as Record<string, string | undefined>) ?? {}
+    for (const k of Object.keys(corners)) { const pid = corners[k]; if (pid) removedPointIds.add(String(pid)) }
+  }
+
+  const survivingForms: Record<string, unknown>[] = []
+  for (const f of rawForms) {
+    if (f.kind === 'point') { collectOwnedPointIds(f); continue } // whole form dropped
+    // A surviving form's old `corners` map is dropped the same way — just
+    // the points it names, not the form itself.
+    const corners = (f.corners as Record<string, string | undefined>) ?? {}
+    for (const k of Object.keys(corners)) { const pid = corners[k]; if (pid) removedPointIds.add(String(pid)) }
+    survivingForms.push(f)
+  }
+
+  for (const k of Object.keys(rawPoints)) {
+    const p = (rawPoints[k] ?? {}) as Record<string, unknown>
+    if (typeof p.edgeKey === 'string' && CORNER_KEY_RE.test(p.edgeKey)) removedPointIds.add(k)
+  }
+
+  const survivingPoints: Record<string, unknown> = {}
+  for (const k of Object.keys(rawPoints)) {
+    if (!removedPointIds.has(k)) survivingPoints[k] = rawPoints[k]
+  }
+
+  return { forms: survivingForms, points: survivingPoints, removedPointIds }
 }
 
 // Old diagrams may carry an 'empty' form with several fanned points (from
@@ -123,11 +174,16 @@ function collapseEmptyForms(
 
 export function restoreDiagram(raw: unknown): Diagram {
   const d = (typeof raw === 'object' && raw !== null ? raw : {}) as Record<string, unknown>
-  const forms = Array.isArray(d.forms) ? d.forms.map((f) => canonForm(f as Record<string, unknown>)) : []
-  const pointsRaw = (d.points && typeof d.points === 'object' ? d.points : {}) as Record<string, unknown>
+  const rawForms = Array.isArray(d.forms) ? (d.forms as Record<string, unknown>[]) : []
+  const rawPoints = (d.points && typeof d.points === 'object' ? d.points : {}) as Record<string, unknown>
+  const dropped = dropRemovedShapes(rawForms, rawPoints)
+
+  const forms = dropped.forms.map((f) => canonForm(f as Record<string, unknown>))
   const points: Record<string, Point> = {}
-  for (const k of Object.keys(pointsRaw)) points[k] = canonPoint(pointsRaw[k] as Record<string, unknown>)
-  const lines = Array.isArray(d.lines) ? d.lines.map((l) => canonLine(l as Record<string, unknown>)) : []
+  for (const k of Object.keys(dropped.points)) points[k] = canonPoint(dropped.points[k] as Record<string, unknown>)
+  const rawLines = Array.isArray(d.lines) ? d.lines.map((l) => canonLine(l as Record<string, unknown>)) : []
+  const lines = pruneLines(rawLines, dropped.removedPointIds)
+
   const collapsed = collapseEmptyForms(forms, points, lines)
   return {
     schemaVersion: typeof d.schemaVersion === 'number' ? d.schemaVersion : 1,

@@ -19,7 +19,7 @@ import { toRgbTriple } from './color'
 import { encodeDiagramToFragment } from './share'
 import type { Diagram, Color } from './types'
 
-const INK = '#111111' // theme.ts's text.ink — see tikz.ts's INK constant for why this isn't a Diagram Color
+const INK = '#111111' // theme.ts's text.ink — used for the plain-text SVG name/point labels
 const PAD = 12 // px margin around the diagram's bounding box
 // FormNode.tsx renders body borders at 1.5px — NOT DrawCmd.strokeWidthPt
 // (0.4, a TikZ *pt* value for the cm-scaled backend), which as SVG user
@@ -31,9 +31,8 @@ const POINT_DOT_R = 4 // fixed pointDot radius (see emitCmd)
 const LABEL_CHAR_W = 8.4
 const LABEL_HALF_H = 9
 
-function colorRef(c: Color | 'black' | 'ink' | undefined): string {
+function colorRef(c: Color | 'black' | undefined): string {
   if (c === undefined || c === 'black') return 'black'
-  if (c === 'ink') return INK
   return `rgb(${toRgbTriple(c)})`
 }
 
@@ -73,8 +72,6 @@ function emitCmd(cmd: DrawCmd): string {
       const strokeAttr = cmd.strokeColor ? ` stroke="${colorRef(cmd.strokeColor)}" stroke-width="${FORM_STROKE}"` : ''
       return `<circle cx="${round(cmd.center.x)}" cy="${round(cmd.center.y)}" r="${round(cmd.radiusPx)}"${fillAttr}${strokeAttr}/>`
     }
-    case 'dot':
-      return `<circle cx="${round(cmd.center.x)}" cy="${round(cmd.center.y)}" r="${round(cmd.radiusPx)}" fill="${colorRef(cmd.fillColor)}"/>`
     case 'pointDot':
       // Fixed small px radius (unlike TikZ's fixed-pt dot) — a plain, always-
       // visible quiver-style point glyph regardless of the diagram's scale.
@@ -103,8 +100,7 @@ function emitCmd(cmd: DrawCmd): string {
 // Pad circles by their radius and labels by a monospace-glyph estimate.
 function cmdBoundsVecs(cmd: DrawCmd): { x: number; y: number }[] {
   switch (cmd.kind) {
-    case 'circle':
-    case 'dot': {
+    case 'circle': {
       const { center, radiusPx: r } = cmd
       return [{ x: center.x - r, y: center.y - r }, { x: center.x + r, y: center.y + r }]
     }

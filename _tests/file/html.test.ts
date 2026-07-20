@@ -12,7 +12,7 @@ function assert(cond: boolean, msg: string) {
 }
 
 function bareSquare(id: string, position: { x: number; y: number }, extra: Partial<Form> = {}): Form {
-  return { id, kind: 'square', position, edges: {}, corners: {}, ...extra }
+  return { id, kind: 'square', position, edges: {}, ...extra }
 }
 
 async function main() {
@@ -71,7 +71,7 @@ async function main() {
   // center ± r, not just the center point.
   const circleOnly: Diagram = {
     schemaVersion: 1,
-    forms: [{ id: 'C1', kind: 'circle', position: { x: 0, y: 0 }, edges: {}, corners: {} }],
+    forms: [{ id: 'C1', kind: 'circle', position: { x: 0, y: 0 }, edges: {} }],
     points: {},
     lines: [],
   }
@@ -92,7 +92,7 @@ async function main() {
   // not "start" — the two conventions are inverses.
   const named: Diagram = {
     schemaVersion: 1,
-    forms: [{ id: 'N1', kind: 'square', position: { x: 0, y: 0 }, edges: { left: ['p1'] }, corners: {} }],
+    forms: [{ id: 'N1', kind: 'square', position: { x: 0, y: 0 }, edges: { left: ['p1'] } }],
     points: { p1: { id: 'p1', shape: 'point', name: 'in', formId: 'N1', edgeKey: 'left' } },
     lines: [],
   }
