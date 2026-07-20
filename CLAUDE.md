@@ -28,7 +28,7 @@ The repo mirrors the project taxonomy from `_concept/02-diagram/schema.nesycat.j
   - `03-orm-schema/` — generated Drizzle `schema.ts` + SQL `migrations/` + `codegen/` tool
   - `04-data-schema/` — Supabase `config.toml`
 - **`_design/`** — visual design pipeline (sketch → wireframe → mockup → prototype). HTML.
-- **`_tests/`** — manual / file (Vitest) / e2e / main buckets. Runners not yet wired.
+- **`_tests/`** — manual / file (Vitest) / e2e / main buckets. `file/` runs via `npm test` (Vitest); manual/e2e/main runners not yet wired.
 
 The underscore prefix sorts these meta folders to the top of file-tree listings.
 

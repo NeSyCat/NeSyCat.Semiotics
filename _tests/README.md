@@ -9,4 +9,4 @@ Four test buckets, mirroring `01-Tech.00-*` from the project taxonomy:
 | `e2e/` | Playwright | end-to-end flows in a real browser |
 | `main/` | Playwright | smoke against production (nesycat.org) |
 
-**Status:** scaffolds only. No runners installed yet — Vitest and Playwright will be wired up in a follow-up PR.
+**Status:** `file/` is wired up — Vitest runs it via `npm test` (watch mode: `npm run test:watch`). `manual/`, `e2e/`, and `main/` are still scaffolds; Playwright will be wired up in a follow-up PR.
