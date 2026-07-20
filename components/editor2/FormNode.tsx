@@ -22,7 +22,7 @@ const POINT_NAME_SIZE = 12 // points a little smaller
 // Visual centre of a form body — for centring its name label. A triangle's
 // centroid is not its bounding-box centre.
 function bodyCentroid(body: Body): [number, number] {
-  if (body.type === 'circle' || body.type === 'dot') return [0.5, 0.5]
+  if (body.type === 'circle') return [0.5, 0.5]
   const pts = body.pointsFrac
   let sx = 0, sy = 0
   for (const [x, y] of pts) { sx += x; sy += y }
@@ -47,30 +47,21 @@ function PointGlyph({ shape, color }: { shape: PointShape; color: string }) {
 }
 
 // Quiver-style point-creation region overlay: a gray-tint stripe along an
-// edge, a dot at a corner, or the whole body for point/empty's single
-// self-region. The corner-dot size doubles as a point's grab-pad size so a
-// point's draggable area coincides exactly with its visual hover circle.
+// edge, or the whole body for 'empty's single self-region. REGION_CORNER_SIZE
+// doubles as a point's grab-pad size so a point's draggable area coincides
+// exactly with its visual hover circle (it's not corner-only — see its uses
+// below in the point glyph/label rendering).
 const REGION_STRIPE_WIDTH = 26
 const REGION_CORNER_SIZE = 28
 
 // The visual hover tint for a point-creation region — an INDICATOR of which
-// edge/corner the cursor's zone maps to. Purely decorative; the grabbable
-// area is RingBandHitArea below, which covers the zone itself.
+// edge the cursor's zone maps to. Purely decorative; the grabbable area is
+// RingBandHitArea below, which covers the zone itself.
 function RegionOverlay({ shape, n, color }: { shape: RegionShape; n: number; color: string }) {
   if (shape.kind === 'full') {
     return (
       <div style={{
         position: 'absolute', inset: 0, borderRadius: '50%', background: color,
-        pointerEvents: 'none', zIndex: 1,
-      }} />
-    )
-  }
-  if (shape.kind === 'corner') {
-    const [x, y] = shape.at
-    return (
-      <div style={{
-        position: 'absolute', left: x * n, top: y * n, transform: 'translate(-50%, -50%)',
-        width: REGION_CORNER_SIZE, height: REGION_CORNER_SIZE, borderRadius: '50%', background: color,
         pointerEvents: 'none', zIndex: 1,
       }} />
     )
@@ -89,7 +80,7 @@ function RegionOverlay({ shape, n, color }: { shape: RegionShape; n: number; col
 // SAME body data isInsideBody/isInCenterZone hit-test against.
 function bodyOutlinePath(body: Body, n: number, scale: number, anchor: { x: number; y: number }): string {
   const c = n / 2
-  if (body.type === 'circle' || body.type === 'dot') {
+  if (body.type === 'circle') {
     const r = c * scale
     const x0 = c - r - anchor.x
     const cy = c - anchor.y
@@ -156,7 +147,7 @@ function DragHandleZone({ body, n }: { body: Body; n: number }) {
     const clip = `polygon(${shrunk.map(([x, y]) => `${(x * 100).toFixed(3)}% ${(y * 100).toFixed(3)}%`).join(', ')})`
     return <div className={DRAG_HANDLE_CLASS} style={{ position: 'absolute', inset: 0, clipPath: clip, zIndex: 2 }} />
   }
-  // circle/dot body: shrunkBodyPoints only handles 'polygon' — same
+  // circle body: shrunkBodyPoints only handles 'polygon' — same
   // CENTER_SHRINK factor, just expressed as a smaller inscribed circle
   // instead of a scaled point list.
   const d = n * CENTER_SHRINK
@@ -183,8 +174,8 @@ function BodyView({ body, n, accent, selected, bodyOpacity, hasCenterZone }: {
   // (an SVG stroke's hit region is wider than its visual width), breaking
   // ring dragging right where it mattered most. Only kinds WITH a center
   // zone have that always-present DragHandleZone as a fallback interactive
-  // catch-all — point/empty have none, so their body must stay clickable or
-  // basic select/drag breaks for them entirely.
+  // catch-all — 'empty' has none, so its body must stay clickable or basic
+  // select/drag breaks for it entirely.
   const decorative = hasCenterZone ? ({ pointerEvents: 'none' } as const) : {}
 
   if (body.type === 'circle') {
@@ -193,17 +184,6 @@ function BodyView({ body, n, accent, selected, bodyOpacity, hasCenterZone }: {
         position: 'absolute', inset: 0, borderRadius: '50%',
         background: bg, outline: `1.5px solid ${border}`, outlineOffset: -0.75,
         transition: 'background 0.15s ease, outline-color 0.15s ease',
-        ...decorative,
-      }} />
-    )
-  }
-  if (body.type === 'dot') {
-    const fill = accent ? `rgb(${accent})` : theme.text.ink
-    return (
-      <div style={{
-        position: 'absolute', inset: 0, borderRadius: '50%', background: fill,
-        boxShadow: selected ? `0 0 0 3px ${theme.node.regionSelected}` : 'none',
-        transition: 'background 0.15s ease, box-shadow 0.15s ease',
         ...decorative,
       }} />
     )
@@ -439,10 +419,10 @@ function FormNode({ id, data, selected }: NodeProps) {
     }}>
       <BodyView body={geom.body} n={n} accent={accent} selected={!!selected} bodyOpacity={geom.bodyOpacity} hasCenterZone={geom.hasCenterZone} />
       {/* dragHandle hit-area (see Canvas.tsx's node-building) — kinds with no
-          center zone (point/empty) stay draggable from anywhere, matching
-          their existing "whole body is one region" behavior. */}
+          center zone ('empty') stay draggable from anywhere, matching their
+          existing "whole body is one region" behavior. */}
       {geom.hasCenterZone && <DragHandleZone body={geom.body} n={n} />}
-      {/* point-creation region hover — quiver-style: shows which edge/corner a
+      {/* point-creation region hover — quiver-style: shows which edge a
           double-click would land a new point on */}
       {hoverEdgeKey && <RegionOverlay shape={geom.regionShape(hoverEdgeKey)} n={n} color={theme.node.regionHover} />}
       {/* Phantom handle — kept TINY and anchored exactly like a real point's

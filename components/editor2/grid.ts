@@ -28,10 +28,10 @@ export function snapPoint(p: { x: number; y: number }): { x: number; y: number }
 
 // The subset of Form that nodeSize() actually reads (forms.ts): every kind's
 // nodeSize looks only at .kind (via geometryFor) and .edges (point counts
-// per side, for the ROW_HEIGHT growth); point/empty ignore edges/corners'
-// contents entirely. A form-shaped object missing id/position (e.g. one that
-// doesn't exist yet, mid double-click creation) is a valid input here.
-export type SizableForm = Pick<Form, 'kind' | 'scale' | 'edges' | 'corners'>
+// per side, for the ROW_HEIGHT growth); 'empty' ignores edges' contents
+// entirely. A form-shaped object missing id/position (e.g. one that doesn't
+// exist yet, mid double-click creation) is a valid input here.
+export type SizableForm = Pick<Form, 'kind' | 'scale' | 'edges'>
 
 // Snaps a form's CENTER — position + n/2, per FormNode.tsx's own n and
 // FormNode's rendering (n = geometryFor(kind).nodeSize(form) * (scale ?? 1))

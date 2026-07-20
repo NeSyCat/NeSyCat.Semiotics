@@ -120,7 +120,7 @@ function resolveDropPoint(
     // the grid, not wherever the drop happened to end.
     const topLeft = { x: position.x - size / 2, y: position.y - size / 2 }
     const snapped = useStore.getState().gridEnabled
-      ? snapCenterPosition({ kind: 'empty', scale: undefined, edges: {}, corners: {} }, topLeft)
+      ? snapCenterPosition({ kind: 'empty', scale: undefined, edges: {} }, topLeft)
       : topLeft
     const newFormId = useStore.getState().addForm('empty', snapped)
     return useStore.getState().addPoint(newFormId, 'self') || null
@@ -252,6 +252,10 @@ function ToolbarSprite() {
         <symbol id="kind-empty" viewBox="0 0 24 24">
           <circle cx="12" cy="12" r="9.25" fill="none" stroke="currentColor" strokeWidth="1.4" strokeDasharray="2.4 2.6" />
         </symbol>
+        {/* 'kind-point' is a POINT SHAPE glyph (PointShape 'point' in
+            types.ts, rendered small on a Point leaf), NOT a FormKind — the
+            'point' FormKind (a standalone dot-bodied form) was removed, but
+            this glyph and the PointShape vocabulary stay. */}
         <symbol id="kind-point" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.15" fill="currentColor" /></symbol>
         <symbol id="kind-line" viewBox="0 0 24 24"><path d="M2.75 12L21.25 12" fill="none" stroke="currentColor" strokeLinecap="round" /></symbol>
         <symbol id="kind-triangle" viewBox="0 0 24 24"><path d="M21.25 12L7.375 20.011L7.375 3.989Z" /></symbol>
@@ -287,7 +291,6 @@ const CATEGORIES: Array<{ key: string; label: string; content: React.ReactNode }
 // types.ts still includes them so pre-existing diagram data isn't affected.
 const SHAPE_RAIL: Array<{ label: string; symbol: string; pshape: PointShape; kind?: FormKind }> = [
   { label: 'Empty', symbol: 'kind-empty', pshape: 'empty', kind: 'empty' },
-  { label: 'Point', symbol: 'kind-point', pshape: 'point', kind: 'point' },
   { label: 'Triangle', symbol: 'kind-triangle', pshape: 'triangle', kind: 'triangle' },
   { label: 'Rhombus', symbol: 'kind-rhombus', pshape: 'rhombus', kind: 'rhombus' },
   { label: 'Circle', symbol: 'kind-circle', pshape: 'circle', kind: 'circle' },
@@ -890,14 +893,14 @@ function Canvas({ topRight }: CanvasContentProps) {
   // `center` is the intended CENTER of the new form (the click/drop point),
   // not its top-left — callers no longer hand-offset by a hardcoded half
   // size, since that half size differs per kind (BASE_SIZE/2 = 100 for
-  // triangle/square/circle/rhombus, but 50 for empty, 11 for point; see
-  // forms.ts's nodeSize). A fresh form has no edges/points yet, so nodeSize
-  // reads exactly the kind's own default — same SizableForm shape grid.ts's
+  // triangle/square/circle/rhombus, but 50 for empty; see forms.ts's
+  // nodeSize). A fresh form has no edges/points yet, so nodeSize reads
+  // exactly the kind's own default — same SizableForm shape grid.ts's
   // snapCenterPosition expects.
   const createForm = useCallback(
     (kind: FormKind, center: { x: number; y: number }) => {
       setActiveKind(kind)
-      const freshForm = { kind, scale: undefined, edges: {}, corners: {} }
+      const freshForm = { kind, scale: undefined, edges: {} }
       const n = geometryFor(kind).nodeSize(freshForm as Form)
       const topLeft = { x: center.x - n / 2, y: center.y - n / 2 }
       // Grid ON: snapCenterPosition re-derives the center from `topLeft` (as
@@ -1095,7 +1098,7 @@ function Canvas({ topRight }: CanvasContentProps) {
   // (only Canvas has the full diagram, so only it can check point proximity)
   // in strict priority order: an existing point's own drag handle always
   // wins, regardless of inside/outside the body; then the inner "select the
-  // whole form" zone; then the point-creation ring near the edges/corners;
+  // whole form" zone; then the point-creation ring near the edges;
   // then nothing. Tracked in the store so FormNode renders exactly one
   // highlight — never a region and a point (or two regions) at once. ───────
   const onNodeMouseMove = useCallback((event: React.MouseEvent, node: Node) => {

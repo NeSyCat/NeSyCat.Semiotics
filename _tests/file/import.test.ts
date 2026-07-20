@@ -15,7 +15,7 @@ function assert(cond: boolean, msg: string) {
 }
 
 function bareSquare(id: string, position: { x: number; y: number }): Form {
-  return { id, kind: 'square', position, edges: {}, corners: {} }
+  return { id, kind: 'square', position, edges: {} }
 }
 
 async function main() {

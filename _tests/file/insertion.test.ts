@@ -28,7 +28,7 @@ function emptyDiagram(): Diagram {
 }
 
 function bareForm(id: string, kind: Form['kind'], extra: Partial<Form> = {}): Form {
-  return { id, kind, position: { x: 0, y: 0 }, edges: {}, corners: {}, ...extra }
+  return { id, kind, position: { x: 0, y: 0 }, edges: {}, ...extra }
 }
 
 // ── SQUARE — 'right' edge, 1 existing point (index0 sits at ry=0.5) ────
@@ -98,30 +98,6 @@ function unrotateLocal(localX: number, localY: number, w: number, h: number, rot
   assert(idx === 1, `rotated square (90°): screen-space gesture unrotates to below the existing point -> index 1 (got ${idx})`)
 }
 
-// ── RADIAL FAN ('point' kind) — 2 existing points at θ=0 and θ=π; gesture
-// straight up (θ=π/2, "between" them going one way) -> index 1 ─────────
-{
-  const form = bareForm('F5', 'point', { edges: { self: ['P1', 'P2'] } })
-  const theta = Math.PI / 2
-  const rx = 0.5 + 0.5 * Math.cos(theta)
-  const ry = 0.5 - 0.5 * Math.sin(theta)
-  const idx = insertionIndex(form, 'self', rx, ry)
-  assert(idx === 1, `radial fan (point kind), 2 points, gesture between them (up) -> index 1 (got ${idx})`)
-  // The other way around (θ=-π/2, "straight down") wraps past both -> index 2.
-  const theta2 = -Math.PI / 2
-  const rx2 = 0.5 + 0.5 * Math.cos(theta2)
-  const ry2 = 0.5 - 0.5 * Math.sin(theta2)
-  const idx2 = insertionIndex(form, 'self', rx2, ry2)
-  assert(idx2 === 2, `radial fan (point kind), 2 points, gesture the other way around -> index 2 (got ${idx2})`)
-}
-
-// ── Corner keys: index is irrelevant — always the single-slot semantics ──
-{
-  const form = bareForm('F6', 'square', {})
-  const idx = insertionIndex(form, 'v0', 0.9, 0.9)
-  assert(idx === 0, `corner key 'v0' -> insertionIndex is 0 (irrelevant/ignored) (got ${idx})`)
-}
-
 // ── mutations.addPoint — index splice ───────────────────────────────────
 {
   const d = emptyDiagram()
@@ -132,13 +108,6 @@ function unrotateLocal(localX: number, localY: number, w: number, h: number, rot
   const [d2, newId] = addPoint(d, 'MF1', 'top', 'empty', 1)
   const list = d2.forms.find((f) => f.id === 'MF1')!.edges.top
   assert(list[0] === 'MP1' && list[1] === newId && list[2] === 'MP2', `addPoint with index=1 splices between existing ids, preserving their relative order (got [${list.join(',')}])`)
-}
-{
-  // Corner key ignores index — still the single-slot semantics.
-  const d = emptyDiagram()
-  d.forms.push(bareForm('MF2', 'square', {}))
-  const [d2, newId] = addPoint(d, 'MF2', 'v0', 'empty', 999)
-  assert(d2.forms.find((f) => f.id === 'MF2')!.corners.v0 === newId, 'addPoint on a corner key ignores index -> sets the single slot')
 }
 {
   // Out-of-range index clamps.

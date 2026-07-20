@@ -1,7 +1,6 @@
 // Standalone test script for the simplified 'empty' FormKind — capacity
 // reuse (mutations.ts's addPoint), the constant-center anchor (forms.ts's
-// emptyGeometry), and the old-diagram collapse (io.ts's restoreDiagram) —
-// plus a regression guard that 'point's own radial fan is untouched. No
+// emptyGeometry), and the old-diagram collapse (io.ts's restoreDiagram). No
 // Vitest wired yet (see _tests/README.md), so this runs directly under tsx:
 //
 //   npx tsx _tests/file/empty-form.test.ts
@@ -19,7 +18,7 @@ function assert(cond: boolean, msg: string) {
 }
 
 function bareForm(id: string, kind: Form['kind'], extra: Partial<Form> = {}): Form {
-  return { id, kind, position: { x: 0, y: 0 }, edges: {}, corners: {}, ...extra }
+  return { id, kind, position: { x: 0, y: 0 }, edges: {}, ...extra }
 }
 
 // ── mutations.addPoint — capacity reuse (many drops, one point) ──────────
@@ -108,27 +107,6 @@ function bareForm(id: string, kind: Form['kind'], extra: Partial<Form> = {}): Fo
   assert(d.forms.find((f) => f.id === 'E2')!.edges.self.length === 1, `the empty form still collapses to 1 point even though its only line disappears`)
   assert(d.lines.find((l) => l.id === 'L3') === undefined, `a line whose source and only target collapse onto the SAME kept point is dropped (degenerate self-loop)`)
   assert(d.points.Q1 !== undefined && d.points.Q2 === undefined, `Q1 (kept) survives, Q2 (dropped) doesn't`)
-}
-
-// ── REGRESSION GUARD: 'point' kind's unbounded radial fan is untouched ───
-{
-  const geom = geometryFor('point')
-  assert(geom.maxPoints === undefined, `'point' kind has no capacity cap (unbounded fan, unlike 'empty')`)
-  const n = 100
-  const a = geom.pointAnchor('self', 1, 4, n) // index=1 of 4 -> theta = (1/4)*2pi = pi/2 ("up")
-  const expectedX = n / 2 + (n / 2) * Math.cos(Math.PI / 2)
-  const expectedY = n / 2 - (n / 2) * Math.sin(Math.PI / 2)
-  assert(
-    Math.abs(a.x - expectedX) < 1e-9 && Math.abs(a.y - expectedY) < 1e-9,
-    `'point' kind's radial fan formula is unchanged by the 'empty' simplification (got x=${a.x}, y=${a.y}, want x=${expectedX}, y=${expectedY})`,
-  )
-  // A 'point' form with several points genuinely still reuses NOTHING — a
-  // fresh addPoint always creates a new one (no maxPoints reuse for 'point').
-  const d: Diagram = { schemaVersion: 1, forms: [bareForm('PT1', 'point')], points: {}, lines: [] }
-  const [d1, id1] = addPoint(d, 'PT1', 'self')
-  const [d2, id2] = addPoint(d1, 'PT1', 'self')
-  assert(id1 !== id2, `'point' kind's addPoint creates a NEW point every time, no capacity reuse (got id1=${id1}, id2=${id2})`)
-  assert(d2.forms.find((f) => f.id === 'PT1')!.edges.self.length === 2, `'point' form correctly fans to 2 points (got ${d2.forms.find((f) => f.id === 'PT1')!.edges.self.length})`)
 }
 
 // ── STORE: capacity reuse must not push a phantom undo step ──────────────
