@@ -1,17 +1,11 @@
 'use client'
 
 import { createClient } from '@/lib/supabase/client'
-import { startGitHubSignIn } from '@/components/SignInButton'
+import { startGitHubSignIn } from '@/lib/auth'
 
 interface Props {
   isSignedIn: boolean
   callbackUrl: string
-  // Kept in the prop signature even though this component no longer reads
-  // it — the server pages (app/editor/page.tsx, app/editor/[id]/page.tsx)
-  // still pass it, and share/export moved to Canvas.tsx's Export dropdown
-  // (which derives the share URL from location.pathname client-side
-  // instead), not to a re-plumbed prop through those server components.
-  shareBase: string
 }
 
 // The classic person/account glyph — one icon for both auth states (the

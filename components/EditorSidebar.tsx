@@ -7,6 +7,7 @@ import {
   deleteDiagram,
   renameDiagram,
 } from '@/lib/actions/diagrams'
+import { clientEditorHref } from '@/lib/editor-url'
 import type { Diagram } from '@/_concept/03-orm-schema/schema'
 
 // ── Icons ──────────────────────────────────────────────────────────────────
@@ -190,13 +191,6 @@ function DiagramItem({
 // ── Helpers ─────────────────────────────────────────────────────────────────
 const UUID_IN_PATH = /\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?:\/|$)/i
 
-function editorPath(id: string): string {
-  if (typeof window !== 'undefined' && window.location.host === 'semiotics.nesycat.org') {
-    return `/${id}`
-  }
-  return `/editor/${id}`
-}
-
 // ── EditorSidebar ────────────────────────────────────────────────────────────
 export default function EditorSidebar({ diagrams }: { diagrams: Diagram[] }) {
   const router = useRouter()
@@ -236,7 +230,7 @@ export default function EditorSidebar({ diagrams }: { diagrams: Diagram[] }) {
   const goTo = (id: string) => {
     if (selectedId === id) return
     setOptimisticId(id)
-    startNavTransition(() => { router.push(editorPath(id)) })
+    startNavTransition(() => { router.push(clientEditorHref(id)) })
   }
 
   const onCreate = () => {
@@ -247,7 +241,7 @@ export default function EditorSidebar({ diagrams }: { diagrams: Diagram[] }) {
         const row = await createDiagram()
         setOptimisticNew(row)
         setOptimisticId(row.id)
-        router.push(editorPath(row.id))
+        router.push(clientEditorHref(row.id))
       } catch (err) {
         console.error('createDiagram failed', err)
       } finally {
@@ -271,11 +265,7 @@ export default function EditorSidebar({ diagrams }: { diagrams: Diagram[] }) {
       await deleteDiagram(selectedId)
       const onThis = pathname.includes(selectedId)
       if (onThis) {
-        router.push(
-          typeof window !== 'undefined' && window.location.host === 'semiotics.nesycat.org'
-            ? '/'
-            : '/editor'
-        )
+        router.push(clientEditorHref())
       } else {
         router.refresh()
       }

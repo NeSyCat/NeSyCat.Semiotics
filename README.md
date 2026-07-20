@@ -47,7 +47,7 @@ toggle visibility per kind.
 - **Edge style** — toggle between `Straight` and `Smooth` in the upper-left.
 - **JSON** — the `JSON` button in the upper-right exports / imports the
   diagram. Diagrams are pure data (see
-  [`diagrams/schema.nesycat.json`](./diagrams/schema.nesycat.json) for an
+  [`_concept/02-diagram/schema.nesycat.json`](./_concept/02-diagram/schema.nesycat.json) for an
   example) — versionable in git, reviewable in a PR.
 
 Autosave is on. Changes persist per-diagram to your account.
@@ -66,8 +66,8 @@ Authentication uses Supabase + GitHub OAuth. Copy `.env.example` to
 OAuth app at `http://localhost:3456/auth/callback` for local sign-in.
 
 Database migrations live under [`supabase/`](./supabase) and
-[`drizzle/`](./drizzle); schema generation is driven by
-[`codegen/diagram-to-drizzle.ts`](./codegen/diagram-to-drizzle.ts).
+[`_concept/03-orm-schema/`](./_concept/03-orm-schema/); schema generation is driven by
+[`_concept/03-orm-schema/codegen/diagram-to-drizzle.ts`](./_concept/03-orm-schema/codegen/diagram-to-drizzle.ts).
 
 ## Stack
 

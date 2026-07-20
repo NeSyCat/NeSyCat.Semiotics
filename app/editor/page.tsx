@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { createDiagram, listDiagrams } from '@/lib/actions/diagrams'
-import { serverCallbackUrl, serverEditorHref } from '@/lib/editor-url'
+import { serverCallbackUrl, serverEditorHref } from '@/lib/editor-url.server'
 import AnonymousEditor from '@/components/editor/AnonymousEditor'
 import AuthSharePill from '@/components/AuthSharePill'
 
@@ -14,7 +14,7 @@ export default async function EditorIndex() {
     return (
       <AnonymousEditor
         topRight={
-          <AuthSharePill isSignedIn={false} callbackUrl={await serverCallbackUrl()} shareBase={await serverEditorHref()} />
+          <AuthSharePill isSignedIn={false} callbackUrl={await serverCallbackUrl()} />
         }
       />
     )

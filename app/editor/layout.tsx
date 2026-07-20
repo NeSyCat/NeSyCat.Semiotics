@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { listDiagrams } from '@/lib/actions/diagrams'
-import { serverEditorHref } from '@/lib/editor-url'
+import { serverEditorHref } from '@/lib/editor-url.server'
 import EditorSidebar from '@/components/EditorSidebar'
 import StarPrompt from '@/components/StarPrompt'
 import ImportSharedHash from '@/components/ImportSharedHash'

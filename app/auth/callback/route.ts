@@ -2,19 +2,10 @@ import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { NextResponse, type NextRequest } from 'next/server'
 import { desc } from 'drizzle-orm'
-import { COOKIE_DOMAIN, editorHrefForHost } from '@/lib/editor-url'
+import { COOKIE_DOMAIN, editorHrefForHost, isNesycatHost } from '@/lib/editor-url'
 import { withRLS } from '@/lib/db'
 import { diagrams } from '@/_concept/03-orm-schema/schema'
-import type { Diagram } from '@/components/editor/types'
-
-const NESYCAT_HOSTS = new Set(['nesycat.org', 'www.nesycat.org', 'semiotics.nesycat.org'])
-
-const emptyData: Diagram = {
-  schemaVersion: 1,
-  forms: [],
-  points: {},
-  lines: [],
-}
+import { emptyData } from '@/lib/constants'
 
 export async function GET(request: NextRequest) {
   const { searchParams, origin, host } = new URL(request.url)
@@ -27,7 +18,7 @@ export async function GET(request: NextRequest) {
   }
 
   const cookieStore = await cookies()
-  const shareCookieDomain = process.env.NODE_ENV === 'production' && NESYCAT_HOSTS.has(host)
+  const shareCookieDomain = process.env.NODE_ENV === 'production' && isNesycatHost(host)
 
   // Placeholder response so the Supabase client can stamp session cookies.
   // The Location header is rewritten once we know the final destination.

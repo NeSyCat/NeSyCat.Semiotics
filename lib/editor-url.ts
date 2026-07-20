@@ -1,4 +1,6 @@
-import { headers } from 'next/headers'
+// Pure host/URL logic — no `next/headers`, safe to import from client
+// components. Server-only wrappers that need request headers live in
+// `lib/editor-url.server.ts`.
 
 export const EDITOR_SUBDOMAIN = 'semiotics.nesycat.org'
 export const COOKIE_DOMAIN = '.nesycat.org'
@@ -23,19 +25,19 @@ export function callbackUrlForHost(host: string): string {
   return `/auth/callback`
 }
 
-export async function serverEditorHref(id?: string): Promise<string> {
-  const h = await headers()
-  return editorHrefForHost(h.get('host') ?? '', id)
+// Shared by app/auth/callback/route.ts and lib/supabase/proxy.ts — both need
+// to know whether the request host is one of the nesycat.org hosts that
+// should get the shared, apex-scoped session cookie.
+export function isNesycatHost(host: string): boolean {
+  return host === 'nesycat.org' || host === 'www.nesycat.org' || host === EDITOR_SUBDOMAIN
 }
 
-export async function serverCallbackUrl(): Promise<string> {
-  const h = await headers()
-  return callbackUrlForHost(h.get('host') ?? '')
-}
-
-export async function isSubdomainHost(): Promise<boolean> {
-  const h = await headers()
-  return (h.get('host') ?? '') === EDITOR_SUBDOMAIN
+// Client-safe equivalent of serverEditorHref() — reads window.location.host
+// directly instead of going through next/headers. For use in 'use client'
+// components (e.g. EditorSidebar) that navigate between diagrams.
+export function clientEditorHref(id?: string): string {
+  if (typeof window === 'undefined') return id ? `/editor/${id}` : '/editor'
+  return editorHrefForHost(window.location.host, id)
 }
 
 export function isProd(): boolean {

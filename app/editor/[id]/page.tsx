@@ -4,7 +4,7 @@ import CanvasRoot from '@/components/editor/Canvas'
 import AuthSharePill from '@/components/AuthSharePill'
 import { loadDiagram } from '@/lib/actions/diagrams'
 import { restoreDiagram } from '@/components/editor/io'
-import { serverCallbackUrl, serverEditorHref } from '@/lib/editor-url'
+import { serverCallbackUrl, serverEditorHref } from '@/lib/editor-url.server'
 
 export default async function EditorDiagramPage(props: { params: Promise<{ id: string }> }) {
   const { id } = await props.params
@@ -25,7 +25,7 @@ export default async function EditorDiagramPage(props: { params: Promise<{ id: s
       diagramId={id}
       initialData={restoreDiagram(row.data)}
       topRight={
-        <AuthSharePill isSignedIn callbackUrl={await serverCallbackUrl()} shareBase={await serverEditorHref()} />
+        <AuthSharePill isSignedIn callbackUrl={await serverCallbackUrl()} />
       }
     />
   )
