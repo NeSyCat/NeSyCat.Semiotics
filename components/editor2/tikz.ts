@@ -22,7 +22,7 @@
 
 import { geometryFor, pointIdsAt, type Body } from './forms'
 import { encodeDiagramToFragment } from './share'
-import type { Diagram, Form, Point, PointShape, Color } from './types'
+import type { Diagram, Form, Point, Shape, Color } from './types'
 
 export interface Vec { x: number; y: number }
 
@@ -120,10 +120,8 @@ export function pointPositionsPx(diagram: Diagram): Map<string, PointPx> {
 export type DrawCmd =
   | { kind: 'polygon'; pts: Vec[]; fillColor?: Color; fillOpacity: number; strokeColor: Color | 'black'; strokeWidthPt: number }
   | { kind: 'circle'; center: Vec; radiusPx: number; fillColor?: Color; fillOpacity: number; strokeColor?: Color | 'black'; strokeWidthPt?: number }
-  | { kind: 'pointDot'; pos: Vec; color: Color | 'black' } // quiver-style fixed-size point glyph (2.5pt, NOT scaled by px->cm)
   | { kind: 'pointCircle'; pos: Vec; radiusPx: number; color: Color | 'black' }
   | { kind: 'pointPolygon'; pts: Vec[]; color: Color | 'black' }
-  | { kind: 'pointLine'; from: Vec; to: Vec; color: Color | 'black' }
   | { kind: 'line'; from: Vec; to: Vec; color: Color | 'black'; widthPt: number }
   | { kind: 'label'; at: Vec; text: string; anchor?: 'east' | 'west' | 'north' | 'south' }
 
@@ -141,11 +139,11 @@ const POINT_GLYPH_PX = 11
 const POINT_GLYPH_R = POINT_GLYPH_PX / 2
 const LABEL_GAP_PX = 11 // matches FormNode.tsx's point-label GAP
 
-// Small closed-path glyphs for point shapes that aren't circle/point/line/
-// empty — simplified regular polygons at the ticket's ~11px-across scale
-// (not a pixel-exact port of the SVG sprite in Canvas.tsx's ToolbarSprite,
-// which the ticket doesn't require).
-function glyphLocalPoints(shape: PointShape): Array<[number, number]> | null {
+// Small closed-path glyphs for point shapes that aren't circle/empty —
+// simplified regular polygons at the ticket's ~11px-across scale (not a
+// pixel-exact port of the SVG sprite in Canvas.tsx's ToolbarSprite, which
+// the ticket doesn't require).
+function glyphLocalPoints(shape: Shape): Array<[number, number]> | null {
   const r = POINT_GLYPH_R
   switch (shape) {
     case 'square':
@@ -154,27 +152,9 @@ function glyphLocalPoints(shape: PointShape): Array<[number, number]> | null {
       return [[r, 0], [-r * 0.5, r * 0.866], [-r * 0.5, -r * 0.866]]
     case 'rhombus':
       return [[0, -r], [r, 0], [0, r], [-r, 0]]
-    case 'pentagon':
-    case 'hexagon': {
-      const n = shape === 'pentagon' ? 5 : 6
-      const start = -Math.PI / 2 // first vertex pointing up
-      return Array.from({ length: n }, (_, i) => {
-        const theta = start + (i / n) * 2 * Math.PI
-        return [r * Math.cos(theta), r * Math.sin(theta)] as [number, number]
-      })
-    }
     default:
       return null
   }
-}
-
-// Which way a small glyph/segment/label should face, derived from the
-// point's own anchor cardinal — 'top'/'bottom' anchors sit on a
-// horizontally-running edge, so their tangent (and hence a 'line' shape's
-// segment) runs horizontal; 'left'/'right' anchors sit on a vertically-
-// running edge, tangent runs vertical.
-function tangentAxis(cardinal: string): 'horizontal' | 'vertical' {
-  return cardinal === 'top' || cardinal === 'bottom' ? 'horizontal' : 'vertical'
 }
 
 function labelAnchorFor(cardinal: string): { offset: Vec; anchor: 'east' | 'west' | 'north' | 'south' } {
@@ -193,24 +173,9 @@ function buildPointCmds(pt: Point, px: PointPx, cmds: DrawCmd[]) {
   switch (pt.shape) {
     case 'empty':
       break // nothing drawn — the coordinate still exists as a line endpoint
-    case 'point':
-      cmds.push({ kind: 'pointDot', pos: px.pos, color })
-      break
     case 'circle':
       cmds.push({ kind: 'pointCircle', pos: px.pos, radiusPx: POINT_GLYPH_R, color })
       break
-    case 'line': {
-      // Segment endpoints as LOCAL offsets from the point's own local anchor
-      // (so rotating the form rotates the segment's facing with it, same as
-      // every other point glyph — built in the form's local frame, then
-      // carried through the SAME toAbs rotation).
-      const axis = tangentAxis(px.cardinal)
-      const half = POINT_GLYPH_R
-      const a = axis === 'horizontal' ? { x: px.local.x - half, y: px.local.y } : { x: px.local.x, y: px.local.y - half }
-      const b = axis === 'horizontal' ? { x: px.local.x + half, y: px.local.y } : { x: px.local.x, y: px.local.y + half }
-      cmds.push({ kind: 'pointLine', from: local(a), to: local(b), color })
-      break
-    }
     default: {
       const glyph = glyphLocalPoints(pt.shape)
       if (!glyph) break
@@ -352,10 +317,6 @@ function emitCmd(cmd: DrawCmd, registry: ColorRegistry, minX: number, maxY: numb
       }
       return `\\draw[draw=${stroke ?? 'black'}, line width=${cmd.strokeWidthPt ?? FORM_STROKE_PT}pt] (${c(cmd.center)}) circle (${r});`
     }
-    case 'pointDot': {
-      const color = tikzColorRef(cmd.color, registry)
-      return `\\fill[${color}] (${c(cmd.pos)}) circle (2.5pt);` // fixed quiver-style size — NOT scaled by the px->cm mapping
-    }
     case 'pointCircle': {
       const color = tikzColorRef(cmd.color, registry)
       return `\\draw[${color}] (${c(cmd.pos)}) circle (${lenCm(cmd.radiusPx)});`
@@ -364,10 +325,6 @@ function emitCmd(cmd: DrawCmd, registry: ColorRegistry, minX: number, maxY: numb
       const color = tikzColorRef(cmd.color, registry)
       const path = cmd.pts.map((p) => `(${c(p)})`).join(' -- ')
       return `\\draw[${color}] ${path} -- cycle;`
-    }
-    case 'pointLine': {
-      const color = tikzColorRef(cmd.color, registry)
-      return `\\draw[${color}] (${c(cmd.from)}) -- (${c(cmd.to)});`
     }
     case 'line': {
       const color = tikzColorRef(cmd.color, registry)
@@ -389,10 +346,8 @@ export function cmdVecs(cmd: DrawCmd): Vec[] {
   switch (cmd.kind) {
     case 'polygon': return cmd.pts
     case 'circle': return [cmd.center]
-    case 'pointDot': return [cmd.pos]
     case 'pointCircle': return [cmd.pos]
     case 'pointPolygon': return cmd.pts
-    case 'pointLine': return [cmd.from, cmd.to]
     case 'line': return [cmd.from, cmd.to]
     case 'label': return [cmd.at]
   }

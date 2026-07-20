@@ -93,7 +93,7 @@ async function main() {
   const named: Diagram = {
     schemaVersion: 1,
     forms: [{ id: 'N1', kind: 'square', position: { x: 0, y: 0 }, edges: { left: ['p1'] } }],
-    points: { p1: { id: 'p1', shape: 'point', name: 'in', formId: 'N1', edgeKey: 'left' } },
+    points: { p1: { id: 'p1', shape: 'circle', name: 'in', formId: 'N1', edgeKey: 'left' } },
     lines: [],
   }
   const nsvg = diagramToHtmlCore(named)

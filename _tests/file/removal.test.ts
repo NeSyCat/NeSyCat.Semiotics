@@ -11,7 +11,7 @@
 import { geometryFor, formRegistry } from '../../components/editor2/forms'
 import { addPoint } from '../../components/editor2/mutations'
 import { restoreDiagram } from '../../components/editor2/io'
-import type { Diagram, Form, FormKind } from '../../components/editor2/types'
+import type { Diagram, Form, Shape } from '../../components/editor2/types'
 
 let pass = 0
 let fail = 0
@@ -23,7 +23,7 @@ function bareForm(id: string, kind: Form['kind'], extra: Partial<Form> = {}): Fo
   return { id, kind, position: { x: 0, y: 0 }, edges: {}, ...extra }
 }
 
-const REMAINING_KINDS: FormKind[] = ['triangle', 'square', 'circle', 'rhombus', 'empty']
+const REMAINING_KINDS: Shape[] = ['triangle', 'square', 'circle', 'rhombus', 'empty']
 
 // ── (i) no geometry exposes corner keys ──────────────────────────────────
 {

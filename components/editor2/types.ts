@@ -11,10 +11,11 @@
 
 export type Color = [number, number, number] // normalized RGB, each in [0,1]
 
-// ── Forms (the big shapes) ───────────────────────────────────────────
-export type FormKind = 'triangle' | 'square' | 'circle' | 'rhombus' | 'empty'
+// ── Shapes — the ONE vocabulary shared by a Form's own kind and a Point's
+// (small) glyph. There is no separate FormKind/PointShape split: a Form and
+// a Point simply pick from the same 5-member set.
+export type Shape = 'triangle' | 'square' | 'circle' | 'rhombus' | 'empty'
 // Have real edges that points can attach to; 'empty' renders as an edgeless placeholder body.
-export const PRIORITY_KINDS = ['triangle', 'square', 'circle', 'rhombus'] as const
 
 // An edge key names one side/arc of a form. Validated per-kind by the form
 // registry (forms.ts):
@@ -25,7 +26,7 @@ export type EdgeKey = string
 
 export interface Form {
   id: string
-  kind: FormKind
+  kind: Shape
   name?: string
   color?: Color // undefined = no colour (the default)
   rotation?: number // degrees, 0-359; undefined = 0 (no rotation)
@@ -36,22 +37,12 @@ export interface Form {
 }
 
 // ── Points (leaves; distinct from forms) ─────────────────────────────
-// A point's shape is drawn from the SAME vocabulary as the Spine's Shape rail,
-// just rendered small. 'point' (a filled dot) is the default.
-export type PointShape =
-  | 'empty'
-  | 'point'
-  | 'line'
-  | 'triangle'
-  | 'rhombus'
-  | 'pentagon'
-  | 'hexagon'
-  | 'circle'
-  | 'square'
+// A point's shape is drawn from the SAME vocabulary as a Form's own kind
+// (Shape, above), just rendered small.
 
 export interface Point {
   id: string
-  shape: PointShape // the point's own (small) shape; default 'empty' (no glyph)
+  shape: Shape // the point's own (small) shape; default 'empty' (no glyph)
   name?: string
   color?: Color // undefined = no colour (the default)
   formId: string // the Form this point sits on
