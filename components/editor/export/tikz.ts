@@ -85,13 +85,17 @@ function emitCmd(cmd: DrawCmd, registry: ColorRegistry, minX: number, maxY: numb
       return `\\draw[draw=${stroke ?? 'black'}, line width=${cmd.strokeWidthPt ?? FORM_STROKE_PT}pt] (${c(cmd.center)}) circle (${r});`
     }
     case 'pointCircle': {
-      const color = tikzColorRef(cmd.color, registry)
-      return `\\draw[${color}] (${c(cmd.pos)}) circle (${lenCm(cmd.radiusPx)});`
+      // fillColor is always set (white, or a color flattened over white —
+      // see geometry-ir.ts's buildPointCmds) and fully opaque — the glyph
+      // masks whatever's underneath (a wire's end, a form's border) on the
+      // assumed-white export page. Stroke is always plain black.
+      const fill = tikzColorRef(cmd.fillColor, registry)
+      return `\\filldraw[fill=${fill}, draw=black, line width=${FORM_STROKE_PT}pt] (${c(cmd.pos)}) circle (${lenCm(cmd.radiusPx)});`
     }
     case 'pointPolygon': {
-      const color = tikzColorRef(cmd.color, registry)
+      const fill = tikzColorRef(cmd.fillColor, registry)
       const path = cmd.pts.map((p) => `(${c(p)})`).join(' -- ')
-      return `\\draw[${color}] ${path} -- cycle;`
+      return `\\filldraw[fill=${fill}, draw=black, line width=${FORM_STROKE_PT}pt] ${path} -- cycle;`
     }
     case 'line': {
       const color = tikzColorRef(cmd.color, registry)

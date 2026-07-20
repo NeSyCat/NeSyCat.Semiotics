@@ -44,7 +44,8 @@ describe("'empty' Form shape", () => {
     // collapse normalization runs) the anchor never fans — always the center.
     const a1 = geom.pointAnchor('self', 2, 5, n)
     expect(a1.x === n / 2 && a1.y === n / 2, `empty's anchor stays centered even for (index=2, count=5) (got x=${a1.x}, y=${a1.y})`).toBe(true)
-    expect(geom.maxPoints, `empty declares maxPoints=1`).toBe(1)
+    expect(geom.edgeCapacity?.self, `empty declares edgeCapacity.self=1`).toBe(1)
+    expect(geom.pointIsForm, `empty declares pointIsForm=true`).toBe(true)
     expect(
       geom.nodeSize(bareForm('E', 'empty', { edges: { self: ['P1'] } })),
       `empty's nodeSize never grows with point count`,
@@ -142,7 +143,7 @@ describe("'empty' Form shape", () => {
       `the seeded point is attached to the new form's 'self' edge (got formId=${seededPoint?.formId}, edgeKey=${seededPoint?.edgeKey})`,
     ).toBe(true)
 
-    // (ii) addForm for a shape with no maxPoints (e.g. 'square') seeds nothing.
+    // (ii) addForm for a shape with pointIsForm unset (e.g. 'square') seeds nothing.
     const [d2, formId2] = addForm(empty, 'square', { x: 0, y: 0 })
     const form2 = d2.forms.find((f) => f.id === formId2)!
     const squareEdgeCounts = Object.values(form2.edges).map((l) => l.length)

@@ -3,7 +3,7 @@
 import { memo, useEffect, useRef } from 'react'
 import { Handle, useConnection, useReactFlow, useUpdateNodeInternals, type NodeProps } from '@xyflow/react'
 import theme from './theme'
-import { geometryFor, pointIdsAt, insertionIndex, shrunkBodyPoints, CENTER_SHRINK, type Body, type RegionShape } from '../domain/forms'
+import { geometryFor, pointIdsAt, insertionIndex, shrunkBodyPoints, CENTER_SHRINK, POINT_SIZE, type Body, type RegionShape } from '../domain/forms'
 import { encodeHandle, encodePhantomHandle, decodePhantomHandle } from '../domain/handles'
 import { toRgbTriple } from '../domain/color'
 import { useStore } from '../state/store'
@@ -43,6 +43,16 @@ function RegionOverlay({ shape, n, color }: { shape: RegionShape; n: number; col
     return (
       <div style={{
         position: 'absolute', inset: 0, borderRadius: '50%', background: color,
+        pointerEvents: 'none', zIndex: 1,
+      }} />
+    )
+  }
+  if (shape.kind === 'spot') {
+    const [x, y] = shape.at
+    return (
+      <div style={{
+        position: 'absolute', left: x * n, top: y * n, transform: 'translate(-50%, -50%)',
+        width: POINT_SIZE, height: POINT_SIZE, borderRadius: '50%', background: color,
         pointerEvents: 'none', zIndex: 1,
       }} />
     )
@@ -140,10 +150,23 @@ function DragHandleZone({ body, n }: { body: Body; n: number }) {
   )
 }
 
-// Body fill + 1.5px border. No colour → transparent fill; the border is ALWAYS
-// pure black. Selection only tints the fill.
-function BodyView({ body, n, accent, selected, bodyOpacity, hasCenterZone }: {
+// The radius (px, node-space) a resident point's glyph occupies — POINT_SIZE
+// is the glyph's rendered DIAMETER (domain/forms.ts); the body border/fill
+// gaps around each resident point by exactly this much, so the border never
+// draws underneath a point's own (separately-rendered, possibly-transparent)
+// glyph outline.
+const BODY_GAP_R = POINT_SIZE / 2
+
+// Body fill + 1.5px border, gapped around each resident point's glyph (see
+// BODY_GAP_R) via an SVG <mask> — a point's glyph can be genuinely
+// transparent (PointVisual's PointGlyph, uncolored case), so the border/fill
+// must be ACTUALLY INTERRUPTED there, not merely painted over with an opaque
+// canvas-colored disc (that would fake a white fill and defeat the point's
+// own transparency). No colour → transparent fill; the border is ALWAYS pure
+// black. Selection only tints the fill.
+function BodyView({ body, n, accent, selected, bodyOpacity, hasCenterZone, gapPoints, maskId }: {
   body: Body; n: number; accent: string | null; selected: boolean; bodyOpacity: number; hasCenterZone: boolean
+  gapPoints: ReadonlyArray<{ x: number; y: number }>; maskId: string
 }) {
   const fillOpacity = (selected ? theme.node.selectedFillOpacity : theme.node.fillOpacity) * bodyOpacity
   const bg = accent
@@ -158,27 +181,49 @@ function BodyView({ body, n, accent, selected, bodyOpacity, hasCenterZone }: {
   // catch-all — 'empty' has none, so its body must stay clickable or basic
   // select/drag breaks for it entirely.
   const decorative = hasCenterZone ? ({ pointerEvents: 'none' } as const) : {}
+  const transition = { transition: 'fill 0.15s ease, stroke 0.15s ease' } as const
+
+  // Luminance mask: a white backing rect (everything visible) with a black
+  // circle punched at each resident point's glyph (invisible there). Shared
+  // by fill AND stroke — both an SVG <mask> applies to at once — so they gap
+  // identically; skipped entirely when there's nothing to gap (every point
+  // on this form is shape 'empty', or there are none).
+  //
+  // The backing rect is padded by MASK_MARGIN past the body's own 0..n box —
+  // a polygon body's stroke straddles its path (half OUTSIDE it, 0.75px for
+  // a 1.5px stroke), and a square/rhombus/circle's vertices sit exactly ON
+  // that 0..n boundary. An unpadded 0..n rect would clip that outer half of
+  // the stroke off wherever the path touches the box edge, visibly thinning
+  // the WHOLE border the instant any mask is applied — not just at the
+  // gapped points. Padding covers the overhang with headroom to spare.
+  const MASK_MARGIN = 4
+  const mask = gapPoints.length > 0 ? (
+    <mask id={maskId} maskUnits="userSpaceOnUse" x={-MASK_MARGIN} y={-MASK_MARGIN} width={n + 2 * MASK_MARGIN} height={n + 2 * MASK_MARGIN}>
+      <rect x={-MASK_MARGIN} y={-MASK_MARGIN} width={n + 2 * MASK_MARGIN} height={n + 2 * MASK_MARGIN} fill="white" />
+      {gapPoints.map((p, i) => <circle key={i} cx={p.x} cy={p.y} r={BODY_GAP_R} fill="black" />)}
+    </mask>
+  ) : null
+  const maskAttr = mask ? { mask: `url(#${maskId})` } : {}
 
   if (body.type === 'circle') {
+    // r inset by half the stroke width so the stroke's OUTER edge lands
+    // exactly at n/2 — matching the previous CSS `outline` + negative
+    // `outlineOffset` rendering (the visible circle boundary is unchanged).
+    const r = n / 2 - 0.75
     return (
-      <div style={{
-        position: 'absolute', inset: 0, borderRadius: '50%',
-        background: bg, outline: `1.5px solid ${border}`, outlineOffset: -0.75,
-        transition: 'background 0.15s ease, outline-color 0.15s ease',
-        ...decorative,
-      }} />
+      <svg width={n} height={n} style={{ position: 'absolute', inset: 0, overflow: 'visible', ...decorative }}>
+        {mask && <defs>{mask}</defs>}
+        <circle cx={n / 2} cy={n / 2} r={r} fill={bg} stroke={border} strokeWidth={1.5} style={transition} {...maskAttr} />
+      </svg>
     )
   }
   const pts = body.pointsFrac
-  const clip = `polygon(${pts.map(([x, y]) => `${(x * 100).toFixed(3)}% ${(y * 100).toFixed(3)}%`).join(', ')})`
   const polyPts = pts.map(([x, y]) => `${x * n},${y * n}`).join(' ')
   return (
-    <>
-      <div style={{ position: 'absolute', inset: 0, clipPath: clip, background: bg, transition: 'background 0.15s ease', ...decorative }} />
-      <svg width={n} height={n} style={{ position: 'absolute', inset: 0, overflow: 'visible', ...decorative }}>
-        <polygon points={polyPts} fill="none" stroke={border} strokeWidth={1.5} />
-      </svg>
-    </>
+    <svg width={n} height={n} style={{ position: 'absolute', inset: 0, overflow: 'visible', ...decorative }}>
+      {mask && <defs>{mask}</defs>}
+      <polygon points={polyPts} fill={bg} stroke={border} strokeWidth={1.5} style={transition} {...maskAttr} />
+    </svg>
   )
 }
 
@@ -278,12 +323,18 @@ function FormNode({ id, data, selected }: NodeProps) {
   }
 
   const pointVisuals: React.ReactNode[] = []
+  // Every RESIDENT point whose glyph actually renders something (shape !==
+  // 'empty') gaps the body's border/fill at its anchor — see BodyView. An
+  // 'empty'-shaped point draws no glyph, so it must NOT gap (nothing would
+  // fill the hole, leaving a stray break in the outline).
+  const gapPoints: Array<{ x: number; y: number }> = []
   for (const edgeKey of geom.edgeKeys) {
     const ids = pointIdsAt(form, edgeKey)
     ids.forEach((pid, index) => {
       const pt = points[pid]
       if (!pt) return
       const anchor = geom.pointAnchor(edgeKey, index, ids.length, n)
+      if (pt.shape !== 'empty') gapPoints.push({ x: anchor.x, y: anchor.y })
       const isSel = selectedPoints.includes(pid)
       const hid = encodeHandle(edgeKey, index)
       // A point's own drag-region hover always wins over the form's
@@ -300,7 +351,6 @@ function FormNode({ id, data, selected }: NodeProps) {
           hid={hid}
           isSelected={isSel}
           isHovered={isHovered}
-          accent={accent}
           formRotation={form.rotation ?? 0}
           onSelect={selectPoint}
         />,
@@ -313,7 +363,7 @@ function FormNode({ id, data, selected }: NodeProps) {
       position: 'relative', width: n, height: n, cursor: 'pointer',
       transform: form.rotation ? `rotate(${form.rotation}deg)` : undefined,
     }}>
-      <BodyView body={geom.body} n={n} accent={accent} selected={!!selected} bodyOpacity={geom.bodyOpacity} hasCenterZone={geom.hasCenterZone} />
+      <BodyView body={geom.body} n={n} accent={accent} selected={!!selected} bodyOpacity={geom.bodyOpacity} hasCenterZone={geom.hasCenterZone} gapPoints={gapPoints} maskId={`body-gap-${id}`} />
       {/* dragHandle hit-area (see Canvas.tsx's node-building) — kinds with no
           center zone ('empty') stay draggable from anywhere, matching their
           existing "whole body is one region" behavior. */}
@@ -335,17 +385,21 @@ function FormNode({ id, data, selected }: NodeProps) {
           native connection-drag (same as dragging from a real point); the
           phantom id resolves into a real point (addPoint) in Canvas.tsx's
           onConnect(End) the moment a connection actually completes.
-          Skipped entirely for 'empty': its body can only be a DROP target,
-          never spawn a NEW point/wire by dragging from empty space on it —
-          maxPoints=1 means there's nothing left to fan out anyway, and
-          mounting no phantom here is also what frees the whole body back up
-          for plain React Flow node-dragging (see BodyView's `decorative` —
-          a form with no center zone stays pointer-clickable everywhere, and
-          without a Handle covering it, a press there starts a node drag
-          instead of a connection drag). The one middle point ITSELF, once
-          it exists, is a real point Handle like any other kind's — see
-          above — so dragging FROM it does start a wire. */}
-      {form.shape !== 'empty' && phantomEdgeKey && phantomSlot != null && (() => {
+          Skipped entirely for pointIsForm shapes ('empty'): its body can
+          only be a DROP target, never spawn a NEW point/wire by dragging
+          from empty space on it — its one point IS the form, so there's
+          nothing left to fan out anyway, and mounting no phantom here is
+          also what frees the whole body back up for plain React Flow
+          node-dragging (see BodyView's `decorative` — a form with no center
+          zone stays pointer-clickable everywhere, and without a Handle
+          covering it, a press there starts a node drag instead of a
+          connection drag). The one middle point ITSELF, once it exists, is
+          a real point Handle like any other kind's — see above — so
+          dragging FROM it does start a wire. An ordinary optional
+          capacity-1 slot WITHOUT pointIsForm (triangle's peak) keeps its
+          phantom — it's a normal (if capped) attachment point, just like any
+          other edge. */}
+      {!geom.pointIsForm && phantomEdgeKey && phantomSlot != null && (() => {
         const count = pointIdsAt(form, phantomEdgeKey).length
         const anchor = geom.pointAnchor(phantomEdgeKey, phantomSlot, count + 1, n)
         const hid = encodePhantomHandle(phantomEdgeKey)

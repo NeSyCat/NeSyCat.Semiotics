@@ -163,4 +163,62 @@ describe('TikZ exporter', () => {
       expect(false, `async diagramToTikz should not throw — ${err}`).toBe(true)
     }
   })
+
+  it('Test 8: point-glyph export parity — 28px-diameter circle (radius 0.14cm), white fill when uncolored, its own color flattened over white when colored, always a plain black stroke', () => {
+    const d = emptyDiagram()
+    const f1 = bareSquare('GF1', { x: 0, y: 0 }, { edges: { top: [], right: ['GP1', 'GP2'], bottom: [], left: [] } })
+    d.forms.push(f1)
+    d.points['GP1'] = { id: 'GP1', shape: 'circle', formId: 'GF1', edgeKey: 'right' } // uncolored
+    d.points['GP2'] = { id: 'GP2', shape: 'circle', formId: 'GF1', edgeKey: 'right', color: [1, 0, 0] } // red
+    const tikz = diagramToTikzCore(d)
+
+    // POINT_SIZE (domain/forms.ts) is 28px -> radius 14px -> 0.14cm.
+    expect(tikz, 'point-circle glyph radius is 0.14cm (POINT_SIZE/2 = 14px, 100px = 1cm)').toMatch(/circle \(0\.14\);/)
+
+    // Uncolored glyph: white fill, plain black stroke, no fill-opacity token
+    // (export flattens to one fully-opaque color, not a translucent overlay).
+    expect(tikz, 'uncolored point glyph fills white').toMatch(/\\definecolor\{nesyColor\d+\}\{rgb\}\{1,1,1\}/)
+
+    // Colored glyph: red [1,0,0] tinted at FORM_FILL_OPACITY (0.18) over
+    // white flattens to (1, 0.82, 0.82) — same math as
+    // geometry-ir.ts's flattenOverWhite.
+    expect(tikz, "red point glyph flattens to (1, 0.82, 0.82) over white — the SAME opacity form bodies tint at").toMatch(/\\definecolor\{nesyColor\d+\}\{rgb\}\{1,0\.82,0\.82\}/)
+
+    // Both glyphs draw via \filldraw (never a bare, unfilled \draw) with a
+    // plain black stroke — the outline is ALWAYS black regardless of the
+    // point's own color (mirrors PointVisual.tsx's PointGlyph).
+    const glyphLines = tikz.split('\n').filter((l) => l.includes('circle (0.14)'))
+    expect(glyphLines.length, 'both point glyphs are emitted').toBe(2)
+    expect(glyphLines.every((l) => l.includes('\\filldraw[fill=') && l.includes('draw=black')), 'every point glyph fills AND strokes black').toBe(true)
+  })
+
+  it("Test 9: triangle 'peak' point exports at the apex vertex, matching pointPositionsPx (via the SAME px -> cm normalization diagramToTikzCore itself applies)", () => {
+    const d = emptyDiagram()
+    const tri: Diagram['forms'][number] = { id: 'PT1', shape: 'triangle', position: { x: 0, y: 0 }, edges: { a: [], b: [], c: [], peak: ['PK1'] } }
+    d.forms.push(tri)
+    d.points['PK1'] = { id: 'PK1', shape: 'circle', formId: 'PT1', edgeKey: 'peak' }
+    const expectedPeakPx = pointPositionsPx(d).get('PK1')!.pos
+    // The same bounding-box normalization diagramToTikzCore computes
+    // internally (minX/maxY over every drawn vertex) — reconstructed here
+    // from the triangle's own vertices + the peak point, so this test
+    // doesn't need diagramToTikzCore to expose its internal minX/maxY.
+    const verts = formBodyVerticesPx(tri)!
+    const allX = [...verts.map((v) => v.x), expectedPeakPx.x]
+    const allY = [...verts.map((v) => v.y), expectedPeakPx.y]
+    const minX = Math.min(...allX)
+    const maxY = Math.max(...allY)
+    const expectedXCm = (expectedPeakPx.x - minX) / 100
+    const expectedYCm = (maxY - expectedPeakPx.y) / 100
+
+    const tikz = diagramToTikzCore(d)
+    const glyphLine = tikz.split('\n').find((l) => l.includes('circle (0.14)'))
+    expect(!!glyphLine, 'the peak point glyph is emitted').toBe(true)
+    const m = glyphLine?.match(/\(([-\d.]+),([-\d.]+)\) circle/)
+    expect(!!m, 'the glyph coordinate parses').toBe(true)
+    if (m) {
+      const [, xs, ys] = m
+      expect(approx(Number(xs), expectedXCm, 1e-3), `peak glyph x matches pointPositionsPx's apex (got ${xs}, want ${expectedXCm})`).toBe(true)
+      expect(approx(Number(ys), expectedYCm, 1e-3), `peak glyph y matches pointPositionsPx's apex (got ${ys}, want ${expectedYCm})`).toBe(true)
+    }
+  })
 })

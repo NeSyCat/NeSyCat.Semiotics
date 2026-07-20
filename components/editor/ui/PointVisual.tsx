@@ -3,31 +3,46 @@
 import { Handle, Position } from '@xyflow/react'
 import theme from './theme'
 import type { Anchor } from '../domain/forms'
+import { POINT_SIZE } from '../domain/forms'
 import { toRgbTriple } from '../domain/color'
 import { Tex } from './Tex'
 import type { Point, Shape } from '../domain/types'
 
-const POINT_GLYPH = 15
 const POINT_NAME_SIZE = 12 // points a little smaller than the form name
-// A point's grab-pad size — doubles as its drag-region tint's diameter, so
-// a point's draggable area coincides exactly with its visual hover circle.
-const REGION_CORNER_SIZE = 28
+// A point's grab-pad size — doubles as its drag-region tint's diameter AND
+// its glyph's rendered diameter (POINT_SIZE, domain/forms.ts), so a point's
+// draggable area, hover circle, and visual glyph all coincide exactly.
+const REGION_CORNER_SIZE = POINT_SIZE
+// 1.5 CSS px (BodyView's own form-body border width), converted into the
+// glyph's 24-unit sprite viewBox so the STROKE renders at the same physical
+// width regardless of the glyph's own SVG scale factor (POINT_SIZE/24).
+const GLYPH_STROKE_VB = 1.5 * (24 / POINT_SIZE)
 
 // A point's glyph is drawn from the SAME sprite as the toolbar (see
-// Canvas.tsx's ToolbarSprite), rendered small and filled in the point's
-// colour — so a point shares the form/Shape-rail shape vocabulary. 'square'
-// uses kind-rectangle.
-function PointGlyph({ shape, color }: { shape: Shape; color: string }) {
+// sprite.tsx's ToolbarSprite) — small, shared vocabulary with the form/Shape
+// rail. 'square' uses kind-rectangle. Rendered EXACTLY like a miniature form
+// body (see FormNode.tsx's BodyView): a 1.5px black outline around a
+// TRANSPARENT interior — no color means genuinely see-through (canvas/grid
+// visible). A colored point tints that interior the SAME rgba/opacity rule
+// BodyView uses for a form's own fill — white is then a real, explicit tint
+// choice like any other color, not a default. Deliberately does NOT fall
+// back to the form's own accent when the point has no color of its own — a
+// point sitting on a colored form must NOT read as tinted by that form's
+// color unless the point itself was explicitly given one (own color only).
+function PointGlyph({ shape, accent, isSelected }: { shape: Shape; accent: string | null; isSelected: boolean }) {
   if (shape === 'empty') return null // Empty = nothing rendered; the dashed circle is only the toolbar symbol
   const sym = shape === 'square' ? 'kind-rectangle' : `kind-${shape}`
+  const fillOpacity = isSelected ? theme.node.selectedFillOpacity : theme.node.fillOpacity
   return (
-    <svg
-      width={POINT_GLYPH}
-      height={POINT_GLYPH}
-      viewBox="0 0 24 24"
-      style={{ display: 'block', color, fill: color, stroke: color, strokeWidth: 1.6, strokeLinejoin: 'round', strokeLinecap: 'round' }}
-    >
-      <use href={`#${sym}`} />
+    <svg width={POINT_SIZE} height={POINT_SIZE} viewBox="0 0 24 24" style={{ display: 'block' }}>
+      {/* outline — always solid black, always drawn; fill "none" by default
+          so an uncolored point is genuinely transparent (the canvas/form
+          border shows through it, gapped separately around the glyph — see
+          BodyView/LineEdge). */}
+      <use href={`#${sym}`} fill="none" stroke="black" strokeWidth={GLYPH_STROKE_VB} strokeLinejoin="round" strokeLinecap="round" />
+      {/* color tint — same translucent-over-transparent rule as a form's own
+          BodyView fill; only rendered when a color actually applies. */}
+      {accent && <use href={`#${sym}`} fill={`rgba(${accent}, ${fillOpacity})`} stroke="none" />}
     </svg>
   )
 }
@@ -38,20 +53,19 @@ function PointGlyph({ shape, color }: { shape: Shape; color: string }) {
 // point. Props are exactly what that loop body reads per-point; the
 // geometry loop itself (edgeKeys × pointIdsAt) stays in FormNode since it's
 // shared setup, not per-point rendering.
-export function PointVisual({ pid, pt, anchor, hid, isSelected, isHovered, accent, formRotation, onSelect }: {
+export function PointVisual({ pid, pt, anchor, hid, isSelected, isHovered, formRotation, onSelect }: {
   pid: string
   pt: Point
   anchor: Anchor
   hid: string
   isSelected: boolean
   isHovered: boolean
-  accent: string | null
   formRotation: number
   onSelect: (e: React.MouseEvent, pid: string) => void
 }) {
-  // A point's own color wins over the form's accent (the inherited tint).
-  const glyphTriple = pt.color ? toRgbTriple(pt.color) : accent
-  const fill = glyphTriple ? (isSelected ? `rgb(${glyphTriple})` : `rgba(${glyphTriple}, 0.85)`) : theme.text.ink
+  // Own color only — see PointGlyph's comment above for why this must NOT
+  // fall back to the form's accent.
+  const glyphAccent = pt.color ? toRgbTriple(pt.color) : null
 
   // The name label sits OUTSIDE the point, in its edge's outward direction
   // (apex point → right, left-edge point → left, etc.). Counter-rotate so
@@ -93,7 +107,7 @@ export function PointVisual({ pid, pt, anchor, hid, isSelected, isHovered, accen
         position: 'absolute', top: anchor.y, left: anchor.x, transform: 'translate(-50%, -50%)',
         zIndex: 4, pointerEvents: 'none', lineHeight: 0,
       }}>
-        <PointGlyph shape={pt.shape} color={fill} />
+        <PointGlyph shape={pt.shape} accent={glyphAccent} isSelected={isSelected} />
       </div>
       {/* Once 'empty's middle point EXISTS, it behaves exactly like any
           other kind's point — default isConnectableStart, so it can

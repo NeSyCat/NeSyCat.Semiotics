@@ -73,10 +73,13 @@ function emitCmd(cmd: DrawCmd): string {
       return `<circle cx="${round(cmd.center.x)}" cy="${round(cmd.center.y)}" r="${round(cmd.radiusPx)}"${fillAttr}${strokeAttr}/>`
     }
     case 'pointCircle':
-      return `<circle cx="${round(cmd.pos.x)}" cy="${round(cmd.pos.y)}" r="${round(cmd.radiusPx)}" fill="none" stroke="${colorRef(cmd.color)}" stroke-width="1.2"/>`
+      // fillColor is always set (white, or a color flattened over white —
+      // see geometry-ir.ts's buildPointCmds) and fully opaque — the glyph
+      // masks whatever's underneath on the assumed-white export page.
+      return `<circle cx="${round(cmd.pos.x)}" cy="${round(cmd.pos.y)}" r="${round(cmd.radiusPx)}" fill="${colorRef(cmd.fillColor)}" stroke="black" stroke-width="1.5"/>`
     case 'pointPolygon': {
       const pts = cmd.pts.map((p) => `${round(p.x)},${round(p.y)}`).join(' ')
-      return `<polygon points="${pts}" fill="none" stroke="${colorRef(cmd.color)}" stroke-width="1.2"/>`
+      return `<polygon points="${pts}" fill="${colorRef(cmd.fillColor)}" stroke="black" stroke-width="1.5"/>`
     }
     case 'line':
       return `<line x1="${round(cmd.from.x)}" y1="${round(cmd.from.y)}" x2="${round(cmd.to.x)}" y2="${round(cmd.to.y)}" stroke="${colorRef(cmd.color)}" stroke-width="1.5"/>`
