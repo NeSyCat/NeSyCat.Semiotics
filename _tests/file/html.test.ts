@@ -4,8 +4,13 @@
 
 import { describe, expect, it } from 'vitest'
 import { diagramToHtmlCore, diagramToHtml } from '../../components/editor/export/html'
-import { pointPositionsPx } from '../../components/editor/ir/geometry-ir'
+import { pointPositionsPx, formCenterPx, rotateAbout } from '../../components/editor/ir/geometry-ir'
+import { geometryFor, bodyCentroid } from '../../components/editor/domain/forms'
 import type { Diagram, Form } from '../../components/editor/domain/types'
+
+function approx(a: number, b: number, tol = 1e-6): boolean {
+  return Math.abs(a - b) <= tol
+}
 
 function bareSquare(id: string, position: { x: number; y: number }, extra: Partial<Form> = {}): Form {
   return { id, shape: 'square', position, edges: {}, ...extra }
@@ -147,6 +152,107 @@ describe('HTML/SVG exporter', () => {
       // round() (html.ts) rounds to 2 decimal places — tolerance covers that.
       expect(Math.abs(Number(m[1]) - expected.x) < 0.01, `peak glyph cx matches pointPositionsPx's apex x (got ${m[1]}, want ${expected.x})`).toBe(true)
       expect(Math.abs(Number(m[2]) - expected.y) < 0.01, `peak glyph cy matches pointPositionsPx's apex y (got ${m[2]}, want ${expected.y})`).toBe(true)
+    }
+  })
+
+  it('a named hyperedge (2 targets) — the wire-name label gets a white <rect> immediately before its <text>, once (not per-segment)', () => {
+    const w: Diagram = {
+      schemaVersion: 1,
+      forms: [
+        { id: 'WF1', shape: 'square', position: { x: 0, y: 0 }, edges: { top: [], right: ['WP1'], bottom: [], left: [] } },
+        { id: 'WF2', shape: 'square', position: { x: 300, y: -50 }, edges: { top: [], right: [], bottom: [], left: ['WP2'] } },
+        { id: 'WF3', shape: 'square', position: { x: 300, y: 150 }, edges: { top: [], right: [], bottom: [], left: ['WP3'] } },
+      ],
+      points: {
+        WP1: { id: 'WP1', shape: 'empty', formId: 'WF1', edgeKey: 'right' },
+        WP2: { id: 'WP2', shape: 'empty', formId: 'WF2', edgeKey: 'left' },
+        WP3: { id: 'WP3', shape: 'empty', formId: 'WF3', edgeKey: 'left' },
+      },
+      lines: [{ id: 'WL1', name: 'f', source: 'WP1', targets: ['WP2', 'WP3'] }],
+    }
+    const wsvg = diagramToHtmlCore(w)
+    // rect-before-text pattern, white fill.
+    expect(wsvg, "the wire-name label's white backing rect immediately precedes its <text>").toMatch(
+      /<rect[^>]*fill="white"\/>\s*<text[^>]*>f<\/text>/,
+    )
+    // Exactly one label rendered for the whole hyperedge (once per line, not
+    // once per segment) — both a single <text>f</text> and a single backing
+    // <rect fill="white"> tied to it.
+    expect((wsvg.match(/>f<\/text>/g) ?? []).length, 'the wire name appears exactly once, not once per segment').toBe(1)
+    // Two <line> segments are still drawn (both targets get their own wire).
+    expect((wsvg.match(/<line /g) ?? []).length, 'both segments are drawn').toBe(2)
+  })
+
+  it('form names emit WITHOUT a white backing rect (unmasked)', () => {
+    const f: Diagram = {
+      schemaVersion: 1,
+      forms: [{ id: 'FF1', shape: 'square', position: { x: 0, y: 0 }, edges: {}, name: 'Bool', color: [1, 0, 0.5] }],
+      points: {},
+      lines: [],
+    }
+    const fsvg = diagramToHtmlCore(f)
+    expect(fsvg, 'form-name <text> is emitted').toMatch(/<text[^>]*>Bool<\/text>/)
+    expect(fsvg, 'form-name label carries no preceding white backing rect').not.toMatch(/<rect[^>]*fill="white"\/>\s*<text[^>]*>Bool<\/text>/)
+  })
+
+  it('named point labels carry a white backing rect (masked), matching wire-name labels', () => {
+    const p: Diagram = {
+      schemaVersion: 1,
+      forms: [{ id: 'PF1', shape: 'square', position: { x: 0, y: 0 }, edges: { top: [], right: [], bottom: [], left: ['PP1'] } }],
+      points: { PP1: { id: 'PP1', shape: 'circle', name: 'x', formId: 'PF1', edgeKey: 'left' } },
+      lines: [],
+    }
+    const psvg = diagramToHtmlCore(p)
+    expect(psvg, "the point-name label's white backing rect immediately precedes its <text>").toMatch(
+      /<rect[^>]*fill="white"\/>\s*<text[^>]*>x<\/text>/,
+    )
+  })
+
+  it("a triangle's form-name label sits at the polygon CENTROID (not the bbox center); a square's stays at its (identical) center", () => {
+    const tri: Form = { id: 'CT1', shape: 'triangle', position: { x: 0, y: 0 }, edges: { a: [], b: [], c: [], peak: [] }, name: 'even' }
+    const geom = geometryFor('triangle')
+    const n = geom.nodeSize(tri)
+    const [cfx, cfy] = bodyCentroid(geom.body)
+    const expectedCentroidPx = { x: tri.position.x + cfx * n, y: tri.position.y + cfy * n }
+    expect(approx(expectedCentroidPx.x, n / 2), "triangle centroid x differs from bbox-center x (that's the bug being fixed)").toBe(false)
+
+    const t: Diagram = { schemaVersion: 1, forms: [tri], points: {}, lines: [] }
+    const tsvg = diagramToHtmlCore(t)
+    const m = tsvg.match(/<text x="([-\d.]+)" y="([-\d.]+)"[^>]*>even<\/text>/)
+    expect(!!m, 'triangle form-name <text> is emitted and parses').toBe(true)
+    if (m) {
+      expect(Math.abs(Number(m[1]) - expectedCentroidPx.x) < 0.01, `triangle label x matches the hand-computed centroid (got ${m[1]}, want ${expectedCentroidPx.x})`).toBe(true)
+      expect(Math.abs(Number(m[2]) - expectedCentroidPx.y) < 0.01, `triangle label y matches the hand-computed centroid (got ${m[2]}, want ${expectedCentroidPx.y})`).toBe(true)
+    }
+
+    const sq: Form = { id: 'CS1', shape: 'square', position: { x: 500, y: 0 }, edges: {}, name: 'sq' }
+    const sqCenter = formCenterPx(sq)
+    const sqDiagram: Diagram = { schemaVersion: 1, forms: [sq], points: {}, lines: [] }
+    const sqSvg = diagramToHtmlCore(sqDiagram)
+    const sqM = sqSvg.match(/<text x="([-\d.]+)" y="([-\d.]+)"[^>]*>sq<\/text>/)
+    expect(!!sqM, 'square form-name <text> is emitted and parses').toBe(true)
+    if (sqM) {
+      expect(Math.abs(Number(sqM[1]) - sqCenter.x) < 0.01, 'square label x stays at the bbox/centroid-coincident center').toBe(true)
+      expect(Math.abs(Number(sqM[2]) - sqCenter.y) < 0.01, 'square label y stays at the bbox/centroid-coincident center').toBe(true)
+    }
+  })
+
+  it("a ROTATED triangle's form-name label sits at the ROTATED centroid", () => {
+    const tri: Form = { id: 'RT1', shape: 'triangle', position: { x: 0, y: 0 }, rotation: 40, edges: { a: [], b: [], c: [], peak: [] }, name: 'r' }
+    const geom = geometryFor('triangle')
+    const n = geom.nodeSize(tri)
+    const [cfx, cfy] = bodyCentroid(geom.body)
+    const preRotationAbs = { x: tri.position.x + cfx * n, y: tri.position.y + cfy * n }
+    const center = formCenterPx(tri)
+    const expectedCentroidPx = rotateAbout(preRotationAbs, center, tri.rotation!)
+
+    const t: Diagram = { schemaVersion: 1, forms: [tri], points: {}, lines: [] }
+    const tsvg = diagramToHtmlCore(t)
+    const m = tsvg.match(/<text x="([-\d.]+)" y="([-\d.]+)"[^>]*>r<\/text>/)
+    expect(!!m, 'rotated triangle form-name <text> is emitted and parses').toBe(true)
+    if (m) {
+      expect(Math.abs(Number(m[1]) - expectedCentroidPx.x) < 0.01, `rotated triangle label x matches the rotated centroid (got ${m[1]}, want ${expectedCentroidPx.x})`).toBe(true)
+      expect(Math.abs(Number(m[2]) - expectedCentroidPx.y) < 0.01, `rotated triangle label y matches the rotated centroid (got ${m[2]}, want ${expectedCentroidPx.y})`).toBe(true)
     }
   })
 })

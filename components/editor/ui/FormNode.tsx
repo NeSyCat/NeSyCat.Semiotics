@@ -3,7 +3,7 @@
 import { memo, useEffect, useRef } from 'react'
 import { Handle, useConnection, useReactFlow, useUpdateNodeInternals, type NodeProps } from '@xyflow/react'
 import theme from './theme'
-import { geometryFor, pointIdsAt, insertionIndex, shrunkBodyPoints, CENTER_SHRINK, POINT_SIZE, type Body, type RegionShape } from '../domain/forms'
+import { geometryFor, pointIdsAt, insertionIndex, shrunkBodyPoints, bodyCentroid, CENTER_SHRINK, POINT_SIZE, type Body, type RegionShape } from '../domain/forms'
 import { encodeHandle, encodePhantomHandle, decodePhantomHandle } from '../domain/handles'
 import { toRgbTriple } from '../domain/color'
 import { useStore } from '../state/store'
@@ -18,16 +18,6 @@ export interface FormNodeData {
 }
 
 const FORM_NAME_SIZE = 16 // forms and lines share this size
-
-// Visual centre of a form body — for centring its name label. A triangle's
-// centroid is not its bounding-box centre.
-function bodyCentroid(body: Body): [number, number] {
-  if (body.type === 'circle') return [0.5, 0.5]
-  const pts = body.pointsFrac
-  let sx = 0, sy = 0
-  for (const [x, y] of pts) { sx += x; sy += y }
-  return [sx / pts.length, sy / pts.length]
-}
 
 // Quiver-style point-creation region overlay: a gray-tint stripe along an
 // edge, or the whole body for 'empty's single self-region. (PointVisual's own

@@ -16,7 +16,11 @@ import { toRgbTriple } from '../domain/color'
 import type { Color } from '../domain/types'
 
 interface LineEdgeData {
-  label: string
+  // Undefined on every segment past the first of a multi-target line — see
+  // Canvas.tsx's builtEdges: a hyperedge's name/id renders ONCE per line
+  // (first segment only), not per-segment. LineEdge renders neither the text
+  // nor its canvas-colored mask when this is unset.
+  label?: string
   color?: Color
   // Radius (px, flow space) to pull each end of the drawn path back by, so it
   // stops at the edge of a resident point's glyph instead of running through
@@ -111,24 +115,26 @@ function LineEdge({
           />
         </svg>
       </ViewportPortal>
-      <EdgeLabelRenderer>
-        {/* Read-only LaTeX label (edited only in the Name field). No box — just a
-            small canvas-coloured mask so the line doesn't strike through it. The
-            hover/selection band paints OVER this mask (viewport portal), so the
-            highlight passes through the name without a gap. */}
-        <div
-          className="nodrag nopan"
-          style={{
-            position: 'absolute',
-            transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`,
-            pointerEvents: 'none',
-            background: theme.canvas.background,
-            padding: '0 5px',
-          }}
-        >
-          <Tex fontSize={16} color={theme.text.ink}>{d.label}</Tex>
-        </div>
-      </EdgeLabelRenderer>
+      {d.label != null && (
+        <EdgeLabelRenderer>
+          {/* Read-only LaTeX label (edited only in the Name field). No box — just a
+              small canvas-coloured mask so the line doesn't strike through it. The
+              hover/selection band paints OVER this mask (viewport portal), so the
+              highlight passes through the name without a gap. */}
+          <div
+            className="nodrag nopan"
+            style={{
+              position: 'absolute',
+              transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`,
+              pointerEvents: 'none',
+              background: theme.canvas.background,
+              padding: '0 5px',
+            }}
+          >
+            <Tex fontSize={16} color={theme.text.ink}>{d.label}</Tex>
+          </div>
+        </EdgeLabelRenderer>
+      )}
     </>
   )
 }
