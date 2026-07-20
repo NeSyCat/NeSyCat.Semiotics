@@ -9,6 +9,7 @@ import { toRgbTriple } from '../domain/color'
 import { useStore } from '../state/store'
 import { Tex } from './Tex'
 import { PointVisual } from './PointVisual'
+import { ShapeBody, tintFill, type GapPoint } from './ShapeBody'
 import type { Form, Point } from '../domain/types'
 
 export interface FormNodeData {
@@ -157,22 +158,17 @@ function DragHandleZone({ body, n }: { body: Body; n: number }) {
 // glyph outline.
 const BODY_GAP_R = POINT_SIZE / 2
 
-// Body fill + 1.5px border, gapped around each resident point's glyph (see
-// BODY_GAP_R) via an SVG <mask> — a point's glyph can be genuinely
-// transparent (PointVisual's PointGlyph, uncolored case), so the border/fill
-// must be ACTUALLY INTERRUPTED there, not merely painted over with an opaque
-// canvas-colored disc (that would fake a white fill and defeat the point's
-// own transparency). No colour → transparent fill; the border is ALWAYS pure
-// black. Selection only tints the fill.
+// A form's own body — a thin ShapeBody wrapper (ui/ShapeBody.tsx; the SAME
+// shared border/fill/geometry rendering PointVisual's glyph uses) plus the
+// two form-only concerns ShapeBody doesn't know about: the fill's OWN
+// opacity-scale/border-alpha follow bodyOpacity (0 makes 'empty' invisible),
+// and DragHandleZone's hit-test needs the body to stay click-through
+// wherever that always-present fallback exists (`decorative`).
 function BodyView({ body, n, accent, selected, bodyOpacity, hasCenterZone, gapPoints, maskId }: {
   body: Body; n: number; accent: string | null; selected: boolean; bodyOpacity: number; hasCenterZone: boolean
   gapPoints: ReadonlyArray<{ x: number; y: number }>; maskId: string
 }) {
-  const fillOpacity = (selected ? theme.node.selectedFillOpacity : theme.node.fillOpacity) * bodyOpacity
-  const bg = accent
-    ? `rgba(${accent}, ${fillOpacity})`
-    : (selected ? theme.node.regionSelected : 'transparent')
-  const border = `rgba(0, 0, 0, ${bodyOpacity})` // pure black (transparent only for the empty form)
+  const fill = tintFill(accent, selected, bodyOpacity)
   // Purely decorative — this was silently winning hit-tests against the
   // DragHandleZone/phantom-handle overlays near the body's own boundary
   // (an SVG stroke's hit region is wider than its visual width), breaking
@@ -181,50 +177,8 @@ function BodyView({ body, n, accent, selected, bodyOpacity, hasCenterZone, gapPo
   // catch-all — 'empty' has none, so its body must stay clickable or basic
   // select/drag breaks for it entirely.
   const decorative = hasCenterZone ? ({ pointerEvents: 'none' } as const) : {}
-  const transition = { transition: 'fill 0.15s ease, stroke 0.15s ease' } as const
-
-  // Luminance mask: a white backing rect (everything visible) with a black
-  // circle punched at each resident point's glyph (invisible there). Shared
-  // by fill AND stroke — both an SVG <mask> applies to at once — so they gap
-  // identically; skipped entirely when there's nothing to gap (every point
-  // on this form is shape 'empty', or there are none).
-  //
-  // The backing rect is padded by MASK_MARGIN past the body's own 0..n box —
-  // a polygon body's stroke straddles its path (half OUTSIDE it, 0.75px for
-  // a 1.5px stroke), and a square/rhombus/circle's vertices sit exactly ON
-  // that 0..n boundary. An unpadded 0..n rect would clip that outer half of
-  // the stroke off wherever the path touches the box edge, visibly thinning
-  // the WHOLE border the instant any mask is applied — not just at the
-  // gapped points. Padding covers the overhang with headroom to spare.
-  const MASK_MARGIN = 4
-  const mask = gapPoints.length > 0 ? (
-    <mask id={maskId} maskUnits="userSpaceOnUse" x={-MASK_MARGIN} y={-MASK_MARGIN} width={n + 2 * MASK_MARGIN} height={n + 2 * MASK_MARGIN}>
-      <rect x={-MASK_MARGIN} y={-MASK_MARGIN} width={n + 2 * MASK_MARGIN} height={n + 2 * MASK_MARGIN} fill="white" />
-      {gapPoints.map((p, i) => <circle key={i} cx={p.x} cy={p.y} r={BODY_GAP_R} fill="black" />)}
-    </mask>
-  ) : null
-  const maskAttr = mask ? { mask: `url(#${maskId})` } : {}
-
-  if (body.type === 'circle') {
-    // r inset by half the stroke width so the stroke's OUTER edge lands
-    // exactly at n/2 — matching the previous CSS `outline` + negative
-    // `outlineOffset` rendering (the visible circle boundary is unchanged).
-    const r = n / 2 - 0.75
-    return (
-      <svg width={n} height={n} style={{ position: 'absolute', inset: 0, overflow: 'visible', ...decorative }}>
-        {mask && <defs>{mask}</defs>}
-        <circle cx={n / 2} cy={n / 2} r={r} fill={bg} stroke={border} strokeWidth={1.5} style={transition} {...maskAttr} />
-      </svg>
-    )
-  }
-  const pts = body.pointsFrac
-  const polyPts = pts.map(([x, y]) => `${x * n},${y * n}`).join(' ')
-  return (
-    <svg width={n} height={n} style={{ position: 'absolute', inset: 0, overflow: 'visible', ...decorative }}>
-      {mask && <defs>{mask}</defs>}
-      <polygon points={polyPts} fill={bg} stroke={border} strokeWidth={1.5} style={transition} {...maskAttr} />
-    </svg>
-  )
+  const gaps: GapPoint[] = gapPoints.map((p) => ({ ...p, r: BODY_GAP_R }))
+  return <ShapeBody body={body} n={n} fill={fill} borderOpacity={bodyOpacity} gapPoints={gaps} maskId={maskId} style={decorative} />
 }
 
 function FormNode({ id, data, selected }: NodeProps) {

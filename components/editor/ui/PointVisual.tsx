@@ -2,48 +2,59 @@
 
 import { Handle, Position } from '@xyflow/react'
 import theme from './theme'
-import type { Anchor } from '../domain/forms'
-import { POINT_SIZE } from '../domain/forms'
+import { geometryFor, POINT_SIZE, type Anchor } from '../domain/forms'
 import { toRgbTriple } from '../domain/color'
 import { Tex } from './Tex'
+import { ShapeBody, tintFill } from './ShapeBody'
 import type { Point, Shape } from '../domain/types'
 
 const POINT_NAME_SIZE = 12 // points a little smaller than the form name
-// A point's grab-pad size — doubles as its drag-region tint's diameter AND
-// its glyph's rendered diameter (POINT_SIZE, domain/forms.ts), so a point's
-// draggable area, hover circle, and visual glyph all coincide exactly.
+// A point's grab-pad size — doubles as its glyph's rendered diameter
+// (POINT_SIZE, domain/forms.ts), so a point's draggable area and visual
+// glyph coincide exactly.
 const REGION_CORNER_SIZE = POINT_SIZE
-// 1.5 CSS px (BodyView's own form-body border width), converted into the
-// glyph's 24-unit sprite viewBox so the STROKE renders at the same physical
-// width regardless of the glyph's own SVG scale factor (POINT_SIZE/24).
-const GLYPH_STROKE_VB = 1.5 * (24 / POINT_SIZE)
 
-// A point's glyph is drawn from the SAME sprite as the toolbar (see
-// sprite.tsx's ToolbarSprite) — small, shared vocabulary with the form/Shape
-// rail. 'square' uses kind-rectangle. Rendered EXACTLY like a miniature form
-// body (see FormNode.tsx's BodyView): a 1.5px black outline around a
-// TRANSPARENT interior — no color means genuinely see-through (canvas/grid
-// visible). A colored point tints that interior the SAME rgba/opacity rule
-// BodyView uses for a form's own fill — white is then a real, explicit tint
-// choice like any other color, not a default. Deliberately does NOT fall
+// A point's glyph reuses the SAME geometry a form of that shape draws its
+// own body from (geometryFor(shape).body — domain/forms.ts's registry) and
+// renders it through ui/ShapeBody.tsx, the ONE shared border/fill
+// implementation FormNode.tsx's BodyView also goes through — "a point looks
+// exactly like a miniature form body" is structural, not two copies of the
+// same drawing code. Base interior fill (transparent / color tint /
+// selected tint) follows ShapeBody's tintFill, the SAME rule BodyView's own
+// fill uses; hover then COMPOSITES a second, borderless ShapeBody tint layer
+// on top — same two-layer pattern as FormNode.tsx's CenterOverlay (a hover
+// preview is a separate concern from "is this currently selected", so it
+// stacks rather than replaces). Both layers render INSIDE the glyph's own
+// outline — no separate halo/disc behind it. Deliberately does NOT fall
 // back to the form's own accent when the point has no color of its own — a
 // point sitting on a colored form must NOT read as tinted by that form's
 // color unless the point itself was explicitly given one (own color only).
-function PointGlyph({ shape, accent, isSelected }: { shape: Shape; accent: string | null; isSelected: boolean }) {
-  if (shape === 'empty') return null // Empty = nothing rendered; the dashed circle is only the toolbar symbol
-  const sym = shape === 'square' ? 'kind-rectangle' : `kind-${shape}`
-  const fillOpacity = isSelected ? theme.node.selectedFillOpacity : theme.node.fillOpacity
+function PointGlyph({ shape, accent, isSelected, isHovered }: { shape: Shape; accent: string | null; isSelected: boolean; isHovered: boolean }) {
+  // ShapeBody's <svg> is position:absolute — it overlays onto whatever box
+  // its caller supplies (see BodyView, which gives it the form node's own
+  // n×n box). An out-of-flow child contributes NOTHING to a parent's
+  // intrinsic size, so this wrapper must carry POINT_SIZE explicitly AND
+  // establish the positioned containing block ShapeBody's inset:0 resolves
+  // against. Skip either half and this box — and, transitively, PointVisual's
+  // own ancestor div that centers it via translate(-50%,-50%) computed off
+  // ITS measured size — collapses to 0×0, pinning the glyph to its top-left
+  // corner instead of centering it on the anchor.
+  const wrapStyle: React.CSSProperties = { position: 'relative', width: POINT_SIZE, height: POINT_SIZE }
+  if (shape === 'empty') {
+    // No shape geometry to outline — a plain circular hover/selection
+    // indicator only (no border, no color tint; matches the previous
+    // halo's own limited behavior for a shapeless point). Selected wins
+    // outright here — there's no color layer to also composite with, unlike
+    // the shaped case below.
+    const fill = isSelected ? theme.node.regionSelected : isHovered ? theme.node.regionHover : 'transparent'
+    return <div style={wrapStyle}><ShapeBody body={{ type: 'circle' }} n={POINT_SIZE} fill={fill} strokeWidth={0} /></div>
+  }
+  const body = geometryFor(shape).body
   return (
-    <svg width={POINT_SIZE} height={POINT_SIZE} viewBox="0 0 24 24" style={{ display: 'block' }}>
-      {/* outline — always solid black, always drawn; fill "none" by default
-          so an uncolored point is genuinely transparent (the canvas/form
-          border shows through it, gapped separately around the glyph — see
-          BodyView/LineEdge). */}
-      <use href={`#${sym}`} fill="none" stroke="black" strokeWidth={GLYPH_STROKE_VB} strokeLinejoin="round" strokeLinecap="round" />
-      {/* color tint — same translucent-over-transparent rule as a form's own
-          BodyView fill; only rendered when a color actually applies. */}
-      {accent && <use href={`#${sym}`} fill={`rgba(${accent}, ${fillOpacity})`} stroke="none" />}
-    </svg>
+    <div style={wrapStyle}>
+      <ShapeBody body={body} n={POINT_SIZE} fill={tintFill(accent, isSelected)} />
+      {isHovered && <ShapeBody body={body} n={POINT_SIZE} fill={theme.node.regionHover} strokeWidth={0} />}
+    </div>
   )
 }
 
@@ -86,28 +97,19 @@ export function PointVisual({ pid, pt, anchor, hid, isSelected, isHovered, formR
     position: 'absolute', top: anchor.y, left: anchor.x, transform: 'translate(-50%, -50%)',
     width: 1, height: 1, minWidth: 1, minHeight: 1, background: 'transparent', border: 'none', padding: 0, zIndex: 5,
   }
-  // A point's own drag-region hover always wins over the form's
-  // region/center hover (decided centrally in Canvas.tsx's
-  // nearestPointWithin) — a selected point gets the darker tint instead,
-  // quiver's hover/select language, not the blue form-selection accent.
-  const regionTint = isSelected ? theme.node.regionSelected : isHovered ? theme.node.regionHover : null
-
   return (
     <span>
-      {/* drag-region tint — a consistent circle for ALL points (incl. empty) */}
-      {regionTint && (
-        <div style={{
-          position: 'absolute', top: anchor.y, left: anchor.x, transform: 'translate(-50%, -50%)',
-          width: REGION_CORNER_SIZE, height: REGION_CORNER_SIZE, borderRadius: '50%', zIndex: 3, pointerEvents: 'none',
-          background: regionTint,
-        }} />
-      )}
-      {/* glyph: visual only, behind the handles */}
+      {/* glyph: visual only, behind the handles. Hover/selection tint is
+          PAINTED INSIDE the glyph's own outline (PointGlyph -> ShapeBody's
+          fill, via tintFill) — there is no separate halo/disc behind it; a
+          point's own drag-region hover always wins over the form's
+          region/center hover (decided centrally in Canvas.tsx's
+          nearestPointWithin). */}
       <div style={{
         position: 'absolute', top: anchor.y, left: anchor.x, transform: 'translate(-50%, -50%)',
         zIndex: 4, pointerEvents: 'none', lineHeight: 0,
       }}>
-        <PointGlyph shape={pt.shape} accent={glyphAccent} isSelected={isSelected} />
+        <PointGlyph shape={pt.shape} accent={glyphAccent} isSelected={isSelected} isHovered={isHovered} />
       </div>
       {/* Once 'empty's middle point EXISTS, it behaves exactly like any
           other kind's point — default isConnectableStart, so it can
