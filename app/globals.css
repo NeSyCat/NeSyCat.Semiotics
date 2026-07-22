@@ -240,6 +240,35 @@ input[type="search"]::-webkit-search-results-decoration {
 .toolbar-center-row .toolbar-center-content {
   flex: 0 0 auto;
   pointer-events: auto;
+  /* Positioning context for .toolbar-second-pill below — that's the ONLY
+     reason this is relative; it doesn't otherwise change this element's own
+     layout (it's already sized purely by its in-flow child, the top pill). */
+  position: relative;
+  overflow: visible;
+}
+
+/* The second (lower) pill — SecondToolbar's rendered rail/field, passed into
+   MainToolbar as its `second` slot and rendered here as an absolutely-
+   positioned CHILD of .toolbar-center-content, i.e. the SAME box the top
+   pill lives in. Being out-of-flow, it contributes NOTHING to that box's
+   width — so it can never move the top pill or engage/disengage the row's
+   own clamp (see CenteredPillRow.tsx). Being anchored to that box (not
+   measured/observed) means it tracks the top pill's position automatically
+   through sidebar shifts and clamping, including mid-transition, with no
+   ResizeObserver — pure position, not size, tracking.
+   top: calc(100% + 6px) lands the second pill's top edge at 70px given the
+   row's own top: 16px and the top pill's real height (48px) — 16 + 48 + 6 =
+   70, matching the second pill's old fixed `top={70}` exactly. The top-right
+   cluster occupies roughly 16-64px; the second pill starts at 70px, so
+   there's no vertical overlap and it needs no clamp of its own — a wide
+   second pill (e.g. the Color rail) is free to extend past the top pill on
+   both sides. */
+.toolbar-center-row .toolbar-center-content .toolbar-second-pill {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  pointer-events: auto;
 }
 
 /* Sidebar row's delete Pill — same DS .pill/.btn, hover tints destructive

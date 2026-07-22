@@ -889,25 +889,26 @@ function Canvas({ topRight }: CanvasContentProps) {
         selectionTarget={selectionTarget}
         colorInfo={colorInfo}
         activeColor={activeColor}
-      />
-
-      <SecondToolbar
-        activeCategory={activeCategory}
-        selectedPoints={selectedPoints}
-        selectedPointShape={selectedPointShape}
-        activeShape={activeShape}
-        onPickShape={onPickShape}
-        selectionTarget={selectionTarget}
-        colorInfo={colorInfo}
-        activeColor={activeColor}
-        onColor={onColor}
-        nameInfo={nameInfo}
-        onName={onName}
-        rotationInfo={rotationInfo}
-        onRotate={onRotate}
-        scaleInfo={scaleInfo}
-        onScale={onScale}
-        selectedFormIds={selectedFormIds}
+        second={
+          <SecondToolbar
+            activeCategory={activeCategory}
+            selectedPoints={selectedPoints}
+            selectedPointShape={selectedPointShape}
+            activeShape={activeShape}
+            onPickShape={onPickShape}
+            selectionTarget={selectionTarget}
+            colorInfo={colorInfo}
+            activeColor={activeColor}
+            onColor={onColor}
+            nameInfo={nameInfo}
+            onName={onName}
+            rotationInfo={rotationInfo}
+            onRotate={onRotate}
+            scaleInfo={scaleInfo}
+            onScale={onScale}
+            selectedFormIds={selectedFormIds}
+          />
+        }
       />
     </div>
   )
