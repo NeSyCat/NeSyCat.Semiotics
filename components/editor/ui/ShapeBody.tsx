@@ -41,11 +41,21 @@ export function tintFill(accent: string | null, selected: boolean, opacityScale:
 }
 
 // A resident point glyph a form body's border/fill must NOT draw underneath
-// (see gapPoints below) — its own position (node-space px) and radius.
+// (see gapPoints below) — its own position (node-space px), radius, and
+// actual glyph geometry. `body` drives the cutout's SHAPE (mask-building
+// code below): a polygon-bodied point (triangle/rhombus/square) is punched
+// out as that same polygon, scaled to the glyph's own diameter (2r) and
+// centred at (x, y) — NOT a circle, which for a narrow shape like triangle
+// massively overshoots the glyph's actual footprint at its narrow corners,
+// leaving a visibly oversized gap in the parent's border there. `undefined`
+// (a circle-bodied point, or the caller's own fallback) keeps the simple
+// circular cutout this always used, since a circle glyph's footprint IS a
+// circle.
 export interface GapPoint {
   x: number
   y: number
   r: number
+  body?: Body
 }
 
 // Padding past a shape's own 0..n box for the gap mask's backing rect. A
@@ -84,13 +94,26 @@ export function ShapeBody({ body, n, fill, strokeWidth = 1.5, borderOpacity = 1,
   const transition = { transition: 'fill 0.15s ease, stroke 0.15s ease' } as const
 
   // Luminance mask: a white backing rect (everything visible) with a black
-  // circle punched at each gap point (invisible there) — shared by fill AND
+  // shape punched at each gap point (invisible there) — shared by fill AND
   // stroke at once (one <mask> covers the whole painted shape), so they gap
-  // identically. Skipped entirely when there's nothing to gap.
+  // identically. Skipped entirely when there's nothing to gap. Each gap's
+  // own shape mirrors what's actually being gapped for (see GapPoint's own
+  // comment): a polygon-bodied point punches its own polygon (scaled to its
+  // 2r diameter, centred at (x, y) — same [0,1]² frac -> local convention
+  // ShapeBody's own polygon branch below uses, just without the strokeWidth
+  // inset since a mask cutout doesn't need a border of its own); anything
+  // else (circle-bodied, or no body given) keeps the plain circular cutout.
   const mask = gapPoints.length > 0 && maskId ? (
     <mask id={maskId} maskUnits="userSpaceOnUse" x={-MASK_MARGIN} y={-MASK_MARGIN} width={n + 2 * MASK_MARGIN} height={n + 2 * MASK_MARGIN}>
       <rect x={-MASK_MARGIN} y={-MASK_MARGIN} width={n + 2 * MASK_MARGIN} height={n + 2 * MASK_MARGIN} fill="white" />
-      {gapPoints.map((p, i) => <circle key={i} cx={p.x} cy={p.y} r={p.r} fill="black" />)}
+      {gapPoints.map((p, i) => {
+        if (p.body?.type === 'polygon') {
+          const d = 2 * p.r
+          const pts = p.body.pointsFrac.map(([fx, fy]) => `${p.x + (fx - 0.5) * d},${p.y + (fy - 0.5) * d}`).join(' ')
+          return <polygon key={i} points={pts} fill="black" />
+        }
+        return <circle key={i} cx={p.x} cy={p.y} r={p.r} fill="black" />
+      })}
     </mask>
   ) : null
   const maskAttr = mask ? { mask: `url(#${maskId})` } : {}
