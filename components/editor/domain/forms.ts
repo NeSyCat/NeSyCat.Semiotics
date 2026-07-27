@@ -237,10 +237,33 @@ function insetSegment(
 // ── TRIANGLE — apex points RIGHT (the standard orientation). Sides:
 //   a = top slant (top-left → apex), b = bottom slant (bottom-left → apex),
 //   c = left side (top-left → bottom-left, vertical).
-const SQRT3_4 = Math.sqrt(3) / 4
-const TRI_APEX_X = 0.5 + SQRT3_4 // ≈ 0.933 (rightmost point)
+//
+// Vertex geometry is chosen so the triangle is INSCRIBED in the circle of
+// radius TRI_R centred at (0.5, 0.5) — same principle as the app's own brand
+// mark (a diamond inscribed in a circle inscribed in a square) — rather than
+// merely fit inside the [0,1]² box at rest. That distinction matters because
+// FormNode.tsx/geometry-ir.ts pivot rotation around bodyCentroid (this
+// shape's own centroid, which for an equilateral triangle IS the circle's
+// center), not the box's center: any vertex farther from the centroid than
+// the box's nearest edge would swing outside the box at some rotation angle.
+// Circumradius exactly 0.5 (half the box's side) guarantees every vertex
+// stays on the inscribed circle — and therefore inside the box — at EVERY
+// rotation angle, with the vertices only ever touching, never crossing, the
+// box's edges. (The PRIOR geometry instead maximized the triangle's own
+// footprint inside the box at rest — apex flush against the right edge, base
+// flush against top/bottom — which gave it a circumradius of n/√3 ≈ 0.577n,
+// bigger than the 0.356n gap from centroid to nearest box edge: no pivot
+// choice could keep THAT triangle inside its box across all angles.)
+const TRI_R = 0.5 // circumradius: centroid-to-vertex distance, == half the box
+const SQRT3_4 = Math.sqrt(3) / 4 // == TRI_R * sin(60°) — half the base's
+                                 // vertical span (see TRI_BASE_Y_TOP/BOT
+                                 // below); an exact coincidence of TRI_R
+                                 // being exactly 0.5, not a general identity
+const TRI_APEX_X = 0.5 + TRI_R // = 1.0 (rightmost point, touches the right edge)
 const TRI_APEX_Y = 0.5
-const TRI_BASE_X = 0.5 - SQRT3_4 // ≈ 0.067 (the left, vertical base)
+const TRI_BASE_X = 0.5 - TRI_R * Math.cos(Math.PI / 3) // = 0.25 (left, vertical base)
+const TRI_BASE_Y_TOP = 0.5 - SQRT3_4 // ≈ 0.067 (base's top vertex, side 'a')
+const TRI_BASE_Y_BOT = 0.5 + SQRT3_4 // ≈ 0.933 (base's bottom vertex, side 'b')
 // 'peak' is the triangle's apex vertex — a single point-attachment SLOT (at
 // most one point, like 'empty's middle point, but optional: the triangle
 // survives without it — see edgeCapacity/pointIsForm below) rather than an
@@ -249,13 +272,18 @@ const TRI_EDGES = ['a', 'b', 'c', 'peak'] as const
 // Radius (form-fraction units) within which a cursor near the apex resolves
 // to the 'peak' slot, checked BEFORE side (a/b/c) attribution — same
 // magnitude as CORNER_R (the side-stripe inset), for the same "near a
-// vertex" feel.
+// vertex" feel. Left unchanged even though the triangle shrank (~13%
+// linearly, going from footprint-maximizing to inscribed-circumradius
+// sizing): PEAK_R is a hit-radius in the SAME [0,1]² fraction space as the
+// vertices, so it shrinks right along with the triangle in absolute
+// (post-nodeSize) terms — its proportion relative to the triangle's own
+// size is unchanged, so it doesn't read as disproportionate.
 const PEAK_R = CORNER_R
 
 // A point along slant 'a' (from the top-left base vertex) or 'b' (bottom-left),
 // running to the apex on the right.
 function triSlant(side: 'a' | 'b', t: number, n: number): [number, number] {
-  const by = (side === 'a' ? 0 : 1) * n
+  const by = (side === 'a' ? TRI_BASE_Y_TOP : TRI_BASE_Y_BOT) * n
   const bx = TRI_BASE_X * n
   return [bx + (TRI_APEX_X * n - bx) * t, by + (0.5 * n - by) * t]
 }
@@ -264,7 +292,7 @@ const triangleGeometry: FormGeometry = {
   shape: 'triangle',
   displayName: 'Triangle',
   edgeKeys: TRI_EDGES,
-  body: { type: 'polygon', pointsFrac: [[TRI_APEX_X, 0.5], [TRI_BASE_X, 1], [TRI_BASE_X, 0]] },
+  body: { type: 'polygon', pointsFrac: [[TRI_APEX_X, 0.5], [TRI_BASE_X, TRI_BASE_Y_BOT], [TRI_BASE_X, TRI_BASE_Y_TOP]] },
   bodyOpacity: 1,
   showName: true,
   hasCenterZone: true,
@@ -279,35 +307,36 @@ const triangleGeometry: FormGeometry = {
     const t = (index + 1) / (count + 1)
     if (edgeKey === 'a') { const [x, y] = triSlant('a', t, n); return { x, y, position: Position.Top } }
     if (edgeKey === 'b') { const [x, y] = triSlant('b', t, n); return { x, y, position: Position.Bottom } }
-    return { x: TRI_BASE_X * n, y: t * n, position: Position.Left } // c = left vertical side
+    return { x: TRI_BASE_X * n, y: TRI_BASE_Y_TOP * n + t * (TRI_BASE_Y_BOT - TRI_BASE_Y_TOP) * n, position: Position.Left } // c = left vertical side
   },
   edgeAt: (rx, ry) => {
     // The apex slot wins over side attribution within PEAK_R — checked
     // first, since 'a' and 'b' both terminate exactly at the apex and would
     // otherwise always claim a cursor there.
     if (Math.hypot(rx - TRI_APEX_X, ry - TRI_APEX_Y) <= PEAK_R) return 'peak'
-    const da = distToSeg(rx, ry, TRI_BASE_X, 0, TRI_APEX_X, 0.5) // a = top slant
-    const db = distToSeg(rx, ry, TRI_BASE_X, 1, TRI_APEX_X, 0.5) // b = bottom slant
-    const dc = distToSeg(rx, ry, TRI_BASE_X, 0, TRI_BASE_X, 1) // c = left side
+    const da = distToSeg(rx, ry, TRI_BASE_X, TRI_BASE_Y_TOP, TRI_APEX_X, 0.5) // a = top slant
+    const db = distToSeg(rx, ry, TRI_BASE_X, TRI_BASE_Y_BOT, TRI_APEX_X, 0.5) // b = bottom slant
+    const dc = distToSeg(rx, ry, TRI_BASE_X, TRI_BASE_Y_TOP, TRI_BASE_X, TRI_BASE_Y_BOT) // c = left side
     if (da <= db && da <= dc) return 'a'
     if (db <= dc) return 'b'
     return 'c'
   },
   regionShape: (edgeKey) => {
     if (edgeKey === 'peak') return { kind: 'spot', at: [TRI_APEX_X, TRI_APEX_Y] }
-    if (edgeKey === 'a') return { kind: 'polyline', points: insetSegment([TRI_BASE_X, 0], [TRI_APEX_X, 0.5], CORNER_R) }
-    if (edgeKey === 'b') return { kind: 'polyline', points: insetSegment([TRI_BASE_X, 1], [TRI_APEX_X, 0.5], CORNER_R) }
-    return { kind: 'polyline', points: insetSegment([TRI_BASE_X, 0], [TRI_BASE_X, 1], CORNER_R) } // c
+    if (edgeKey === 'a') return { kind: 'polyline', points: insetSegment([TRI_BASE_X, TRI_BASE_Y_TOP], [TRI_APEX_X, 0.5], CORNER_R) }
+    if (edgeKey === 'b') return { kind: 'polyline', points: insetSegment([TRI_BASE_X, TRI_BASE_Y_BOT], [TRI_APEX_X, 0.5], CORNER_R) }
+    return { kind: 'polyline', points: insetSegment([TRI_BASE_X, TRI_BASE_Y_TOP], [TRI_BASE_X, TRI_BASE_Y_BOT], CORNER_R) } // c
   },
-  // Inverse of triSlant's t (y runs 0→0.5 for 'a', 1→0.5 for 'b') / the
-  // direct t=y assignment for 'c' (see pointAnchor above). 'peak' has no
-  // ordering (capacity 1, like 'empty's self) — the constant 0 is the
-  // trivial (and only) valid inverse.
+  // Inverse of triSlant's t (y runs TRI_BASE_Y_TOP→0.5 for 'a',
+  // TRI_BASE_Y_BOT→0.5 for 'b') / the direct linear t=(y-top)/(bot-top)
+  // assignment for 'c' (see pointAnchor above). 'peak' has no ordering
+  // (capacity 1, like 'empty's self) — the constant 0 is the trivial (and
+  // only) valid inverse.
   edgeParam: (edgeKey, _rx, ry) => {
     if (edgeKey === 'peak') return 0
-    if (edgeKey === 'a') return clamp01(2 * ry)
-    if (edgeKey === 'b') return clamp01(2 * (1 - ry))
-    return clamp01(ry) // c
+    if (edgeKey === 'a') return clamp01((ry - TRI_BASE_Y_TOP) / (0.5 - TRI_BASE_Y_TOP))
+    if (edgeKey === 'b') return clamp01((TRI_BASE_Y_BOT - ry) / (TRI_BASE_Y_BOT - 0.5))
+    return clamp01((ry - TRI_BASE_Y_TOP) / (TRI_BASE_Y_BOT - TRI_BASE_Y_TOP)) // c
   },
 }
 

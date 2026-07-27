@@ -48,6 +48,8 @@ export function rotateAbout(p: Vec, center: Vec, deg: number): Vec {
 interface FormLayout {
   form: Form
   n: number
+  // The form's rotation pivot, in absolute flow px — its bodyCentroid, NOT
+  // its bbox center (see layoutForm below).
   center: Vec
   rotation: number
   // Local node-space (0..n, the SAME frame FormNode.tsx's body/anchors live
@@ -58,14 +60,21 @@ interface FormLayout {
 function layoutForm(form: Form): FormLayout {
   const geom = geometryFor(form.shape)
   const n = geom.nodeSize(form) * (form.scale ?? 1)
-  const center = { x: form.position.x + n / 2, y: form.position.y + n / 2 }
+  // The rotation pivot — MUST be the same bodyCentroid FormNode.tsx's CSS
+  // transform-origin uses (not the bbox center: a triangle's true centroid
+  // sits toward its base), or the exported/TikZ-or-SVG picture visibly
+  // disagrees with what's actually on canvas the instant a form rotates.
+  // Coincides with the bbox center for square/circle/rhombus/empty, whose
+  // centroid IS their bbox center by construction — unchanged for those.
+  const [ccx, ccy] = bodyCentroid(geom.body)
+  const center = { x: form.position.x + ccx * n, y: form.position.y + ccy * n }
   const rotation = form.rotation ?? 0
   const toAbs = (local: Vec) => rotateAbout({ x: form.position.x + local.x, y: form.position.y + local.y }, center, rotation)
   return { form, n, center, rotation, toAbs }
 }
 
-// A form's own center in absolute flow px (rotation-invariant — a form
-// always rotates about its own center).
+// A form's own rotation pivot (bodyCentroid, not bbox center) in absolute
+// flow px — rotation-invariant, a form always rotates about this point.
 export function formCenterPx(form: Form): Vec {
   return layoutForm(form).center
 }

@@ -22,7 +22,7 @@ import FormNode, { DRAG_HANDLE_CLASS } from './FormNode'
 import LineEdge from './LineEdge'
 import { useStore, initStore } from '../state/store'
 import { useAutosave, useLocalAutosave } from '../persist/save'
-import { geometryFor, pointIdsAt, isInsideBody, isInCenterZone, insertionIndex, BASE_SIZE, CENTER_SHRINK, POINT_SIZE, type FormGeometry } from '../domain/forms'
+import { geometryFor, pointIdsAt, isInsideBody, isInCenterZone, insertionIndex, bodyCentroid, BASE_SIZE, CENTER_SHRINK, POINT_SIZE, type FormGeometry } from '../domain/forms'
 import { encodeHandle, decodeHandle, decodePhantomHandle } from '../domain/handles'
 import { GRID_SIZE, snapCenterPosition } from '../domain/grid'
 import ImportPanel from './ImportPanel'
@@ -50,10 +50,20 @@ export type SelectionTarget = { kind: 'points' | 'forms' | 'lines'; ids: string[
 // drag-drop to auto-attach a line) needs the INVERSE of that rotation applied
 // to the click point first, or a click on what's now visually the right side
 // resolves against where the right side used to be before rotating.
-function unrotateLocal(localX: number, localY: number, w: number, h: number, rotationDeg: number): [number, number] {
+//
+// Pivot is (cx, cy) explicitly, NOT w/2, h/2 — FormNode.tsx's own CSS
+// transform-origin (and geometry-ir.ts's export-path layoutForm) rotate
+// about the body's bodyCentroid, not its bbox center, since a triangle's
+// true centroid sits toward its base. This MUST invert that exact same
+// pivot, or a click on what's now visually the right side of a rotated
+// triangle resolves against a DIFFERENT point than the one the CSS rotation
+// actually put there — hover territory, phantom-handle placement, and
+// drop-attach would all target the wrong spot the instant an asymmetric
+// shape rotates. Coincides with w/2, h/2 for square/circle/rhombus/empty,
+// whose centroid IS their bbox center by construction — unchanged for those.
+function unrotateLocal(localX: number, localY: number, cx: number, cy: number, rotationDeg: number): [number, number] {
   if (!rotationDeg) return [localX, localY]
   const theta = (rotationDeg * Math.PI) / 180
-  const cx = w / 2, cy = h / 2
   const vx = localX - cx, vy = localY - cy
   const ux = vx * Math.cos(theta) + vy * Math.sin(theta)
   const uy = -vx * Math.sin(theta) + vy * Math.cos(theta)
@@ -71,7 +81,8 @@ function nodeLocalFraction(
 ): { rx: number; ry: number; lx: number; ly: number; n: number } {
   const geom = geometryFor(form.shape)
   const n = node.measured?.width ?? node.width ?? geom.nodeSize(form) * (form.scale ?? 1)
-  const [lx, ly] = unrotateLocal(flowX - node.position.x, flowY - node.position.y, n, n, form.rotation ?? 0)
+  const [ccx, ccy] = bodyCentroid(geom.body)
+  const [lx, ly] = unrotateLocal(flowX - node.position.x, flowY - node.position.y, ccx * n, ccy * n, form.rotation ?? 0)
   return { rx: lx / n, ry: ly / n, lx, ly, n }
 }
 

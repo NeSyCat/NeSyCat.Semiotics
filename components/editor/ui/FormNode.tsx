@@ -158,7 +158,10 @@ const BODY_GAP_R = POINT_SIZE / 2
 // wherever that always-present fallback exists (`decorative`).
 function BodyView({ body, n, accent, selected, bodyOpacity, hasCenterZone, gapPoints, maskId }: {
   body: Body; n: number; accent: string | null; selected: boolean; bodyOpacity: number; hasCenterZone: boolean
-  gapPoints: ReadonlyArray<{ x: number; y: number }>; maskId: string
+  // gapBody: the gapped point's OWN shape geometry (see GapPoint's comment,
+  // ShapeBody.tsx) — a polygon-bodied point punches a matching polygon hole
+  // instead of an oversized circle.
+  gapPoints: ReadonlyArray<{ x: number; y: number; gapBody: Body }>; maskId: string
 }) {
   const fill = tintFill(accent, selected, bodyOpacity)
   // Purely decorative — this was silently winning hit-tests against the
@@ -169,7 +172,7 @@ function BodyView({ body, n, accent, selected, bodyOpacity, hasCenterZone, gapPo
   // catch-all — 'empty' has none, so its body must stay clickable or basic
   // select/drag breaks for it entirely.
   const decorative = hasCenterZone ? ({ pointerEvents: 'none' } as const) : {}
-  const gaps: GapPoint[] = gapPoints.map((p) => ({ ...p, r: BODY_GAP_R }))
+  const gaps: GapPoint[] = gapPoints.map((p) => ({ x: p.x, y: p.y, r: BODY_GAP_R, body: p.gapBody }))
   return <ShapeBody body={body} n={n} fill={fill} borderOpacity={bodyOpacity} gapPoints={gaps} maskId={maskId} style={decorative} />
 }
 
@@ -273,14 +276,16 @@ function FormNode({ id, data, selected }: NodeProps) {
   // 'empty') gaps the body's border/fill at its anchor — see BodyView. An
   // 'empty'-shaped point draws no glyph, so it must NOT gap (nothing would
   // fill the hole, leaving a stray break in the outline).
-  const gapPoints: Array<{ x: number; y: number }> = []
+  const gapPoints: Array<{ x: number; y: number; gapBody: Body }> = []
   for (const edgeKey of geom.edgeKeys) {
     const ids = pointIdsAt(form, edgeKey)
     ids.forEach((pid, index) => {
       const pt = points[pid]
       if (!pt) return
       const anchor = geom.pointAnchor(edgeKey, index, ids.length, n)
-      if (pt.shape !== 'empty') gapPoints.push({ x: anchor.x, y: anchor.y })
+      // gapBody is the POINT's own shape geometry (not the parent form's) —
+      // the cutout must match what's actually sitting there.
+      if (pt.shape !== 'empty') gapPoints.push({ x: anchor.x, y: anchor.y, gapBody: geometryFor(pt.shape).body })
       const isSel = selectedPoints.includes(pid)
       const hid = encodeHandle(edgeKey, index)
       // A point's own drag-region hover always wins over the form's
@@ -308,6 +313,17 @@ function FormNode({ id, data, selected }: NodeProps) {
     <div style={{
       position: 'relative', width: n, height: n, cursor: 'pointer',
       transform: form.rotation ? `rotate(${form.rotation}deg)` : undefined,
+      // CSS defaults transform-origin to the BBOX center (50% 50%), but a
+      // triangle's true centroid sits off toward its base (see forms.ts's
+      // bodyCentroid) — an un-pivoted rotate() swings the whole node/points/
+      // name assembly around a point that isn't visually "the middle" of an
+      // asymmetric body, so it appears to pivot around the wrong spot.
+      // Square/circle/rhombus/empty have centroid === bbox-center by
+      // construction, so this is a no-op for them; only triangle visibly
+      // moves. ir/geometry-ir.ts's layoutForm derives its own export-path
+      // rotation pivot from the SAME bodyCentroid, so canvas and exports
+      // agree on where "center" is.
+      transformOrigin: `${centroid[0] * 100}% ${centroid[1] * 100}%`,
     }}>
       <BodyView body={geom.body} n={n} accent={accent} selected={!!selected} bodyOpacity={geom.bodyOpacity} hasCenterZone={geom.hasCenterZone} gapPoints={gapPoints} maskId={`body-gap-${id}`} />
       {/* dragHandle hit-area (see Canvas.tsx's node-building) — kinds with no
