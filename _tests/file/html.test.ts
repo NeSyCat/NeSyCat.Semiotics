@@ -213,7 +213,20 @@ describe('HTML/SVG exporter', () => {
     const n = geom.nodeSize(tri)
     const [cfx, cfy] = bodyCentroid(geom.body)
     const expectedCentroidPx = { x: tri.position.x + cfx * n, y: tri.position.y + cfy * n }
-    expect(approx(expectedCentroidPx.x, n / 2), "triangle centroid x differs from bbox-center x (that's the bug being fixed)").toBe(false)
+    // NOTE: post-resize (triangle now inscribed in the circumradius-0.5
+    // circle centred at (0.5, 0.5), so full containment survives rotation —
+    // see forms.ts), the equilateral triangle's centroid coincides EXACTLY
+    // with the box center: an equilateral triangle's centroid IS its
+    // circumcenter, and the circumcenter was deliberately placed at the
+    // box's own center. So this no longer distinguishes "uses centroid" from
+    // "uses bbox center" for the UNROTATED case (both land on n/2) — that's
+    // an intentional consequence of the containment fix, not a regression
+    // back to the old bbox-center bug. The label position assertions below
+    // (driven by the SAME bodyCentroid the render path itself consumes) are
+    // the load-bearing check — they still fail if the render path ever
+    // hardcodes n/2 instead of calling bodyCentroid, even though the two
+    // now agree numerically for this shape's UNROTATED case.
+    expect(approx(expectedCentroidPx.x, n / 2), 'triangle centroid x now coincides with bbox-center x by construction (inscribed-circle resize)').toBe(true)
 
     const t: Diagram = { schemaVersion: 1, forms: [tri], points: {}, lines: [] }
     const tsvg = diagramToHtmlCore(t)

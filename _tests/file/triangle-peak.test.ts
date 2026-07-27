@@ -49,8 +49,10 @@ describe("triangle 'peak' slot", () => {
     const geom = geometryFor('triangle')
     const n = 100
     const a = geom.pointAnchor('peak', 0, 1, n)
-    // TRI_APEX_X = 0.5 + sqrt(3)/4, TRI_APEX_Y = 0.5 (see forms.ts).
-    const apexX = (0.5 + Math.sqrt(3) / 4) * n
+    // TRI_APEX_X = 1.0, TRI_APEX_Y = 0.5 (see forms.ts) — the triangle is
+    // inscribed in the circumradius-0.5 circle centred at (0.5, 0.5), so the
+    // apex sits exactly on the box's right edge.
+    const apexX = 1.0 * n
     const apexY = 0.5 * n
     expect(Math.abs(a.x - apexX) < 1e-9 && Math.abs(a.y - apexY) < 1e-9, `peak anchor sits at the apex vertex (got x=${a.x}, y=${a.y}, want x=${apexX}, y=${apexY})`).toBe(true)
     // Even with an out-of-model index/count the anchor never fans — always the apex.
@@ -60,15 +62,18 @@ describe("triangle 'peak' slot", () => {
 
   it("forms.ts's triangleGeometry — edgeAt near the apex resolves 'peak', mid-side resolves the side", () => {
     const geom = geometryFor('triangle')
-    // Apex fraction coords: TRI_APEX_X ≈ 0.933, TRI_APEX_Y = 0.5.
-    const apexX = 0.5 + Math.sqrt(3) / 4
+    // Apex fraction coords: TRI_APEX_X = 1.0, TRI_APEX_Y = 0.5 — the
+    // triangle is inscribed in the circumradius-0.5 circle at (0.5, 0.5).
+    const apexX = 1.0
     const nearApex = geom.edgeAt(apexX - 0.01, 0.5)
     expect(nearApex, `a cursor right at the apex resolves to 'peak' (got ${nearApex})`).toBe('peak')
 
     // Mid-side 'a' (top slant): roughly halfway between the base's top vertex
-    // and the apex, well outside PEAK_R.
-    const baseX = 0.5 - Math.sqrt(3) / 4
-    const midA = geom.edgeAt((baseX + apexX) / 2, 0.25)
+    // (TRI_BASE_X=0.25, TRI_BASE_Y_TOP=0.5-sqrt(3)/4) and the apex, well
+    // outside PEAK_R.
+    const baseX = 0.25
+    const baseYTop = 0.5 - Math.sqrt(3) / 4
+    const midA = geom.edgeAt((baseX + apexX) / 2, (baseYTop + 0.5) / 2)
     expect(midA, `a cursor mid-way along side 'a' resolves to 'a', not 'peak' (got ${midA})`).toBe('a')
 
     // Side 'c' (left vertical side) — nowhere near the apex.
