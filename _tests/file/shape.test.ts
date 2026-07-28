@@ -8,7 +8,11 @@ import { describe, expect, it } from 'vitest'
 import { formRegistry, SHAPES } from '../../components/editor/domain/forms'
 import { restoreDiagram } from '../../components/editor/persist/io'
 import { addForm, addPoint, setPointShape } from '../../components/editor/domain/mutations'
-import type { Diagram, Shape } from '../../components/editor/domain/types'
+import type { Diagram, EdgeKey, Form, Shape } from '../../components/editor/domain/types'
+
+function bareForm(id: string, shape: Form['shape'], extra: Partial<Form> = {}): Form {
+  return { id, shape, position: { x: 0, y: 0 }, edges: {}, ...extra }
+}
 
 const VALID_SHAPES: Shape[] = ['empty', 'triangle', 'square', 'circle', 'rhombus']
 
@@ -82,4 +86,29 @@ describe('unified Shape vocabulary', () => {
       }
     }
   })
+
+  // A form's rendered size (nodeSize) must stay fixed regardless of how many
+  // points fan out along any of its edges — only an explicit form.scale
+  // changes it (see forms.ts's per-shape nodeSize, now all `() => BASE_SIZE`
+  // constants). 'empty' already has its own lock-in test
+  // (empty-form.test.ts:50-52, "empty's nodeSize never grows with point
+  // count"); these mirror it for the other four shapes, one unbounded
+  // (non-capacity-capped) edge each.
+  const GROWTH_CASES: Array<{ shape: Shape; edgeKey: EdgeKey }> = [
+    { shape: 'triangle', edgeKey: 'a' },
+    { shape: 'square', edgeKey: 'top' },
+    { shape: 'circle', edgeKey: 'up' },
+    { shape: 'rhombus', edgeKey: 'top-right' },
+  ]
+  for (const { shape, edgeKey } of GROWTH_CASES) {
+    it(`${shape}'s nodeSize never grows with point count`, () => {
+      const geom = formRegistry[shape]
+      const bare = bareForm('F', shape)
+      const fanned = bareForm('F', shape, { edges: { [edgeKey]: ['P1', 'P2', 'P3', 'P4', 'P5'] } })
+      expect(
+        geom.nodeSize(fanned),
+        `${shape}'s nodeSize with 5 points on edge '${edgeKey}' (got ${geom.nodeSize(fanned)}) must equal its bare nodeSize (${geom.nodeSize(bare)})`,
+      ).toBe(geom.nodeSize(bare))
+    })
+  }
 })

@@ -3,7 +3,6 @@ import type { Form, Shape, EdgeKey } from './types'
 
 // ── Layout constants ─────────────────────────────────────────────────
 export const BASE_SIZE = 200
-export const ROW_HEIGHT = 48
 export const POINT_DOT = 12
 // Inset amount (in [0,1] form-fraction space) for a side's hover-stripe
 // region, so two adjacent sides' stripes don't visually overlap at the
@@ -153,17 +152,6 @@ export function pointIdsAt(form: Form, edgeKey: EdgeKey): string[] {
   return form.edges[edgeKey] ?? []
 }
 
-function maxPointsOnAnyEdge(form: Form, edgeKeys: readonly EdgeKey[]): number {
-  let m = 0
-  for (const k of edgeKeys) {
-    const len = pointIdsAt(form, k).length
-    if (len > m) m = len
-  }
-  return m
-}
-const sizeFor = (edgeKeys: readonly EdgeKey[]) => (form: Form) =>
-  Math.max(BASE_SIZE, (maxPointsOnAnyEdge(form, edgeKeys) + 1) * ROW_HEIGHT)
-
 function distToSeg(px: number, py: number, ax: number, ay: number, bx: number, by: number): number {
   const dx = bx - ax
   const dy = by - ay
@@ -296,7 +284,7 @@ const triangleGeometry: FormGeometry = {
   bodyOpacity: 1,
   showName: true,
   hasCenterZone: true,
-  nodeSize: sizeFor(TRI_EDGES),
+  nodeSize: () => BASE_SIZE,
   edgeCapacity: { peak: 1 },
   pointAnchor: (edgeKey, index, count, n) => {
     // 'peak' has capacity 1 — always the apex itself, regardless of
@@ -351,7 +339,7 @@ const squareGeometry: FormGeometry = {
   bodyOpacity: 1,
   showName: true,
   hasCenterZone: true,
-  nodeSize: sizeFor(SQUARE_EDGES),
+  nodeSize: () => BASE_SIZE,
   pointAnchor: (edgeKey, index, count, n) => {
     const t = (index + 1) / (count + 1)
     switch (edgeKey) {
@@ -423,7 +411,7 @@ const circleGeometry: FormGeometry = {
   bodyOpacity: 1,
   showName: true,
   hasCenterZone: true,
-  nodeSize: sizeFor(CIRCLE_EDGES),
+  nodeSize: () => BASE_SIZE,
   pointAnchor: (edgeKey, index, count, n) => {
     const t = (index + 1) / (count + 1)
     const [x, y] = arcPt(edgeKey, t, n)
@@ -472,7 +460,7 @@ const rhombusGeometry: FormGeometry = {
   bodyOpacity: 1,
   showName: true,
   hasCenterZone: true,
-  nodeSize: sizeFor(RHOMBUS_EDGES),
+  nodeSize: () => BASE_SIZE,
   pointAnchor: (edgeKey, index, count, n) => {
     const side = RHOMBUS_SIDES[edgeKey]
     const t = (index + 1) / (count + 1)

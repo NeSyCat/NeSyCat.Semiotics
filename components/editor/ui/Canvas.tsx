@@ -138,7 +138,7 @@ function resolveDropPoint(
     // the grid, not wherever the drop happened to end.
     const topLeft = { x: position.x - size / 2, y: position.y - size / 2 }
     const snapped = useStore.getState().gridEnabled
-      ? snapCenterPosition({ shape: 'empty', scale: undefined, edges: {} }, topLeft)
+      ? snapCenterPosition({ shape: 'empty', scale: undefined }, topLeft)
       : topLeft
     const newFormId = useStore.getState().addForm('empty', snapped)
     return useStore.getState().addPoint(newFormId, 'self') || null
@@ -791,9 +791,10 @@ function Canvas({ topRight }: CanvasContentProps) {
   // (edge to the center-zone boundary) is n·(1−CENTER_SHRINK)/2 for a
   // centre-zone kind, or n/2 for a full-body kind (point/empty) — NOT the
   // narrower REGION_STRIPE_WIDTH visual stripe. A fixed guess undershoots
-  // for any node bigger than the smallest default (more points on an edge
-  // grow n — see forms.ts's sizeFor), which is exactly what produced the
-  // "attaches at the rim, breaks free deeper in the SAME band" split the
+  // for any node bigger than the smallest default (a form's own .scale is
+  // the only thing that grows n now — see forms.ts's fixed-size nodeSize
+  // per shape — point count no longer does), which is exactly what produced
+  // the "attaches at the rim, breaks free deeper in the SAME band" split the
   // user saw: two visually different endings for what is, underneath,
   // meant to be one mechanism. Deriving the radius from the diagram's own
   // current geometry keeps the two endings identical everywhere the ring
@@ -814,8 +815,8 @@ function Canvas({ topRight }: CanvasContentProps) {
     // band is 180px, wrapping EVERY point handle in a capture halo wider
     // than typical inter-form gaps — blank-canvas drops (the auto-create-
     // empty gesture) would stop being reachable near forms. 75 covers every
-    // default-size band (45–50) and crowded edges up to ~7 points/side
-    // (n≈333), while keeping a scaled-up form's snapping merely generous.
+    // default-size band (45–50) and generously scaled-up forms alike, while
+    // keeping a scaled-up form's snapping merely generous.
     return Math.min(maxBand, 75)
   }, [nodes, diagram.forms])
 
