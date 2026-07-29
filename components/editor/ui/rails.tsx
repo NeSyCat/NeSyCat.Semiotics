@@ -30,12 +30,17 @@ export const SHAPE_RAIL: Array<{ label: string; symbol: string; shape: Shape }> 
 ]
 
 // Second toolbar — the Color rail. Applies to the SELECTION (points > forms >
-// lines, same priority as the Name field). Hues are HSL 0/30/60/120/180/210/
-// 240/300 at 100% S, 50% L, per spec; White closes out the row. White IS the
-// default: it maps to `null`, clearing the target back to the undefined
-// default (transparent form fill / ink glyphs / black lines) — an uncolored
-// target reads as White in the rail and the top-pill icon.
+// lines, same priority as the Name field). Black leads the row (an explicit
+// [0,0,0] triple — a real color choice, distinct from White's `null` default;
+// arrays are always truthy in JS, so the all-zero triple survives every
+// `color ? ... : null`-style check elsewhere unlike the number 0 would).
+// Hues are HSL 0/30/60/120/180/210/240/300 at 100% S, 50% L, per spec; White
+// closes out the row. White IS the default: it maps to `null`, clearing the
+// target back to the undefined default (transparent form fill / ink glyphs /
+// black lines) — an uncolored target reads as White in the rail and the
+// top-pill icon.
 export const COLOR_RAIL: Array<{ label: string; color: Color | null }> = [
+  { label: 'Black', color: [0, 0, 0] },
   { label: 'Red', color: [1, 0, 0] },
   { label: 'Orange', color: [1, 0.5, 0] },
   { label: 'Yellow', color: [1, 1, 0] },
