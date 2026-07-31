@@ -34,7 +34,7 @@ interface State {
   pointsVisible: boolean
   // Snap-to-grid ON/OFF (grid.ts's GRID_SIZE pitch) — transient UI state,
   // same shape as pointsVisible: NOT part of the Diagram schema (types.ts)
-  // or the DB, no undo history entry. Default OFF.
+  // or the DB, no undo history entry. Default ON.
   gridEnabled: boolean
   // Quiver-style hover highlight — transient UI state, not part of undo history.
   hover: HoverTarget
@@ -121,8 +121,8 @@ export const useStore = create<State>((set, get) => {
     diagram: emptyDiagram,
     selectedPoints: [],
     edgePath: 'straight',
-    pointsVisible: true,
-    gridEnabled: false,
+    pointsVisible: false,
+    gridEnabled: true,
     hover: null,
     hoveredEdgeId: null,
     history: [emptyDiagram],
