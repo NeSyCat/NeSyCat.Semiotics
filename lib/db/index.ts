@@ -3,7 +3,11 @@ import postgres from 'postgres'
 import { sql } from 'drizzle-orm'
 import * as schema from '@/_concept/03-orm-schema/schema'
 
-const pg = postgres(process.env.DATABASE_URL!, { prepare: false })
+// POSTGRES_URL is the Supabase→Vercel-integration-managed variable: on preview
+// deployments it points at the PR's Supabase preview branch, so previews test
+// their own migrations instead of hitting production. DATABASE_URL remains the
+// local-dev / manual fallback.
+const pg = postgres((process.env.POSTGRES_URL ?? process.env.DATABASE_URL)!, { prepare: false })
 
 const _baseDb = drizzle(pg, { schema })
 
