@@ -10,6 +10,9 @@ interface Props {
   // interchangeable topRight slots), but UserMenu never needs it — a
   // signed-in user has nothing to sign IN to.
   me: Me
+  // Computed server-side (resolveActiveOrg) so menu highlight, server, and
+  // data agree — no client-side fallback/derivation here.
+  activeOrgId: string | null
   callbackUrl: string
 }
 
@@ -54,31 +57,20 @@ function GearIcon() {
   )
 }
 
-function activeOrgStorageKey(userId: string): string {
-  return `nesycat.semiotics.activeOrgId.${userId}`
-}
-
 // Top-right account pill for signed-in users — replaces AuthSharePill's
 // signed-in branch. Same pill/btn trigger idiom, ExportMenu-style dropdown
 // mechanics (open state, outside-click close, absolute right-aligned panel —
 // this component's own root carries position:relative, same reasoning as
 // TopRightPills' comment on the import/export pill: the panel's `right: 0`
 // must align with THIS pill's right edge). Content: identity + sign-out,
-// then an "Organizations" section — click a row to switch (pure client
-// state, no reload — nothing is org-scoped yet), gear-icon inline rename on
-// rows the user owns.
-export default function UserMenu({ me }: Props) {
+// then an "Organizations" section — click a row to switch (cookie write +
+// navigate to /editor, since diagram lists are org-scoped now and switching
+// must leave the current diagram), gear-icon inline rename on rows the user
+// owns.
+export default function UserMenu({ me, activeOrgId }: Props) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const wrapRef = useRef<HTMLDivElement>(null)
-
-  // Initialised from localStorage behind a `typeof window` guard: this
-  // initializer also runs during SSR (client components still render
-  // server-side for the first paint), where `window` doesn't exist.
-  const [activeOrgId, setActiveOrgId] = useState<string | null>(() => {
-    if (typeof window === 'undefined') return null
-    return window.localStorage.getItem(activeOrgStorageKey(me.userId))
-  })
 
   const [renamingId, setRenamingId] = useState<string | null>(null)
   const [renameValue, setRenameValue] = useState('')
@@ -96,18 +88,14 @@ export default function UserMenu({ me }: Props) {
     return () => document.removeEventListener('mousedown', onDocDown)
   }, [open])
 
-  // me.memberships is server-ordered by name; the stored id wins only while
-  // it still names a real membership (an org can be renamed/left elsewhere),
-  // else fall back to the first membership by name — same fallback rule as
-  // the design doc.
-  const activeId =
-    activeOrgId && me.memberships.some((m) => m.organizationId === activeOrgId)
-      ? activeOrgId
-      : (me.memberships[0]?.organizationId ?? null)
-
   function switchOrg(id: string) {
-    setActiveOrgId(id)
-    window.localStorage.setItem(activeOrgStorageKey(me.userId), id)
+    // document.cookie's setter trips the React Compiler's immutability rule
+    // (it flags any assignment into `document.*`), but this is a plain
+    // browser API write, not component state — false positive.
+    // eslint-disable-next-line react-hooks/immutability
+    document.cookie = `nesycat-active-org=${id}; path=/; max-age=31536000; samesite=lax`
+    router.push('/editor')
+    router.refresh()
   }
 
   async function onSignOut() {
@@ -158,7 +146,7 @@ export default function UserMenu({ me }: Props) {
 
           <div className="user-menu-label">Organizations</div>
           {me.memberships.map((m) => {
-            const active = m.organizationId === activeId
+            const active = m.organizationId === activeOrgId
             const editing = renamingId === m.organizationId
             return (
               <div

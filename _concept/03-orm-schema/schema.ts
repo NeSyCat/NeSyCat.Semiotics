@@ -9,17 +9,14 @@ export const diagrams = pgTable(
   'diagrams',
   {
     id: uuid('id').primaryKey().defaultRandom(),
-    ownedBy: uuid('owned_by').notNull(),
+    organizationId: uuid('organization_id').notNull().references(() => organizations.id),
     title: text('title').notNull(),
     data: jsonb('data').notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
-    pgPolicy('diagrams_select_own', { for: 'select', to: authenticatedRole, using: sql`${t.ownedBy} = ${authUid}` }),
-    pgPolicy('diagrams_insert_own', { for: 'insert', to: authenticatedRole, withCheck: sql`${t.ownedBy} = ${authUid}` }),
-    pgPolicy('diagrams_update_own', { for: 'update', to: authenticatedRole, using: sql`${t.ownedBy} = ${authUid}`, withCheck: sql`${t.ownedBy} = ${authUid}` }),
-    pgPolicy('diagrams_delete_own', { for: 'delete', to: authenticatedRole, using: sql`${t.ownedBy} = ${authUid}` }),
+    pgPolicy('diagrams_member_all', { for: 'all', to: authenticatedRole, using: sql`${t.organizationId} in (select public.my_member_organizations())`, withCheck: sql`${t.organizationId} in (select public.my_member_organizations())` }),
   ],
 )
 
@@ -50,7 +47,7 @@ export const memberships = pgTable(
   {
     id: uuid('id').primaryKey().defaultRandom(),
     userId: uuid('user_id').notNull(),
-    organizationId: uuid('organization_id').notNull(),
+    organizationId: uuid('organization_id').notNull().references(() => organizations.id),
     isOwner: boolean('is_owner').notNull().default(false),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),

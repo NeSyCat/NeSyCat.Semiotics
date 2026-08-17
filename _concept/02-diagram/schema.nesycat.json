@@ -53,11 +53,11 @@
   ],
   "lines": [
     {
-      "id": "owned_by",
+      "id": "organization_id",
       "points": {
         "source": { "name": "uuid", "node": "R1", "side": "left", "slot": "center", "index": 0 },
         "targets": [
-          { "name": "uuid", "node": "R2", "side": "center", "slot": "center", "index": 0 }
+          { "name": "uuid", "node": "R3", "side": "center", "slot": "center", "index": 0 }
         ]
       }
     },

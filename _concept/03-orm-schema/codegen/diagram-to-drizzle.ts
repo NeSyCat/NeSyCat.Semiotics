@@ -35,6 +35,17 @@ interface MembershipInfo {
   groupSingular: string
 }
 
+// A table that is neither a membership table nor a GROUP table itself, with
+// EXACTLY ONE FK column whose target is a GROUP table, is a GROUP-SCOPED
+// TABLE (see README's "Group-scoped pattern" section) — every member of the
+// owning group gets full CRUD via one `<T>_member_all` policy. `fkColumn` is
+// that FK's column name; `groupTableName` is its target's plural table name
+// (used in the `my_member_<G>()` helper reference).
+interface GroupScopedInfo {
+  fkColumn: string
+  groupTableName: string
+}
+
 interface Table {
   rectId: string
   totalName: string
@@ -44,6 +55,7 @@ interface Table {
   columns: ColumnKind[]
   ownerFkColumn?: string
   membership?: MembershipInfo
+  groupScoped?: GroupScopedInfo
 }
 
 interface ExternalRect {
@@ -252,6 +264,28 @@ function main(): void {
     groupRectIds.add(groupRect.rectId)
   }
 
+  // Classify group-scoped tables (structural, generic — see README's
+  // "Group-scoped pattern"): a table that is neither a membership table nor a
+  // GROUP table itself, with EXACTLY ONE FK column whose target is a GROUP
+  // table (groupRectIds, populated above), gets a single `<T>_member_all`
+  // policy — every member of the owning group has full CRUD on rows scoped to
+  // it. A non-membership table with an FK to a group table that doesn't match
+  // this shape (i.e. more than one FK column) is ambiguous intent — die()
+  // rather than guess, same as the rest of this generator's error posture.
+  for (const t of tables) {
+    if (t.membership || groupRectIds.has(t.rectId)) continue
+    const fkCols = t.columns.filter((c): c is Extract<ColumnKind, { kind: 'fk' }> => c.kind === 'fk')
+    const toGroup = fkCols.filter((c) => !c.targetIsExternal && groupRectIds.has(c.targetRectId))
+    if (toGroup.length === 0) continue
+    if (fkCols.length !== 1) {
+      die(
+        `table "${t.totalName}" has an FK to group table "${toGroup[0].targetTable}" but doesn't match the ` +
+          `group-scoped-table pattern (expected exactly one FK column, found ${fkCols.length})`,
+      )
+    }
+    t.groupScoped = { fkColumn: toGroup[0].name, groupTableName: toGroup[0].targetTable }
+  }
+
   // Emit TS
   const parts: string[] = []
   const relIn = relative(process.cwd(), absIn).replace(/\\/g, '/')
@@ -278,7 +312,17 @@ function main(): void {
       if (col.kind === 'pk') {
         parts.push(`    id: uuid('id').primaryKey().defaultRandom(),`)
       } else if (col.kind === 'fk') {
-        parts.push(`    ${camel(col.name)}: uuid('${col.name}').notNull(),`)
+        // Internal (table→table) FKs get a real .references() constraint —
+        // lazy arrow so forward references (target declared later in the
+        // file) are fine. External (User*/auth.users) FKs stay a plain uuid
+        // column: an enforcing FK there would block deleting a login
+        // (right-to-erasure doctrine — see SCHEMA.md).
+        if (col.targetIsExternal) {
+          parts.push(`    ${camel(col.name)}: uuid('${col.name}').notNull(),`)
+        } else {
+          const targetExport = camel(col.targetTable)
+          parts.push(`    ${camel(col.name)}: uuid('${col.name}').notNull().references(() => ${targetExport}.id),`)
+        }
       } else {
         const { fragment } = mapScalarType(
           col.tsType === 'tstz' ? 'tstz' : col.tsType,
@@ -317,6 +361,13 @@ function main(): void {
       policyLines.push(`pgPolicy('${table.tableName}_insert_own', { for: 'insert', to: authenticatedRole, withCheck: sql\`\${${owner}} = \${authUid}\` }),`)
       policyLines.push(`pgPolicy('${table.tableName}_update_own', { for: 'update', to: authenticatedRole, using: sql\`\${${owner}} = \${authUid}\`, withCheck: sql\`\${${owner}} = \${authUid}\` }),`)
       policyLines.push(`pgPolicy('${table.tableName}_delete_own', { for: 'delete', to: authenticatedRole, using: sql\`\${${owner}} = \${authUid}\` }),`)
+    } else if (table.groupScoped) {
+      const gs = table.groupScoped
+      const fk = `t.${camel(gs.fkColumn)}`
+      const G = gs.groupTableName
+      policyLines.push(
+        `pgPolicy('${table.tableName}_member_all', { for: 'all', to: authenticatedRole, using: sql\`\${${fk}} in (select public.my_member_${G}())\`, withCheck: sql\`\${${fk}} in (select public.my_member_${G}())\` }),`,
+      )
     }
 
     if (groupRectIds.has(table.rectId)) {

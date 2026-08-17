@@ -61,8 +61,10 @@ For each slot, it looks up the outgoing line whose `source` references that slot
 - **Direction alone** determines FK-ness. A line sourced anywhere on rectangle A whose target is rectangle B's `center.center` is an FK on A referencing B. Which face (left/right/up/down/center.up/center.down) the source slot sits on is irrelevant.
 - The target point must be `{ side: 'center', slot: 'center' }`. Any other target is an error.
 - The source slot's `name` must be `uuid`. Anything else is an error.
-- **Column name** = `snake(line.id)` (e.g. `owned_by` → `owned_by`, `user_id` → `user_id`).
-- Emitted as `uuid(col).notNull()`. Nullable FKs TBD.
+- **Column name** = `snake(line.id)` (e.g. `organization_id` → `organization_id`, `user_id` → `user_id`).
+- **Internal FK** (target is another table rectangle): emitted as `uuid(col).notNull().references(() => <targetExport>.id)` — a real Postgres FK constraint, no `onDelete` (NO ACTION). The arrow is lazy, so it's safe for the target table to be declared later in the file.
+- **External FK** (target is a `User*`/`auth.users` rectangle): emitted as plain `uuid(col).notNull()` — **no** `.references()`, ever. An enforcing FK to `auth.users` would block deleting a login (right-to-erasure doctrine — see `_concept/03-orm-schema/SCHEMA.md`). This rule is unconditional: it applies to every external FK, including a membership table's user FK.
+- Nullable FKs TBD.
 
 ### RLS — owner-only policies
 
@@ -104,6 +106,20 @@ Membership tables are **exempt** from the owner-only template above: their exter
 
 The `my_member_<G>()`, `my_owner_<G>()`, and `<S>_has_no_members(id)` helper functions are **not** emitted by the generator — they're hand-written `SECURITY DEFINER` SQL in a custom migration (see `_concept/03-orm-schema/migrations/0001_org_rls_functions.sql` for the `organizations`/`memberships` instance). The generator only references them by name in the policies above; it dies if a membership-shaped table (one external FK + one internal FK) is missing the `is_owner` column, since it can't tell whether that was intentional.
 
+### RLS — the group-scoped pattern
+
+A **group table** is whatever a membership table's internal FK targets (`organizations`, above). Any other table — one that is **neither** a membership table **nor** a group table itself — with **exactly one** FK column, whose target *is* a group table, is a **group-scoped table**. It gets one `FOR ALL` policy giving every member of the owning group full CRUD:
+
+```ts
+pgPolicy('<T>_member_all', { for: 'all', to: authenticatedRole,
+  using: sql`${t.fk} in (select public.my_member_<G>())`,
+  withCheck: sql`${t.fk} in (select public.my_member_<G>())` })
+```
+
+(`diagrams` is the instance: its `organization_id` FK targets `organizations`, a group table, so it gets `diagrams_member_all` instead of the owner-only template.) This is the deliberately **widened** default — a collaborative resource where every member of the owning org may write, not just its creator. The owner-only template above stays the shape to reach for when write access should instead be restricted to the org's owners.
+
+A non-membership, non-group table with an FK to a group table that *doesn't* match this shape (more than one FK column) is ambiguous — the generator `die()`s rather than guess which policy set was intended.
+
 ### Safety exits
 
 The generator fails loudly on:
@@ -119,6 +135,7 @@ The generator fails loudly on:
 - multiple owner FKs on one table
 - duplicate line source keys
 - a table with one external FK + one internal FK (membership shape) but no `bool` column named `is_owner`
+- a non-membership, non-group table with an FK to a group table that isn't its only FK column (ambiguous group-scoped shape)
 
 ## Adding a new table
 
