@@ -271,6 +271,83 @@ input[type="search"]::-webkit-search-results-decoration {
   pointer-events: auto;
 }
 
+/* UserMenu popover (components/UserMenu.tsx) — dropdown panel styling only;
+   mechanics (absolute right-aligned, position:relative on the pill) mirror
+   ExportMenu inline, per TopRightPills' comment. Org rows reuse the DS's own
+   .select-option/.select-option--row/-label/-action leaves as-is (vendor
+   Admination DS, select.css) — no new CSS needed for those. The identity/
+   label classes below are adapted from Admination.01-Tech.V2's own UserMenu
+   panel styling (that app's index.css), which itself borrows its values off
+   .select-option instead of inventing new tokens — same approach here. */
+.user-menu-popover {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 20;
+  width: 280px;
+  max-width: calc(100vw - 32px);
+  background: var(--color-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  padding: 4px;
+}
+.user-menu-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 2px 8px 0 0;
+}
+.user-menu-identity {
+  flex: 1;
+  min-width: 0;
+}
+.user-menu-head .pill {
+  flex: none;
+  margin-top: 6px;
+}
+.user-menu-name {
+  padding: 6px 12px 2px;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--color-foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.user-menu-email {
+  padding: 0 12px 8px;
+  font-size: 0.8125rem;
+  color: var(--color-muted-foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.user-menu-label {
+  padding: 8px 12px 2px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-muted-foreground);
+}
+/* Inline-rename input — swaps in for a row's .select-option-label button,
+   sized/padded to match it exactly so the row doesn't jump. */
+.user-menu-rename-input {
+  flex: 1;
+  min-width: 0;
+  height: 32px;
+  margin: 2px 4px 2px 2px;
+  padding: 0 8px;
+  font: inherit;
+  font-size: 0.9375rem;
+  color: var(--color-foreground);
+  background: var(--color-card);
+  border: 1px solid var(--color-input);
+  border-radius: var(--radius-sm);
+  outline: none;
+}
+
 /* Sidebar row's delete Pill — same DS .pill/.btn, hover tints destructive
    (red) instead of the neutral grey every other .btn hover uses. */
 .diagram-item-delete:hover {

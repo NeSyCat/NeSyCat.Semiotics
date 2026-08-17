@@ -1,16 +1,14 @@
 'use client'
 
-import { createClient } from '@/lib/supabase/client'
 import { startGitHubSignIn } from '@/lib/auth'
 
 interface Props {
-  isSignedIn: boolean
   callbackUrl: string
 }
 
-// The classic person/account glyph — one icon for both auth states (the
-// button's title/aria-label carries the sign-in-vs-sign-out distinction,
-// same as the door-arrow icons this replaced).
+// The classic person/account glyph — the button's title/aria-label carries
+// the sign-in semantics (kept alongside UserMenu's own copy of this icon —
+// see that component's comment; two separate components, same idiom).
 function UserIcon() {
   return (
     <svg width={24} height={24} viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -20,32 +18,22 @@ function UserIcon() {
   )
 }
 
-// Top-right auth pill: sign in (anon) / sign out (signed-in) — ONE button,
-// its own pill. Sharing/exporting no longer lives here (moved to Canvas.tsx's
-// Export dropdown in the import/export pill) — this component is auth-only.
-export default function AuthSharePill({ isSignedIn, callbackUrl }: Props) {
-  const onSignOut = async () => {
-    const supabase = createClient()
-    await supabase.auth.signOut()
-    window.location.assign('/')
-  }
-
+// Top-right auth pill, anonymous-only: sign in with GitHub. The signed-in
+// branch this used to have moved to UserMenu.tsx (name/email/sign-out/orgs
+// popover), which now renders wherever a signed-in user's topRight pill is
+// needed — this component's only remaining caller is the anonymous branch
+// of app/editor/page.tsx.
+export default function AuthSharePill({ callbackUrl }: Props) {
   return (
     <div className="pill editor-pill">
-      {isSignedIn ? (
-        <button className="btn btn-icon" title="Sign out" aria-label="Sign out" onClick={onSignOut}>
-          <UserIcon />
-        </button>
-      ) : (
-        <button
-          className="btn btn-icon"
-          title="Sign in with GitHub"
-          aria-label="Sign in with GitHub"
-          onClick={() => startGitHubSignIn(callbackUrl)}
-        >
-          <UserIcon />
-        </button>
-      )}
+      <button
+        className="btn btn-icon"
+        title="Sign in with GitHub"
+        aria-label="Sign in with GitHub"
+        onClick={() => startGitHubSignIn(callbackUrl)}
+      >
+        <UserIcon />
+      </button>
     </div>
   )
 }

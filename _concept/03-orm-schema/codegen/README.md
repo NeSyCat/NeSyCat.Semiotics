@@ -54,6 +54,7 @@ For each slot, it looks up the outgoing line whose `source` references that slot
   - `text` → `text(col).notNull()`
   - `jsonb` → `jsonb(col).notNull()`
   - `tstz` → `timestamp(col, { withTimezone: true }).notNull()`. If column name ∈ `{created_at, updated_at}`, `.defaultNow()` is appended.
+  - `bool` → `boolean(col).notNull().default(false)`
 
 #### Foreign key column — target is another rectangle's `center.center`
 
@@ -78,6 +79,31 @@ Declaring policies in the Drizzle table causes `drizzle-kit generate` to emit `E
 
 Tables with no owner FK get no policies (and, with RLS disabled at the table level, remain unreachable from the `authenticated` role by default — Supabase project policy).
 
+### RLS — the membership pattern
+
+A table is a **membership table** when it has *exactly two* FK columns — one targeting an **external** rectangle (a `User*` FK) and one targeting another **table** rectangle — and a `bool` column named `is_owner`. The internal FK's target is the **group table**. This is purely structural: nothing is hardcoded to specific table names, so any diagram shape matching it is treated as a membership.
+
+Membership tables are **exempt** from the owner-only template above: their external (user) FK does not get `*_own` policies. Instead:
+
+- **Membership table `M`** (user FK `u`, group FK `g`, group table `G`, group's singular name `S`) gets:
+  ```ts
+  pgPolicy('<M>_select_self',      { for: 'select', to: authenticatedRole, using: sql`${t.u} = ${authUid}` })
+  pgPolicy('<M>_select_member',    { for: 'select', to: authenticatedRole, using: sql`${t.g} in (select public.my_member_<G>())` })
+  pgPolicy('<M>_insert_owner',     { for: 'insert', to: authenticatedRole, withCheck: sql`${t.g} in (select public.my_owner_<G>())` })
+  pgPolicy('<M>_insert_bootstrap', { for: 'insert', to: authenticatedRole, withCheck: sql`${t.u} = ${authUid} and ${t.isOwner} = true and public.<S>_has_no_members(${t.g})` })
+  pgPolicy('<M>_update_owner',     { for: 'update', to: authenticatedRole, using: sql`${t.g} in (select public.my_owner_<G>())`, withCheck: sql`${t.g} in (select public.my_owner_<G>())` })
+  pgPolicy('<M>_delete_owner',     { for: 'delete', to: authenticatedRole, using: sql`${t.g} in (select public.my_owner_<G>())` })
+  ```
+- **Group table `G`** gets:
+  ```ts
+  pgPolicy('<G>_select_member', { for: 'select', to: authenticatedRole, using: sql`${t.id} in (select public.my_member_<G>())` })
+  pgPolicy('<G>_insert_auth',   { for: 'insert', to: authenticatedRole, withCheck: sql`true` })
+  pgPolicy('<G>_update_owner',  { for: 'update', to: authenticatedRole, using: sql`${t.id} in (select public.my_owner_<G>())`, withCheck: sql`${t.id} in (select public.my_owner_<G>())` })
+  pgPolicy('<G>_delete_owner',  { for: 'delete', to: authenticatedRole, using: sql`${t.id} in (select public.my_owner_<G>())` })
+  ```
+
+The `my_member_<G>()`, `my_owner_<G>()`, and `<S>_has_no_members(id)` helper functions are **not** emitted by the generator — they're hand-written `SECURITY DEFINER` SQL in a custom migration (see `_concept/03-orm-schema/migrations/0001_org_rls_functions.sql` for the `organizations`/`memberships` instance). The generator only references them by name in the policies above; it dies if a membership-shaped table (one external FK + one internal FK) is missing the `is_owner` column, since it can't tell whether that was intentional.
+
 ### Safety exits
 
 The generator fails loudly on:
@@ -92,6 +118,7 @@ The generator fails loudly on:
 - duplicate column names on one table
 - multiple owner FKs on one table
 - duplicate line source keys
+- a table with one external FK + one internal FK (membership shape) but no `bool` column named `is_owner`
 
 ## Adding a new table
 

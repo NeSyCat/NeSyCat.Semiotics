@@ -19,6 +19,36 @@
       "id": "E_updated",
       "position": { "x": 1400, "y": 470 },
       "points": { "left": { "name": "tstz" } }
+    },
+    {
+      "id": "E_org_name",
+      "position": { "x": 1400, "y": 630 },
+      "points": { "left": { "name": "text" } }
+    },
+    {
+      "id": "E_org_created",
+      "position": { "x": 1400, "y": 710 },
+      "points": { "left": { "name": "tstz" } }
+    },
+    {
+      "id": "E_org_updated",
+      "position": { "x": 1400, "y": 790 },
+      "points": { "left": { "name": "tstz" } }
+    },
+    {
+      "id": "E_is_owner",
+      "position": { "x": 1400, "y": 1030 },
+      "points": { "left": { "name": "bool" } }
+    },
+    {
+      "id": "E_mem_created",
+      "position": { "x": 1400, "y": 1110 },
+      "points": { "left": { "name": "tstz" } }
+    },
+    {
+      "id": "E_mem_updated",
+      "position": { "x": 1400, "y": 1190 },
+      "points": { "left": { "name": "tstz" } }
     }
   ],
   "lines": [
@@ -66,6 +96,78 @@
           { "name": "tstz", "node": "E_updated", "side": "left", "index": 0 }
         ]
       }
+    },
+    {
+      "id": "Organization_name",
+      "points": {
+        "source": { "name": "text", "node": "R3", "side": "right", "slot": "center", "index": 0 },
+        "targets": [
+          { "name": "text", "node": "E_org_name", "side": "left", "index": 0 }
+        ]
+      }
+    },
+    {
+      "id": "Organization_created_at",
+      "points": {
+        "source": { "name": "tstz", "node": "R3", "side": "right", "slot": "center", "index": 1 },
+        "targets": [
+          { "name": "tstz", "node": "E_org_created", "side": "left", "index": 0 }
+        ]
+      }
+    },
+    {
+      "id": "Organization_updated_at",
+      "points": {
+        "source": { "name": "tstz", "node": "R3", "side": "right", "slot": "center", "index": 2 },
+        "targets": [
+          { "name": "tstz", "node": "E_org_updated", "side": "left", "index": 0 }
+        ]
+      }
+    },
+    {
+      "id": "user_id",
+      "points": {
+        "source": { "name": "uuid", "node": "R4", "side": "left", "slot": "center", "index": 0 },
+        "targets": [
+          { "name": "uuid", "node": "R2", "side": "center", "slot": "center", "index": 0 }
+        ]
+      }
+    },
+    {
+      "id": "organization_id",
+      "points": {
+        "source": { "name": "uuid", "node": "R4", "side": "left", "slot": "center", "index": 1 },
+        "targets": [
+          { "name": "uuid", "node": "R3", "side": "center", "slot": "center", "index": 0 }
+        ]
+      }
+    },
+    {
+      "id": "Membership_is_owner",
+      "points": {
+        "source": { "name": "bool", "node": "R4", "side": "right", "slot": "center", "index": 0 },
+        "targets": [
+          { "name": "bool", "node": "E_is_owner", "side": "left", "index": 0 }
+        ]
+      }
+    },
+    {
+      "id": "Membership_created_at",
+      "points": {
+        "source": { "name": "tstz", "node": "R4", "side": "right", "slot": "center", "index": 1 },
+        "targets": [
+          { "name": "tstz", "node": "E_mem_created", "side": "left", "index": 0 }
+        ]
+      }
+    },
+    {
+      "id": "Membership_updated_at",
+      "points": {
+        "source": { "name": "tstz", "node": "R4", "side": "right", "slot": "center", "index": 2 },
+        "targets": [
+          { "name": "tstz", "node": "E_mem_updated", "side": "left", "index": 0 }
+        ]
+      }
     }
   ],
   "triangles": [],
@@ -109,6 +211,51 @@
         "down": [],
         "up": [],
         "total": { "name": "User (auth.users)" }
+      }
+    },
+    {
+      "id": "R3",
+      "position": { "x": 700, "y": 700 },
+      "points": {
+        "left": { "center": [] },
+        "right": {
+          "center": [
+            { "name": "text" },
+            { "name": "tstz" },
+            { "name": "tstz" }
+          ]
+        },
+        "center": {
+          "center": { "name": "uuid" }
+        },
+        "down": [],
+        "up": [],
+        "total": { "name": "Organization" }
+      }
+    },
+    {
+      "id": "R4",
+      "position": { "x": 50, "y": 1100 },
+      "points": {
+        "left": {
+          "center": [
+            { "name": "uuid" },
+            { "name": "uuid" }
+          ]
+        },
+        "right": {
+          "center": [
+            { "name": "bool" },
+            { "name": "tstz" },
+            { "name": "tstz" }
+          ]
+        },
+        "center": {
+          "center": { "name": "uuid" }
+        },
+        "down": [],
+        "up": [],
+        "total": { "name": "Membership" }
       }
     }
   ]

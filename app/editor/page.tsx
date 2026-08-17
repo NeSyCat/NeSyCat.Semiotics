@@ -14,7 +14,7 @@ export default async function EditorIndex() {
     return (
       <AnonymousEditor
         topRight={
-          <AuthSharePill isSignedIn={false} callbackUrl={await serverCallbackUrl()} />
+          <AuthSharePill callbackUrl={await serverCallbackUrl()} />
         }
       />
     )
