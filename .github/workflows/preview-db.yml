@@ -58,9 +58,23 @@ jobs:
 
       # Populates $GITHUB_ENV with the branch DB's connection strings,
       # including POSTGRES_URL_NON_POOLING — required for DDL/advisory
-      # locks, per Supabase's own doc example.
+      # locks, per Supabase's own doc example. Two fixes over the doc's
+      # naive `>> $GITHUB_ENV` form, both learned from live runs:
+      # (1) `-o env` emits KEY="value" and GITHUB_ENV does NOT strip the
+      #     quotes — psql then chokes on a URL that literally starts with
+      #     a quote character; sed strips them.
+      # (2) branch credentials are fetched at runtime, so GitHub doesn't
+      #     know to mask them — ::add-mask:: keeps them out of logs.
       - name: Fetch preview branch connection details
-        run: supabase --experimental branches get "$GITHUB_HEAD_REF" -o env >> "$GITHUB_ENV"
+        run: |
+          supabase --experimental branches get "$GITHUB_HEAD_REF" -o env \
+            | sed -E 's/^([A-Za-z_]+)="(.*)"$/\1=\2/' > branch.env
+          while IFS='=' read -r key value; do
+            [ -n "$key" ] || continue
+            echo "::add-mask::$value"
+            echo "$key=$value" >> "$GITHUB_ENV"
+          done < branch.env
+          rm branch.env
 
       - name: Checkout
         uses: actions/checkout@v4

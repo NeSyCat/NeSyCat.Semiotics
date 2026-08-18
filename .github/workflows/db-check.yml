@@ -76,8 +76,18 @@ jobs:
       - name: Fetch preview branch connection details (advisory)
         continue-on-error: true
         run: |
-          supabase --experimental branches get "$GITHUB_HEAD_REF" -o env >> "$GITHUB_ENV"
-          echo "PRISMA_DB_URL=$POSTGRES_URL_NON_POOLING" >> "$GITHUB_ENV"
+          # Quote-strip + mask — see preview-db.yml's identical step for why.
+          supabase --experimental branches get "$GITHUB_HEAD_REF" -o env \
+            | sed -E 's/^([A-Za-z_]+)="(.*)"$/\1=\2/' > branch.env
+          while IFS='=' read -r key value; do
+            [ -n "$key" ] || continue
+            echo "::add-mask::$value"
+            echo "$key=$value" >> "$GITHUB_ENV"
+            if [ "$key" = "POSTGRES_URL_NON_POOLING" ]; then
+              echo "PRISMA_DB_URL=$value" >> "$GITHUB_ENV"
+            fi
+          done < branch.env
+          rm branch.env
 
       # Advisory dry-run drift check — prints the delta between the branch
       # DB and the contract without applying anything. Never a required
