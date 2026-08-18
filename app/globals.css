@@ -366,3 +366,129 @@ input[type="search"]::-webkit-search-results-decoration {
 /* Pure white background — the DS off-white (--color-background) reads as greyish
    behind the white canvas. */
 html, body { background: #ffffff; }
+
+/* OrgSettings modal (components/OrgSettings.tsx) — opened from a UserMenu
+   org row's gear. Overlay/panel mechanics mirror ImportPanel (editor/ui):
+   fixed full-viewport scrim, mousedown-on-scrim-only close, centered card.
+   Internals reuse the DS's own .section/-header/-body leaves (section.css)
+   for the three stacked groups and .text/.field-header (text.css/field.css)
+   for the name/invite inputs — only the parts with no DS equivalent (roster
+   rows, badges) get new classes here, named to match .user-menu-* above. */
+.org-settings-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+.org-settings-panel {
+  width: min(560px, 100%);
+  max-height: min(640px, calc(100vh - 32px));
+  display: flex;
+  flex-direction: column;
+  background: var(--color-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-xl);
+}
+.org-settings-header {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 16px 12px 16px 20px;
+  border-bottom: 1px solid var(--color-border);
+}
+.org-settings-header .t-h2 { margin: 0; }
+.org-settings-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 20px;
+}
+/* .section + .section already adds a 36px top margin (DS section.css); the
+   first section doesn't need it since .org-settings-body supplies its own
+   top padding. */
+.org-settings-body .section:first-child { margin-top: 0; }
+
+/* One roster row (member or pending invitation) — same flex-row/gap rhythm
+   as .select-option--row, but hosts two lines of text (name+email) instead
+   of one label, so it can't reuse that class directly. */
+.org-settings-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+}
+.org-settings-row-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.org-settings-row-name {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.org-settings-row-meta {
+  font-size: 0.75rem;
+  color: var(--color-muted-foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.org-settings-row-actions {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+/* Owner/Pending pill — small status tag, not a button (unlike the DS's
+   pill/btn which are always interactive). Owner tints primary, Pending
+   tints neutral/muted so the two read as distinct states at a glance. */
+.org-settings-badge {
+  flex: none;
+  padding: 2px 8px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  border-radius: 9999px;
+  white-space: nowrap;
+}
+.org-settings-badge--owner {
+  color: var(--color-primary);
+  background: color-mix(in srgb, var(--color-primary) 14%, transparent);
+}
+.org-settings-badge--pending {
+  color: var(--color-muted-foreground);
+  background: var(--color-muted);
+}
+.org-settings-invite-row {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+.org-settings-invite-row .text { flex: 1; }
+.org-settings-hint {
+  font-size: 0.75rem;
+  color: var(--color-muted-foreground);
+}
+.org-settings-error {
+  font-size: 0.8125rem;
+  color: var(--color-destructive);
+}
+.org-settings-success {
+  font-size: 0.8125rem;
+  color: var(--color-success);
+}
