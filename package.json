@@ -11,6 +11,7 @@
     "test:watch": "vitest",
     "db:diagram": "tsx _concept/03-orm-schema/codegen/diagram-to-drizzle.ts _concept/02-diagram/schema.nesycat.json _concept/03-orm-schema/schema.ts",
     "db:generate": "drizzle-kit generate --config _concept/03-orm-schema/drizzle.config.ts",
+    "db:migrate": "drizzle-kit migrate --config _concept/03-orm-schema/drizzle.config.ts",
     "db:studio": "drizzle-kit studio --config _concept/03-orm-schema/drizzle.config.ts"
   },
   "dependencies": {

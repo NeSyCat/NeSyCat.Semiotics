@@ -41,17 +41,21 @@ _concept/02-diagram/schema.nesycat.json   (you edit this)
 _concept/03-orm-schema/schema.ts          (generated — DO NOT EDIT)
         │
         ▼  npm run db:generate            (drizzle-kit generate)
-_concept/03-orm-schema/migrations/*.sql
+supabase/migrations/*.sql                 (real files; _concept path is a symlink)
         │
-        ▼  git push                       (Supabase auto-applies via branching)
-Supabase Postgres
+        ▼  merge to main                  (Supabase GitHub integration,
+        │                                  "Deploy to production" ON)
+Supabase Postgres (production)
 ```
 
-The pipeline is linear: there is **no** manual `drizzle-kit migrate` step.
-Drizzle's job ends at producing SQL files. Supabase's GitHub integration
-applies those files automatically — to a per-PR preview branch on PR open,
-and to production on merge to `main`. See "Why there's a `supabase/` folder
-at root" below.
+Supabase applies migrations automatically: to a per-PR PREVIEW branch on PR
+open, and to PRODUCTION on merge to `main`. After merging a schema PR,
+VERIFY the apply actually happened (check `supabase_migrations.
+schema_migrations` or the tables). If a merge fails to apply, the manual
+fallback is `npm run db:migrate` (drizzle-kit migrate over `DIRECT_URL`) —
+migrations 0000–0004 are baselined in both tracking systems
+(`drizzle.__drizzle_migrations` and `supabase_migrations.schema_migrations`)
+precisely so the fallback and the integration never double-apply.
 
 `lib/db/index.ts` (drizzle client + `withRLS()`) and `lib/supabase/*` (auth
 SDK clients + middleware) are the **runtime** glue — they consume what
@@ -102,9 +106,9 @@ through the `_concept/` symlink now.
 - **Drizzle**: `drizzle.config.ts` lives at `_concept/03-orm-schema/drizzle.config.ts`
   (with the rest of the Drizzle stack). The `db:*` scripts in `package.json`
   pass `--config _concept/03-orm-schema/drizzle.config.ts`. Always invoke them
-  via `npm run db:…` so cwd stays at repo root and `.env.local` resolves. The
-  scripts intentionally don't include a `db:migrate` — Supabase applies
-  migrations on push, not Drizzle.
+  via `npm run db:…` so cwd stays at repo root and `.env.local` resolves.
+  `db:migrate` applies to production over `DIRECT_URL` — it is the manual
+  FALLBACK for when a merge fails to auto-apply; don't run it routinely.
 - **Vercel can't fetch private git submodules** — `admination-design-system`
   (a `file:` dependency into `vendor/Admination.02-Design`, a submodule
   pointing at the private `Admination-de/design.admination`) clones empty on
