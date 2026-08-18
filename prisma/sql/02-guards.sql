@@ -82,3 +82,15 @@ DROP TRIGGER IF EXISTS memberships_prevent_orphan_organization ON public.members
 CREATE TRIGGER memberships_prevent_orphan_organization
   BEFORE UPDATE OR DELETE ON public.memberships
   FOR EACH ROW EXECUTE FUNCTION public.prevent_orphan_organization();
+
+-- Table grants. `prisma db init`/`db update` create tables but emit no GRANTs;
+-- on hosted Supabase the project's ALTER DEFAULT PRIVILEGES normally covers
+-- them, but that is an environment property, not something this repo controls
+-- — and a table created without grants is invisible to the app (permission
+-- denied) no matter how correct its RLS is. Stating them here makes every
+-- environment identical and is idempotent. RLS still decides which ROWS each
+-- role may touch; these grants only open the door to the table.
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.organizations TO authenticated, service_role;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.memberships   TO authenticated, service_role;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.invitations   TO authenticated, service_role;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.diagrams      TO authenticated, service_role;

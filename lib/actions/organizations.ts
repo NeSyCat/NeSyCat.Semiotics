@@ -1,5 +1,6 @@
 'use server'
 
+import { randomUUID } from 'node:crypto'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { withRLS, orgMembersFor } from '@/lib/db'
@@ -107,25 +108,43 @@ export async function getMe(): Promise<Me> {
     // no members yet). Small create-race window is accepted (mirrors
     // Admination's client-side bootstrap; single-user flow — see design
     // doc's DECIDED ADAPTATIONS).
-    const org = await tx.orm.public.organizations.create({ name: `${displayName}'s Organization` })
+    // The id is generated HERE, and the insert deliberately returns nothing:
+    // Postgres applies SELECT policies to any INSERT ... RETURNING, and
+    // organizations_select_member cannot pass for an org whose first
+    // membership does not exist yet — a plain ORM .create() (which returns
+    // the row) fails with "new row violates row-level security policy".
+    // Client-side id + a returning-free insert sidesteps that ordering trap.
+    const organizationId = randomUUID()
+    const organizationName = `${displayName}'s Organization`
+    await tx.execute(
+      tx.sql
+        .raw`insert into organizations (id, name) values (${organizationId}::uuid, ${organizationName})`
+        .affectedCount()
+        .build(),
+    )
     await tx.orm.public.memberships.create({
       user_id: userId,
-      organization_id: org.id,
+      organization_id: organizationId,
       is_owner: true,
     })
-    return [{ organizationId: org.id, organizationName: org.name, isOwner: true }]
+    return [{ organizationId, organizationName, isOwner: true }]
   })
 
   return { userId, email, displayName, memberships: rows }
 }
 
-export async function renameOrganization(id: string, name: string): Promise<void> {
+export async function renameOrganization(id: string, name: string): Promise<ActionResult> {
   const { jwt } = await session()
   const trimmed = name.trim() || 'Untitled'
-  await withRLS(jwt, (tx) =>
-    tx.orm.public.organizations.where({ id }).update({ name: trimmed, updated_at: new Date() }),
-  )
+  try {
+    await withRLS(jwt, (tx) =>
+      tx.orm.public.organizations.where({ id }).update({ name: trimmed, updated_at: new Date() }),
+    )
+  } catch (err) {
+    return friendlyFailure('renameOrganization', err)
+  }
   revalidatePath('/editor', 'layout')
+  return { ok: true }
 }
 
 // ---------------------------------------------------------------------------
@@ -153,20 +172,20 @@ function friendlyFailure(action: string, err: unknown): ActionResult {
 }
 
 export async function listOrgRoster(organizationId: string): Promise<OrgRoster> {
-  const { jwt, userId } = await session()
+  const { jwt } = await session()
 
-  // Members: org_members_for needs auth.users emails, unreachable through
-  // RLS-scoped app queries — client-level call (see lib/db's orgMembersFor).
-  // Invitations: plain tx.orm read under RLS — invitations_owner_all shows
-  // an owner every open invite for orgs they own; a non-owner caller simply
-  // sees none (no policy grants it), which is fine — the UI only opens this
-  // panel for owners.
-  const [memberRows, invitationRows] = await Promise.all([
-    orgMembersFor(userId, organizationId),
-    withRLS(jwt, (tx) =>
-      tx.orm.public.invitations.where({ organization_id: organizationId }).all().toArray(),
-    ),
-  ])
+  // Both reads run in ONE RLS transaction. Members come from org_members_for
+  // (auth.users emails are unreachable through ordinary RLS-scoped queries),
+  // which derives the caller from auth.uid() — so it only works here, inside
+  // the transaction that sets the claims. Invitations are a plain tx.orm read:
+  // invitations_owner_all shows an owner every open invite for orgs they own;
+  // a non-owner simply sees none, which is fine — the panel is owner-only.
+  const { memberRows, invitationRows } = await withRLS(jwt, async (tx) => ({
+    memberRows: await orgMembersFor(tx, organizationId),
+    invitationRows: await tx.orm.public.invitations
+      .where({ organization_id: organizationId })
+      .all(),
+  }))
 
   return {
     members: memberRows.map((m) => ({
@@ -193,14 +212,16 @@ export async function inviteMember(organizationId: string, rawEmail: string): Pr
     // invite/join is accepted, same posture as getMe's bootstrap race) — the
     // invitations PK (organization_id, email) is the real backstop, and a
     // race there surfaces through the catch below as a friendly error.
-    const members = await orgMembersFor(userId, organizationId)
+    const { members, alreadyInvited } = await withRLS(jwt, async (tx) => ({
+      members: await orgMembersFor(tx, organizationId),
+      alreadyInvited: await tx.orm.public.invitations.first({
+        organization_id: organizationId,
+        email,
+      }),
+    }))
     if (members.some((m) => m.email.toLowerCase() === email)) {
       return { ok: false, error: 'This person is already a member.' }
     }
-
-    const alreadyInvited = await withRLS(jwt, (tx) =>
-      tx.orm.public.invitations.first({ organization_id: organizationId, email }),
-    )
     if (alreadyInvited) {
       return { ok: false, error: 'This person has already been invited.' }
     }
@@ -241,24 +262,30 @@ export async function revokeInvitation(organizationId: string, rawEmail: string)
 }
 
 export async function removeMember(organizationId: string, userId: string): Promise<ActionResult> {
-  const { jwt, userId: callerId } = await session()
+  const { jwt } = await session()
 
   try {
     // Last-owner guard, in code (the DB trigger is the backstop): removing
     // the org's only owner would strand it, so block it here with a
     // friendly message instead of surfacing whatever the trigger raises.
-    const members = await orgMembersFor(callerId, organizationId)
-    const target = members.find((m) => m.user_id === userId)
-    if (target?.is_owner ?? false) {
-      const otherOwners = members.filter((m) => m.is_owner && m.user_id !== userId)
-      if (otherOwners.length === 0) {
-        return { ok: false, error: 'An organization must keep at least one owner.' }
+    // Guard and delete share ONE transaction — the roster read only works
+    // inside one (org_members_for reads auth.uid()), and it also narrows the
+    // window between checking and deleting.
+    const blocked = await withRLS(jwt, async (tx) => {
+      const members = await orgMembersFor(tx, organizationId)
+      const target = members.find((m) => m.user_id === userId)
+      if (target?.is_owner) {
+        const otherOwners = members.filter((m) => m.is_owner && m.user_id !== userId)
+        if (otherOwners.length === 0) return true
       }
+      await tx.orm.public.memberships
+        .where({ organization_id: organizationId, user_id: userId })
+        .delete()
+      return false
+    })
+    if (blocked) {
+      return { ok: false, error: 'An organization must keep at least one owner.' }
     }
-
-    await withRLS(jwt, (tx) =>
-      tx.orm.public.memberships.where({ organization_id: organizationId, user_id: userId }).delete(),
-    )
   } catch (err) {
     return friendlyFailure('removeMember', err)
   }
@@ -272,23 +299,25 @@ export async function setMemberOwner(
   userId: string,
   isOwner: boolean,
 ): Promise<ActionResult> {
-  const { jwt, userId: callerId } = await session()
+  const { jwt } = await session()
 
   try {
-    if (!isOwner) {
-      // Same last-owner guard as removeMember, only relevant on demotion.
-      const members = await orgMembersFor(callerId, organizationId)
-      const otherOwners = members.filter((m) => m.is_owner && m.user_id !== userId)
-      if (otherOwners.length === 0) {
-        return { ok: false, error: 'An organization must keep at least one owner.' }
+    // Same last-owner guard as removeMember, only relevant on demotion; guard
+    // and update share one transaction for the same reasons.
+    const blocked = await withRLS(jwt, async (tx) => {
+      if (!isOwner) {
+        const members = await orgMembersFor(tx, organizationId)
+        const otherOwners = members.filter((m) => m.is_owner && m.user_id !== userId)
+        if (otherOwners.length === 0) return true
       }
-    }
-
-    await withRLS(jwt, (tx) =>
-      tx.orm.public.memberships
+      await tx.orm.public.memberships
         .where({ organization_id: organizationId, user_id: userId })
-        .update({ is_owner: isOwner, updated_at: new Date() }),
-    )
+        .update({ is_owner: isOwner, updated_at: new Date() })
+      return false
+    })
+    if (blocked) {
+      return { ok: false, error: 'An organization must keep at least one owner.' }
+    }
   } catch (err) {
     return friendlyFailure('setMemberOwner', err)
   }

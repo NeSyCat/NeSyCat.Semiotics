@@ -87,12 +87,20 @@ export type OrgMemberRow = {
   is_owner: boolean
 }
 
+// Roster lookup, run INSIDE the caller's withRLS transaction so the definer
+// function sees the verified auth.uid() (it takes no identity argument — see
+// prisma/sql/01-functions.sql for why that matters).
+//
+// `tx.query` is real at runtime but missing from this RC's TransactionContext
+// type (only `execute` is declared, and execute discards rows) — hence the
+// cast. Verified empirically against the runtime; revisit when the types
+// catch up.
 export async function orgMembersFor(
-  requestingUserId: string,
+  tx: Tx,
   organizationId: string,
 ): Promise<OrgMemberRow[]> {
-  const plan = db.sql
-    .raw`select * from public.org_members_for(${requestingUserId}, ${organizationId})`
+  const plan = tx.sql
+    .raw`select * from public.org_members_for(${organizationId})`
     .returnsRow({
       user_id: 'pg/uuid@1',
       email: 'pg/text@1',
@@ -100,5 +108,8 @@ export async function orgMembersFor(
       is_owner: 'pg/bool@1',
     })
     .build()
-  return db.runtime().query<OrgMemberRow>(plan).toArray()
+  const rows = (tx as unknown as {
+    query: <T>(plan: unknown) => { toArray: () => Promise<T[]> }
+  }).query<OrgMemberRow>(plan)
+  return rows.toArray()
 }

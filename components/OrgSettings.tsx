@@ -45,6 +45,7 @@ export default function OrgSettings({ organizationId, organizationName, onClose 
   const [name, setName] = useState(organizationName)
   const lastSavedName = useRef(organizationName)
   const [isSavingName, startNameTransition] = useTransition()
+  const [nameError, setNameError] = useState<string | null>(null)
   const nameInputRef = useRef<HTMLInputElement>(null)
 
   // Invite field.
@@ -104,7 +105,15 @@ export default function OrgSettings({ organizationId, organizationName, onClose 
     const trimmed = name.trim() || 'Untitled'
     if (trimmed === lastSavedName.current) return
     startNameTransition(async () => {
-      await renameOrganization(organizationId, trimmed)
+      // Autosave still reports failure inline, like every other mutation
+      // here — without this the rejected promise would surface nowhere and
+      // the field would look saved when it wasn't.
+      setNameError(null)
+      const result = await renameOrganization(organizationId, trimmed)
+      if (!result.ok) {
+        setNameError(result.error)
+        return
+      }
       lastSavedName.current = trimmed
       router.refresh()
     })
@@ -178,6 +187,7 @@ export default function OrgSettings({ organizationId, organizationName, onClose 
                   onBlur={commitName}
                   onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
                 />
+                {nameError && <p className="org-settings-error">{nameError}</p>}
               </div>
             </div>
           </div>

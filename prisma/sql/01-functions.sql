@@ -38,19 +38,28 @@ BEGIN
 END;
 $$;
 
--- org_members_for(requesting_user, org) — roster lookup for the OrgSettings
--- panel. Needs auth.users emails, which RLS-scoped app queries cannot join
--- against directly, so it runs SECURITY DEFINER with its OWN membership gate
--- inside (requesting_user must itself be a member of org) rather than relying
--- on caller-side RLS. Called client-level (row-returning raw SQL can't run
--- inside a withRLS tx); the caller passes the verified session user id.
-CREATE OR REPLACE FUNCTION public.org_members_for(requesting_user uuid, org uuid)
+-- Remove the first-draft two-argument form. It took the caller's identity as
+-- a PARAMETER, which a SECURITY DEFINER function must never do: anyone able
+-- to reach the function (PostgREST exposes `public` functions as RPC, and
+-- EXECUTE defaults to PUBLIC — including `anon`) could pass any member's uuid
+-- and read that organization's whole roster, emails included. Caught by
+-- adversarial review before it ever left the sandbox.
+DROP FUNCTION IF EXISTS public.org_members_for(uuid, uuid);
+-- org_members_for(org) — roster lookup for the OrgSettings panel. Needs
+-- auth.users emails, which RLS-scoped app queries cannot join against, so it
+-- runs SECURITY DEFINER — and therefore derives the caller ITSELF from
+-- auth.uid() and gates on that caller's own membership. Called inside a
+-- withRLS transaction (where request.jwt.claims is set), so auth.uid() is
+-- the verified session user; called without claims it returns nothing.
+CREATE OR REPLACE FUNCTION public.org_members_for(org uuid)
 RETURNS TABLE(user_id uuid, email text, display_name text, is_owner boolean)
 LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = '' AS $$
+DECLARE
+  caller uuid := auth.uid();
 BEGIN
-  -- Gate INSIDE the definer: requesting_user must itself be a member of org.
-  IF NOT EXISTS (SELECT 1 FROM public.memberships m
-                 WHERE m.user_id = requesting_user AND m.organization_id = org) THEN
+  -- Gate INSIDE the definer: the CALLER must itself be a member of org.
+  IF caller IS NULL OR NOT EXISTS (SELECT 1 FROM public.memberships m
+                 WHERE m.user_id = caller AND m.organization_id = org) THEN
     RETURN;
   END IF;
   RETURN QUERY
@@ -65,3 +74,17 @@ BEGIN
     WHERE m.organization_id = org
     ORDER BY display_name;
 END; $$;
+-- Defence in depth for every SECURITY DEFINER function here: EXECUTE defaults
+-- to PUBLIC, and PostgREST publishes `public` functions as RPC endpoints, so
+-- an unauthenticated caller holding only the publishable key could invoke
+-- them. They are meant to be called by signed-in application code, so the
+-- grant is narrowed to `authenticated`. (The definer bodies gate on auth.uid()
+-- as well — this is the second lock, not the only one.)
+REVOKE EXECUTE ON FUNCTION public.org_members_for(uuid) FROM PUBLIC, anon;
+REVOKE EXECUTE ON FUNCTION public.my_member_organizations() FROM PUBLIC, anon;
+REVOKE EXECUTE ON FUNCTION public.my_owner_organizations() FROM PUBLIC, anon;
+REVOKE EXECUTE ON FUNCTION public.organization_has_no_members(uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.org_members_for(uuid) TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.my_member_organizations() TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.my_owner_organizations() TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.organization_has_no_members(uuid) TO authenticated, service_role;
