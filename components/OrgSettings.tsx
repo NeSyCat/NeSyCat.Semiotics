@@ -14,6 +14,7 @@
 // infrequent, so a full reload keeps this simple and always server-true).
 
 import { useEffect, useRef, useState, useTransition } from 'react'
+import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import {
   listOrgRoster,
@@ -150,7 +151,13 @@ export default function OrgSettings({ organizationId, organizationName, onClose 
   const owners = roster?.members.filter((m) => m.isOwner) ?? []
   const isLastOwner = (m: { isOwner: boolean }) => m.isOwner && owners.length <= 1
 
-  return (
+  // PORTAL, not a plain child: this modal is rendered from inside UserMenu,
+  // which lives in a DS `.pill` — and `.pill` sets `backdrop-filter`, which
+  // per spec makes it the containing block for `position: fixed` descendants.
+  // Left in place the "full-viewport" scrim is positioned and clipped inside
+  // that ~90px pill instead (the panel appears as a sliver in the top-right).
+  // Rendering into document.body escapes it entirely.
+  return createPortal(
     <div
       className="org-settings-overlay"
       onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}
@@ -288,6 +295,7 @@ export default function OrgSettings({ organizationId, organizationName, onClose 
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
