@@ -7,37 +7,40 @@ all three are kept in sync **by hand, together**:
 ```
 _concept/02-diagram/schema.nesycat.json   conceptual SOT — the drawing, hand-edited
         │
-        ▼  codegen/diagram-to-drizzle.ts (npm run db:diagram)
-_concept/03-orm-schema/schema.ts          DDL source — generated, DO NOT EDIT
+        ▼  (codegen retired — see below)
+prisma/contract.prisma                    DDL source — hand-authored, PSL
         │
-        ▼  drizzle-kit generate (npm run db:generate)
-supabase/migrations/*.sql                 applied automatically by Supabase on push
+        ▼  npm run p8:emit + npm run p8:update
+Supabase Postgres                         applied by CI (preview + production)
 ```
 
 `schema.nesycat.json` is the conceptual source of truth — what a table
 *is*, drawn as a string diagram of rectangles, lines, and empties.
-`schema.ts` is the DDL source — what Drizzle can express: columns,
-foreign keys, RLS policies — but it is **generated**, not authored; nobody
-hand-tunes a column or a policy string in it. This file, `SCHEMA.md`,
-carries what neither of those can: the **why** — doctrine, the reasoning
-behind every non-obvious column, policy, constraint, and the invariants
-that only exist across several tables at once.
+`prisma/contract.prisma` is now the DDL source — columns, foreign keys, RLS
+policies, expressed in Prisma Schema Language — and, unlike the old
+generated `schema.ts`, it is **hand-authored**: there is no codegen step
+between the drawing and the contract in this round (the drawing's codegen,
+`diagram-to-drizzle.ts`, is retired along with Drizzle; retargeting it to
+emit PSL is a possible follow-up, not done here). This file, `SCHEMA.md`,
+carries what the contract alone can't: the **why** — doctrine, the
+reasoning behind every non-obvious column, policy, constraint, and the
+invariants that only exist across several tables at once.
 
 Admination's SCHEMA.md states its pairing rule as "the two are edited
 together: a schema change without its SCHEMA.md update is an incomplete
-change." Adapted to a generated-DDL pipeline, ours reads: **a schema
-change touches the drawing, the codegen (if the drawing needed a new
-structural pattern), and this file — together, in the same change.**
-Editing `schema.ts` directly is never part of that change; it is always
-the *output* of the first two, and this file explains the output the way
-Admination's explains its hand-authored one.
+change." That doctrine now applies directly rather than through a
+generated intermediate: **a schema change touches `prisma/contract.prisma`
+and this file — together, in the same change** (plus the drawing, when the
+change needs a new structural pattern there too).
 
-Hand-written SQL that Drizzle cannot express at all — the `SECURITY
-DEFINER` helper functions, the orphan-organization trigger — lives in the
-migrations that add it (`0001_org_rls_functions.sql`,
-`0003_org_membership_guards.sql`), each carrying its own header comment.
-This document cross-links to them by name rather than duplicating their
-bodies.
+Hand-written SQL that the PSL contract cannot express at all — the
+`SECURITY DEFINER` helper functions, the orphan-organization trigger —
+lives in `prisma/sql/01-functions.sql` and `prisma/sql/02-guards.sql`,
+each carrying its own header comment (superseding the old
+`0001_org_rls_functions.sql` / `0003_org_membership_guards.sql` Drizzle
+migrations, which now live under `supabase/migrations-archive/` for
+history). This document cross-links to them by name rather than
+duplicating their bodies.
 
 ---
 

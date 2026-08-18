@@ -1,0 +1,138 @@
+# Why this workflow exists:
+# The Supabase GitHub integration auto-applies migrations ONLY in its own
+# `supabase/migrations/*.sql` timestamped format — it has no concept of
+# Prisma. Since Prisma 8 (the "contract" model: contract.prisma -> `contract
+# emit` -> `db verify`/`db init`/`db update`) is this repo's source of truth
+# for the schema, we apply it ourselves in CI, against the empty per-PR
+# branch database Supabase's integration creates. This is Supabase's OWN
+# documented pattern for teams whose migration tool it doesn't understand —
+# see the `.github/workflows/custom-orm.yaml` example in
+# https://supabase.com/docs/guides/deployment/branching/working-with-branches
+# ("Using ORM or custom seed scripts"). The `wait` job below is copied
+# near-verbatim from that doc; the `migrate` job swaps Prisma 8's
+# contract/db commands in for the doc's placeholder `psql -c 'select 1'`.
+#
+# DB URL passing choice: we export the branch's non-pooled connection string
+# as PRISMA_DB_URL (not the CLI's `--db <url>` flag). prisma.config.ts reads
+# env PRISMA_DB_URL with a DIRECT_URL fallback, so every `npx prisma db ...`
+# invocation below picks it up implicitly — this also keeps the production
+# workflow (which MUST use an env var, not a flag, per its own secret) and
+# this one consistent in how they hand the CLI a connection string.
+
+name: Preview DB
+
+on:
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - synchronize
+    branches:
+      - main
+
+jobs:
+  wait:
+    runs-on: ubuntu-latest
+    outputs:
+      status: ${{ steps.check.outputs.conclusion }}
+    steps:
+      - uses: fountainhead/action-wait-for-check@v1.2.0
+        id: check
+        with:
+          checkName: Supabase Preview
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+  migrate:
+    needs:
+      - wait
+    if: ${{ needs.wait.outputs.status == 'success' }}
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
+    steps:
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      # Populates $GITHUB_ENV with the branch DB's connection strings,
+      # including POSTGRES_URL_NON_POOLING — required for DDL/advisory
+      # locks, per Supabase's own doc example. Two fixes over the doc's
+      # naive `>> $GITHUB_ENV` form, both learned from live runs:
+      # (1) `-o env` emits KEY="value" and GITHUB_ENV does NOT strip the
+      #     quotes — psql then chokes on a URL that literally starts with
+      #     a quote character; sed strips them.
+      # (2) branch credentials are fetched at runtime, so GitHub doesn't
+      #     know to mask them — ::add-mask:: keeps them out of logs.
+      - name: Fetch preview branch connection details
+        run: |
+          supabase --experimental branches get "$GITHUB_HEAD_REF" -o env \
+            | sed -E 's/^([A-Za-z_]+)="(.*)"$/\1=\2/' > branch.env
+          while IFS='=' read -r key value; do
+            [ -n "$key" ] || continue
+            echo "::add-mask::$value"
+            echo "$key=$value" >> "$GITHUB_ENV"
+          done < branch.env
+          rm branch.env
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      # See DB URL passing choice note at the top of this file. IPv4 note,
+      # learned from a live run: GitHub runners have NO IPv6, and the
+      # branch's POSTGRES_URL_NON_POOLING host (db.<ref>.supabase.co) is
+      # IPv6-only — "Network is unreachable". Supavisor SESSION mode is the
+      # same pooler host as POSTGRES_URL but port 5432: IPv4-reachable and,
+      # unlike transaction mode, safe for DDL/prepared statements — the
+      # right target for both psql and prisma db init/update.
+      - name: Point Prisma at the branch database (IPv4 session pooler)
+        run: |
+          SESSION_URL="${POSTGRES_URL/:6543\//:5432\/}"
+          echo "::add-mask::$SESSION_URL"
+          echo "PRISMA_DB_URL=$SESSION_URL" >> "$GITHUB_ENV"
+          echo "BRANCH_DB_URL=$SESSION_URL" >> "$GITHUB_ENV"
+
+      # contract emit is offline (reads prisma/ contract source, writes
+      # contract.json/contract.d.ts) and is a hard prerequisite: db
+      # verify/init/update all require an emitted contract to compare
+      # against (rc.5: `db verify` exits 2 with "no emitted contract").
+      - name: Emit contract artifacts
+        run: npx prisma contract emit
+
+      # Out-of-contract SQL lane, part 1: SECURITY DEFINER helper functions
+      # that the contract's RLS policies reference. Must run before `db
+      # init` on a fresh DB, since policy creation would otherwise fail
+      # looking for missing functions. Idempotent (CREATE OR REPLACE).
+      - name: Apply out-of-contract SQL — functions
+        run: psql "$BRANCH_DB_URL" -v ON_ERROR_STOP=1 -f prisma/sql/01-functions.sql
+
+      # Bootstrap-or-update: a brand-new preview branch DB has no marker
+      # signed by a prior contract, so `db verify` fails and we bootstrap
+      # with `db init` (builds tables + policies from the contract and
+      # signs it). A DB verify already has been signed on some prior run of
+      # this workflow (e.g. `synchronize` re-runs on the same PR) — update
+      # it incrementally instead.
+      - name: Bootstrap or update the branch database against the contract
+        run: |
+          if npx prisma db verify; then
+            echo "Branch DB is already signed — applying incremental update."
+            npx prisma db update -y --advance-ref db
+          else
+            echo "Branch DB is fresh/unsigned — bootstrapping from contract."
+            npx prisma db init -y
+          fi
+
+      # Out-of-contract SQL lane, part 2: orphan-organization guard
+      # trigger. Idempotent (DROP TRIGGER IF EXISTS + CREATE).
+      - name: Apply out-of-contract SQL — guards
+        run: psql "$BRANCH_DB_URL" -v ON_ERROR_STOP=1 -f prisma/sql/02-guards.sql

@@ -1,10 +1,8 @@
 'use server'
 
-import { asc, eq } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { withRLS } from '@/lib/db'
-import { memberships, organizations } from '@/_concept/03-orm-schema/schema'
 
 // Same session() idiom as lib/actions/diagrams.ts, extended with the display
 // fields getMe needs (email + user_metadata) — GitHub OAuth is the only
@@ -41,17 +39,23 @@ export async function getMe(): Promise<Me> {
   const displayName = displayNameOf(email, userMetadata)
 
   const rows = await withRLS(jwt, async (tx) => {
-    const existing = await tx
-      .select({
-        organizationId: organizations.id,
-        organizationName: organizations.name,
-        isOwner: memberships.isOwner,
-      })
-      .from(memberships)
-      .innerJoin(organizations, eq(memberships.organizationId, organizations.id))
-      .where(eq(memberships.userId, userId))
-      .orderBy(asc(organizations.name))
-    if (existing.length > 0) return existing
+    const myMemberships = await tx.orm.public.Memberships.where({ userId }).all()
+    if (myMemberships.length > 0) {
+      // Restructured from a single memberships⋈organizations join (P8's ORM
+      // has no cross-model .include() story this ticket needs) into two
+      // sequential reads + an in-code name-sort.
+      const orgIds = myMemberships.map((m) => m.organizationId)
+      const orgs = await tx.orm.public.Organizations.where((o) => o.id.in(orgIds)).all()
+      const orgById = new Map(orgs.map((org) => [org.id, org]))
+      return myMemberships
+        .flatMap((m) => {
+          const org = orgById.get(m.organizationId)
+          return org
+            ? [{ organizationId: org.id, organizationName: org.name, isOwner: m.isOwner }]
+            : []
+        })
+        .sort((a, b) => a.organizationName.localeCompare(b.organizationName))
+    }
 
     // BOOTSTRAP (first login, zero memberships): create a personal org + an
     // owner membership, in the SAME withRLS transaction as the read above —
@@ -60,11 +64,8 @@ export async function getMe(): Promise<Me> {
     // no members yet). Small create-race window is accepted (mirrors
     // Admination's client-side bootstrap; single-user flow — see design
     // doc's DECIDED ADAPTATIONS).
-    const [org] = await tx
-      .insert(organizations)
-      .values({ name: `${displayName}'s Organization` })
-      .returning()
-    await tx.insert(memberships).values({
+    const org = await tx.orm.public.Organizations.create({ name: `${displayName}'s Organization` })
+    await tx.orm.public.Memberships.create({
       userId,
       organizationId: org.id,
       isOwner: true,
@@ -79,10 +80,7 @@ export async function renameOrganization(id: string, name: string): Promise<void
   const { jwt } = await session()
   const trimmed = name.trim() || 'Untitled'
   await withRLS(jwt, (tx) =>
-    tx
-      .update(organizations)
-      .set({ name: trimmed, updatedAt: new Date() })
-      .where(eq(organizations.id, id)),
+    tx.orm.public.Organizations.where({ id }).update({ name: trimmed, updatedAt: new Date() }),
   )
   revalidatePath('/editor', 'layout')
 }
