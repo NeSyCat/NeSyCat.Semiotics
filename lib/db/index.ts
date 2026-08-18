@@ -6,9 +6,19 @@ import contractJson from '@/prisma/contract.json'
 // deployments it points at the PR's Supabase preview branch, so previews test
 // their own migrations instead of hitting production. DATABASE_URL remains the
 // local-dev / manual fallback.
+//
+// sslmode rewrite: Supabase connection strings carry `sslmode=require`, which
+// node-pg (this runtime's driver) escalates to verify-full — and Supabase's
+// pooler presents a Supabase-CA certificate, so chain verification dies with
+// "self-signed certificate in certificate chain" (first prod deploy of this
+// runtime). The previous postgres-js stack treated `require` as
+// encrypt-without-verify; `no-verify` restores exactly those semantics.
+// URLs without an sslmode (local Docker) pass through untouched. Proper
+// future hardening: pin Supabase's CA cert and use verify-full.
+const rawUrl = (process.env.POSTGRES_URL ?? process.env.DATABASE_URL)!
 const db = postgres<Contract>({
   contractJson,
-  url: (process.env.POSTGRES_URL ?? process.env.DATABASE_URL)!,
+  url: rawUrl.replace(/sslmode=(require|prefer|verify-ca)\b/, 'sslmode=no-verify'),
 })
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
