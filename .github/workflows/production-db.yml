@@ -1,0 +1,72 @@
+# Why this workflow exists: see .github/workflows/preview-db.yml — same
+# reasoning (Supabase auto-applies only its own supabase/migrations/*.sql
+# format; Prisma 8's contract model owns migrations here). This is the
+# production counterpart: it runs on push to main, once prisma/ changes
+# have merged, against the real Supabase project (not a branch).
+#
+# Production is ALREADY SIGNED (adopted once, out-of-band, via
+# `contract infer` + `contract emit` + `db sign`, executing zero
+# migrations). So there is deliberately NO `db init` path here — if
+# `db verify` fails, that means the live prod schema has drifted from what
+# this workflow believes is signed, and the job must fail loudly rather
+# than silently trying to bootstrap/overwrite a production database.
+#
+# DB URL passing choice: PROD_DIRECT_URL is exported under two names —
+# PRISMA_DB_URL (which prisma.config.ts reads, with a DIRECT_URL fallback,
+# for every `npx prisma db ...` call) and PROD_DIRECT_URL (used verbatim by
+# the raw `psql` steps for the out-of-contract SQL lane).
+
+name: Production DB Migration
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'prisma/**'
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      PRISMA_DB_URL: ${{ secrets.PROD_DIRECT_URL }}
+      PROD_DIRECT_URL: ${{ secrets.PROD_DIRECT_URL }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Offline; required before any db verify/init/update call (rc.5:
+      # missing this makes `db verify` exit 2, "no emitted contract").
+      - name: Emit contract artifacts
+        run: npx prisma contract emit
+
+      # Out-of-contract SQL lane, part 1: SECURITY DEFINER helper
+      # functions. No-op against prod when already applied (CREATE OR
+      # REPLACE is idempotent).
+      - name: Apply out-of-contract SQL — functions
+        run: psql "$PROD_DIRECT_URL" -v ON_ERROR_STOP=1 -f prisma/sql/01-functions.sql
+
+      # Hard gate — do NOT wrap this in try/init-fallback. A failure here
+      # (drift, missing marker, unreachable DB) must fail the job loudly;
+      # production must never be auto-bootstrapped.
+      - name: Verify production database is signed and matches the contract
+        run: npx prisma db verify
+
+      - name: Update production database to match the contract
+        run: npx prisma db update -y --advance-ref db
+
+      # Out-of-contract SQL lane, part 2: orphan-organization guard
+      # trigger. No-op against prod when already applied (DROP TRIGGER IF
+      # EXISTS + CREATE).
+      - name: Apply out-of-contract SQL — guards
+        run: psql "$PROD_DIRECT_URL" -v ON_ERROR_STOP=1 -f prisma/sql/02-guards.sql

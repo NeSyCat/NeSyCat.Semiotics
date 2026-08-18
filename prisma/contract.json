@@ -1,0 +1,679 @@
+{
+  "schemaVersion": "1",
+  "targetFamily": "sql",
+  "target": "postgres",
+  "profileHash": "3916f444a8a17ad749191acf9e08dad97d1a327b88c2f1d45d12f240296aa8b2",
+  "roots": {
+    "diagrams": {
+      "model": "Diagrams",
+      "namespace": "public"
+    },
+    "memberships": {
+      "model": "Memberships",
+      "namespace": "public"
+    },
+    "organizations": {
+      "model": "Organizations",
+      "namespace": "public"
+    }
+  },
+  "domain": {
+    "namespaces": {
+      "public": {
+        "models": {
+          "Diagrams": {
+            "fields": {
+              "createdAt": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/timestamptz@1",
+                  "kind": "scalar"
+                }
+              },
+              "data": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/jsonb@1",
+                  "kind": "scalar"
+                }
+              },
+              "id": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/uuid@1",
+                  "kind": "scalar"
+                }
+              },
+              "organizationId": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/uuid@1",
+                  "kind": "scalar"
+                }
+              },
+              "title": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "updatedAt": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/timestamptz@1",
+                  "kind": "scalar"
+                }
+              }
+            },
+            "relations": {
+              "organization": {
+                "cardinality": "N:1",
+                "on": {
+                  "localFields": [
+                    "organizationId"
+                  ],
+                  "targetFields": [
+                    "id"
+                  ]
+                },
+                "to": {
+                  "model": "Organizations",
+                  "namespace": "public"
+                }
+              }
+            },
+            "storage": {
+              "fields": {
+                "createdAt": {
+                  "column": "created_at"
+                },
+                "data": {
+                  "column": "data"
+                },
+                "id": {
+                  "column": "id"
+                },
+                "organizationId": {
+                  "column": "organization_id"
+                },
+                "title": {
+                  "column": "title"
+                },
+                "updatedAt": {
+                  "column": "updated_at"
+                }
+              },
+              "namespaceId": "public",
+              "table": "diagrams"
+            }
+          },
+          "Memberships": {
+            "fields": {
+              "createdAt": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/timestamptz@1",
+                  "kind": "scalar"
+                }
+              },
+              "id": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/uuid@1",
+                  "kind": "scalar"
+                }
+              },
+              "isOwner": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/bool@1",
+                  "kind": "scalar"
+                }
+              },
+              "organizationId": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/uuid@1",
+                  "kind": "scalar"
+                }
+              },
+              "updatedAt": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/timestamptz@1",
+                  "kind": "scalar"
+                }
+              },
+              "userId": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/uuid@1",
+                  "kind": "scalar"
+                }
+              }
+            },
+            "relations": {
+              "organization": {
+                "cardinality": "N:1",
+                "on": {
+                  "localFields": [
+                    "organizationId"
+                  ],
+                  "targetFields": [
+                    "id"
+                  ]
+                },
+                "to": {
+                  "model": "Organizations",
+                  "namespace": "public"
+                }
+              }
+            },
+            "storage": {
+              "fields": {
+                "createdAt": {
+                  "column": "created_at"
+                },
+                "id": {
+                  "column": "id"
+                },
+                "isOwner": {
+                  "column": "is_owner"
+                },
+                "organizationId": {
+                  "column": "organization_id"
+                },
+                "updatedAt": {
+                  "column": "updated_at"
+                },
+                "userId": {
+                  "column": "user_id"
+                }
+              },
+              "namespaceId": "public",
+              "table": "memberships"
+            }
+          },
+          "Organizations": {
+            "fields": {
+              "createdAt": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/timestamptz@1",
+                  "kind": "scalar"
+                }
+              },
+              "id": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/uuid@1",
+                  "kind": "scalar"
+                }
+              },
+              "name": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "updatedAt": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/timestamptz@1",
+                  "kind": "scalar"
+                }
+              }
+            },
+            "relations": {
+              "diagrams": {
+                "cardinality": "1:N",
+                "on": {
+                  "localFields": [
+                    "id"
+                  ],
+                  "targetFields": [
+                    "organizationId"
+                  ]
+                },
+                "to": {
+                  "model": "Diagrams",
+                  "namespace": "public"
+                }
+              },
+              "memberships": {
+                "cardinality": "1:N",
+                "on": {
+                  "localFields": [
+                    "id"
+                  ],
+                  "targetFields": [
+                    "organizationId"
+                  ]
+                },
+                "to": {
+                  "model": "Memberships",
+                  "namespace": "public"
+                }
+              }
+            },
+            "storage": {
+              "fields": {
+                "createdAt": {
+                  "column": "created_at"
+                },
+                "id": {
+                  "column": "id"
+                },
+                "name": {
+                  "column": "name"
+                },
+                "updatedAt": {
+                  "column": "updated_at"
+                }
+              },
+              "namespaceId": "public",
+              "table": "organizations"
+            }
+          }
+        }
+      }
+    }
+  },
+  "storage": {
+    "namespaces": {
+      "public": {
+        "entries": {
+          "policy": {
+            "diagrams_member_all": {
+              "kind": "policy",
+              "name": "diagrams_member_all",
+              "namespaceId": "public",
+              "operation": "all",
+              "permissive": true,
+              "roles": [
+                "authenticated"
+              ],
+              "tableName": "diagrams",
+              "using": "(organization_id IN ( SELECT my_member_organizations() AS my_member_organizations))",
+              "withCheck": "(organization_id IN ( SELECT my_member_organizations() AS my_member_organizations))"
+            },
+            "memberships_delete_owner": {
+              "kind": "policy",
+              "name": "memberships_delete_owner",
+              "namespaceId": "public",
+              "operation": "delete",
+              "permissive": true,
+              "roles": [
+                "authenticated"
+              ],
+              "tableName": "memberships",
+              "using": "(organization_id IN ( SELECT my_owner_organizations() AS my_owner_organizations))"
+            },
+            "memberships_insert_bootstrap": {
+              "kind": "policy",
+              "name": "memberships_insert_bootstrap",
+              "namespaceId": "public",
+              "operation": "insert",
+              "permissive": true,
+              "roles": [
+                "authenticated"
+              ],
+              "tableName": "memberships",
+              "withCheck": "((user_id = ( SELECT auth.uid() AS uid)) AND (is_owner = true) AND organization_has_no_members(organization_id))"
+            },
+            "memberships_insert_owner": {
+              "kind": "policy",
+              "name": "memberships_insert_owner",
+              "namespaceId": "public",
+              "operation": "insert",
+              "permissive": true,
+              "roles": [
+                "authenticated"
+              ],
+              "tableName": "memberships",
+              "withCheck": "(organization_id IN ( SELECT my_owner_organizations() AS my_owner_organizations))"
+            },
+            "memberships_select_member": {
+              "kind": "policy",
+              "name": "memberships_select_member",
+              "namespaceId": "public",
+              "operation": "select",
+              "permissive": true,
+              "roles": [
+                "authenticated"
+              ],
+              "tableName": "memberships",
+              "using": "(organization_id IN ( SELECT my_member_organizations() AS my_member_organizations))"
+            },
+            "memberships_select_self": {
+              "kind": "policy",
+              "name": "memberships_select_self",
+              "namespaceId": "public",
+              "operation": "select",
+              "permissive": true,
+              "roles": [
+                "authenticated"
+              ],
+              "tableName": "memberships",
+              "using": "(user_id = ( SELECT auth.uid() AS uid))"
+            },
+            "memberships_update_owner": {
+              "kind": "policy",
+              "name": "memberships_update_owner",
+              "namespaceId": "public",
+              "operation": "update",
+              "permissive": true,
+              "roles": [
+                "authenticated"
+              ],
+              "tableName": "memberships",
+              "using": "(organization_id IN ( SELECT my_owner_organizations() AS my_owner_organizations))",
+              "withCheck": "(organization_id IN ( SELECT my_owner_organizations() AS my_owner_organizations))"
+            },
+            "organizations_delete_owner": {
+              "kind": "policy",
+              "name": "organizations_delete_owner",
+              "namespaceId": "public",
+              "operation": "delete",
+              "permissive": true,
+              "roles": [
+                "authenticated"
+              ],
+              "tableName": "organizations",
+              "using": "(id IN ( SELECT my_owner_organizations() AS my_owner_organizations))"
+            },
+            "organizations_insert_auth": {
+              "kind": "policy",
+              "name": "organizations_insert_auth",
+              "namespaceId": "public",
+              "operation": "insert",
+              "permissive": true,
+              "roles": [
+                "authenticated"
+              ],
+              "tableName": "organizations",
+              "withCheck": "true"
+            },
+            "organizations_select_member": {
+              "kind": "policy",
+              "name": "organizations_select_member",
+              "namespaceId": "public",
+              "operation": "select",
+              "permissive": true,
+              "roles": [
+                "authenticated"
+              ],
+              "tableName": "organizations",
+              "using": "(id IN ( SELECT my_member_organizations() AS my_member_organizations))"
+            },
+            "organizations_update_owner": {
+              "kind": "policy",
+              "name": "organizations_update_owner",
+              "namespaceId": "public",
+              "operation": "update",
+              "permissive": true,
+              "roles": [
+                "authenticated"
+              ],
+              "tableName": "organizations",
+              "using": "(id IN ( SELECT my_owner_organizations() AS my_owner_organizations))",
+              "withCheck": "(id IN ( SELECT my_owner_organizations() AS my_owner_organizations))"
+            }
+          },
+          "rls": {
+            "diagrams": {
+              "kind": "rls",
+              "namespaceId": "public",
+              "tableName": "diagrams"
+            },
+            "memberships": {
+              "kind": "rls",
+              "namespaceId": "public",
+              "tableName": "memberships"
+            },
+            "organizations": {
+              "kind": "rls",
+              "namespaceId": "public",
+              "tableName": "organizations"
+            }
+          },
+          "table": {
+            "diagrams": {
+              "columns": {
+                "created_at": {
+                  "codecId": "pg/timestamptz@1",
+                  "default": {
+                    "expression": "now()",
+                    "kind": "function"
+                  },
+                  "nativeType": "timestamptz",
+                  "nullable": false
+                },
+                "data": {
+                  "codecId": "pg/jsonb@1",
+                  "nativeType": "jsonb",
+                  "nullable": false
+                },
+                "id": {
+                  "codecId": "pg/uuid@1",
+                  "default": {
+                    "expression": "gen_random_uuid()",
+                    "kind": "function"
+                  },
+                  "nativeType": "uuid",
+                  "nullable": false
+                },
+                "organization_id": {
+                  "codecId": "pg/uuid@1",
+                  "nativeType": "uuid",
+                  "nullable": false
+                },
+                "title": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": false
+                },
+                "updated_at": {
+                  "codecId": "pg/timestamptz@1",
+                  "default": {
+                    "expression": "now()",
+                    "kind": "function"
+                  },
+                  "nativeType": "timestamptz",
+                  "nullable": false
+                }
+              },
+              "foreignKeys": [
+                {
+                  "name": "diagrams_organization_id_organizations_id_fk",
+                  "source": {
+                    "columns": [
+                      "organization_id"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "diagrams"
+                  },
+                  "target": {
+                    "columns": [
+                      "id"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "organizations"
+                  }
+                }
+              ],
+              "indexes": [],
+              "primaryKey": {
+                "columns": [
+                  "id"
+                ],
+                "name": "diagrams_pkey"
+              },
+              "uniques": []
+            },
+            "memberships": {
+              "columns": {
+                "created_at": {
+                  "codecId": "pg/timestamptz@1",
+                  "default": {
+                    "expression": "now()",
+                    "kind": "function"
+                  },
+                  "nativeType": "timestamptz",
+                  "nullable": false
+                },
+                "id": {
+                  "codecId": "pg/uuid@1",
+                  "default": {
+                    "expression": "gen_random_uuid()",
+                    "kind": "function"
+                  },
+                  "nativeType": "uuid",
+                  "nullable": false
+                },
+                "is_owner": {
+                  "codecId": "pg/bool@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": false
+                  },
+                  "nativeType": "bool",
+                  "nullable": false
+                },
+                "organization_id": {
+                  "codecId": "pg/uuid@1",
+                  "nativeType": "uuid",
+                  "nullable": false
+                },
+                "updated_at": {
+                  "codecId": "pg/timestamptz@1",
+                  "default": {
+                    "expression": "now()",
+                    "kind": "function"
+                  },
+                  "nativeType": "timestamptz",
+                  "nullable": false
+                },
+                "user_id": {
+                  "codecId": "pg/uuid@1",
+                  "nativeType": "uuid",
+                  "nullable": false
+                }
+              },
+              "foreignKeys": [
+                {
+                  "name": "memberships_organization_id_organizations_id_fk",
+                  "source": {
+                    "columns": [
+                      "organization_id"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "memberships"
+                  },
+                  "target": {
+                    "columns": [
+                      "id"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "organizations"
+                  }
+                }
+              ],
+              "indexes": [],
+              "primaryKey": {
+                "columns": [
+                  "id"
+                ],
+                "name": "memberships_pkey"
+              },
+              "uniques": [
+                {
+                  "columns": [
+                    "user_id",
+                    "organization_id"
+                  ],
+                  "name": "memberships_user_org_unique"
+                }
+              ]
+            },
+            "organizations": {
+              "columns": {
+                "created_at": {
+                  "codecId": "pg/timestamptz@1",
+                  "default": {
+                    "expression": "now()",
+                    "kind": "function"
+                  },
+                  "nativeType": "timestamptz",
+                  "nullable": false
+                },
+                "id": {
+                  "codecId": "pg/uuid@1",
+                  "default": {
+                    "expression": "gen_random_uuid()",
+                    "kind": "function"
+                  },
+                  "nativeType": "uuid",
+                  "nullable": false
+                },
+                "name": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": false
+                },
+                "updated_at": {
+                  "codecId": "pg/timestamptz@1",
+                  "default": {
+                    "expression": "now()",
+                    "kind": "function"
+                  },
+                  "nativeType": "timestamptz",
+                  "nullable": false
+                }
+              },
+              "foreignKeys": [],
+              "indexes": [],
+              "primaryKey": {
+                "columns": [
+                  "id"
+                ],
+                "name": "organizations_pkey"
+              },
+              "uniques": []
+            }
+          }
+        },
+        "id": "public",
+        "kind": "postgres-schema"
+      }
+    },
+    "storageHash": "2fd5f07c7980fd669bb7b6606aa727b797549e2ecc3a22ee7ac57596ed5ec542"
+  },
+  "capabilities": {
+    "postgres": {
+      "distinctOn": true,
+      "jsonAgg": true,
+      "lateral": true,
+      "limit": true,
+      "orderBy": true,
+      "returning": true
+    },
+    "sql": {
+      "checkConstraint": true,
+      "defaultInInsert": true,
+      "enums": true,
+      "lateral": true,
+      "returning": true,
+      "scalarList": true
+    }
+  },
+  "extensions": {},
+  "meta": {},
+  "_generated": {
+    "warning": "⚠️  GENERATED FILE - DO NOT EDIT",
+    "message": "This file is automatically generated by \"prisma-next contract emit\".",
+    "regenerate": "To regenerate, run: prisma-next contract emit"
+  }
+}

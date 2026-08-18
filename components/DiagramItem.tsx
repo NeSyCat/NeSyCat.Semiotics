@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation'
 import { useEffect, useRef, useState, useTransition } from 'react'
 import { renameDiagram } from '@/lib/actions/diagrams'
-import type { Diagram } from '@/_concept/03-orm-schema/schema'
+import type { Diagram } from '@/lib/db'
 import { Spinner } from '@/components/icons'
 
 // ── DiagramItem ─────────────────────────────────────────────────────────────

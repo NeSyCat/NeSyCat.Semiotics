@@ -1,0 +1,53 @@
+# ONE-TIME production adoption of the Prisma 8 contract — run manually from the
+# Actions tab after the PROD_DIRECT_URL secret exists and the Prisma-8 PR is
+# merged. What it does: emits the contract, verifies the live production schema
+# matches it (it does — the contract was inferred from a replica of exactly this
+# schema), and SIGNS the database. Zero migrations execute; sign only writes the
+# contract marker. After this succeeds once, production-db.yml handles every
+# future change automatically and this workflow never needs to run again
+# (re-running it is harmless: verify passes, sign is a no-op re-sign).
+#
+# If `db verify` FAILS here, STOP — production's schema differs from the
+# contract; do not force anything, investigate the drift first.
+
+name: Adopt Production (one-time db sign)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  adopt:
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      PRISMA_DB_URL: ${{ secrets.PROD_DIRECT_URL }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Emit contract artifacts
+        run: npx prisma contract emit
+
+      # The helper functions predate the contract and already exist in prod;
+      # CREATE OR REPLACE makes this a harmless no-op that also covers the
+      # (impossible-in-practice) case of adopting a prod DB missing them.
+      - name: Apply out-of-contract SQL — functions (no-op on prod)
+        run: psql "$PRISMA_DB_URL" -v ON_ERROR_STOP=1 -f prisma/sql/01-functions.sql
+
+      - name: Sign the production database with the contract
+        run: npx prisma db sign
+
+      - name: Verify signed state
+        run: npx prisma db verify
+
+      - name: Apply out-of-contract SQL — guards (no-op on prod)
+        run: psql "$PRISMA_DB_URL" -v ON_ERROR_STOP=1 -f prisma/sql/02-guards.sql

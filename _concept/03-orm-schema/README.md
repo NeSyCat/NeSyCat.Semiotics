@@ -1,20 +1,17 @@
 # 03-orm-schema
 
-The Drizzle ORM schema, derived from `02-diagram/schema.nesycat.json`.
+The ORM layer moved to **Prisma 8** — the schema source of truth is now
+`prisma/contract.prisma` at the repo root (see `prisma/README.md` for the
+whole pipeline: contract → `db init`/`db update`, the `prisma/sql/` lane for
+functions/triggers, and the GitHub Actions that apply everything).
 
-| File / folder | Role |
-|---|---|
-| `schema.ts` | Drizzle table definitions in TypeScript. **Generated** — do not edit. Header records the source diagram path. |
-| `migrations/` | SQL DDL deltas produced by `drizzle-kit generate` from `schema.ts`, applied to Postgres by Supabase's GitHub integration on push (no manual `drizzle-kit migrate` step). |
-| `codegen/` | The `diagram-to-drizzle.ts` tool that reads the diagram JSON and writes `schema.ts`. |
+What remains here:
 
-The runtime drizzle client (`withRLS()`, `withServiceRole()`, connection setup) lives in `/lib/db/index.ts` — it consumes `schema.ts` from here.
+- `SCHEMA.md` — the narrative source of truth (doctrine, invariants, RLS
+  rationale), paired with `prisma/contract.prisma` and edited together with it.
 
-Workflow:
-
-```bash
-# 1. Edit _concept/02-diagram/schema.nesycat.json (in the editor)
-npm run db:diagram     # 2. Regenerate _concept/03-orm-schema/schema.ts
-npm run db:generate    # 3. Generate a new migrations/*.sql delta
-git push                # 4. Supabase applies migrations on push via its GitHub integration
-```
+The former Drizzle stack (generated `schema.ts`, `codegen/` from the concept
+drawing, `drizzle.config.ts`) was retired with the Prisma migration; the
+concept drawing itself lives on at `_concept/02-diagram/schema.nesycat.json`.
+Regenerating the contract from the drawing is a possible future codegen —
+today the contract is edited directly.

@@ -1,10 +1,8 @@
 'use server'
 
-import { desc, eq } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
-import { withRLS } from '@/lib/db'
-import { diagrams, type Diagram as DiagramRow } from '@/_concept/03-orm-schema/schema'
+import { withRLS, type Diagram as DiagramRow, type NewDiagram } from '@/lib/db'
 import type { Diagram } from '@/components/editor/domain/types'
 import { emptyData } from '@/lib/constants'
 
@@ -20,51 +18,50 @@ async function session() {
 export async function listDiagrams(organizationId: string): Promise<DiagramRow[]> {
   const { jwt } = await session()
   return withRLS(jwt, (tx) =>
-    tx
-      .select()
-      .from(diagrams)
-      .where(eq(diagrams.organizationId, organizationId))
-      .orderBy(desc(diagrams.updatedAt)),
+    // .toArray() (not bare .all()) because withRLS's fn must return a real
+    // Promise<T> — .all() is an AsyncIterableResult (thenable, not a Promise).
+    tx.orm.public.Diagrams
+      .where({ organizationId })
+      .orderBy((d) => d.updatedAt.desc())
+      .all()
+      .toArray(),
   )
 }
 
 export async function createDiagram(organizationId: string, title?: string): Promise<DiagramRow> {
   const { jwt } = await session()
-  const rows = await withRLS(jwt, (tx) =>
-    tx
-      .insert(diagrams)
-      .values({
-        organizationId,
-        title: title ?? 'Untitled',
-        data: emptyData,
-      })
-      .returning(),
+  const row = await withRLS(jwt, (tx) =>
+    tx.orm.public.Diagrams.create({
+      organizationId,
+      title: title ?? 'Untitled',
+      // `data` is a jsonb column; the contract's JsonValue codec type needs
+      // an index signature the app's plain Diagram interface doesn't carry
+      // structurally — the value is genuinely JSON, so this is a type-only
+      // cast at the persistence boundary, not a behavior change.
+      data: emptyData as unknown as NewDiagram['data'],
+    }),
   )
   revalidatePath('/editor', 'layout')
-  return rows[0]
+  return row
 }
 
 export async function loadDiagram(id: string): Promise<DiagramRow | null> {
   const { jwt } = await session()
-  const rows = await withRLS(jwt, (tx) =>
-    tx.select().from(diagrams).where(eq(diagrams.id, id)).limit(1),
-  )
-  return rows[0] ?? null
+  return withRLS(jwt, (tx) => tx.orm.public.Diagrams.first({ id }))
 }
 
 export async function saveDiagram(id: string, data: Diagram): Promise<void> {
   const { jwt } = await session()
   await withRLS(jwt, (tx) =>
-    tx
-      .update(diagrams)
-      .set({ data, updatedAt: new Date() })
-      .where(eq(diagrams.id, id)),
+    tx.orm.public.Diagrams
+      .where({ id })
+      .update({ data: data as unknown as NewDiagram['data'], updatedAt: new Date() }),
   )
 }
 
 export async function deleteDiagram(id: string): Promise<void> {
   const { jwt } = await session()
-  await withRLS(jwt, (tx) => tx.delete(diagrams).where(eq(diagrams.id, id)))
+  await withRLS(jwt, (tx) => tx.orm.public.Diagrams.where({ id }).delete())
   revalidatePath('/editor', 'layout')
 }
 
@@ -72,10 +69,7 @@ export async function renameDiagram(id: string, title: string): Promise<void> {
   const { jwt } = await session()
   const trimmed = title.trim() || 'Untitled'
   await withRLS(jwt, (tx) =>
-    tx
-      .update(diagrams)
-      .set({ title: trimmed, updatedAt: new Date() })
-      .where(eq(diagrams.id, id)),
+    tx.orm.public.Diagrams.where({ id }).update({ title: trimmed, updatedAt: new Date() }),
   )
   revalidatePath('/editor', 'layout')
 }

@@ -1,0 +1,87 @@
+# Why this workflow exists: a fast, offline PR gate that the contract
+# source (prisma/ contract.prisma) still compiles to a valid contract —
+# catches syntax/type errors before they ever reach a branch database. The
+# `contract-emit` job is the hard gate for this workflow and is kept
+# deliberately simple/non-flaky (no network, no secrets, no Supabase CLI).
+#
+# The second job, `drift-advisory`, is best-effort only: it tries to reach
+# the PR's Supabase preview branch and run a dry-run drift check. Forked-repo
+# PRs don't get repo secrets injected by default, and the preview branch may
+# not exist yet when this workflow starts (branch creation and preview-db.yml
+# race independently) — either failure mode is expected, not exceptional, so
+# every step in that job is continue-on-error: true and must never fail the
+# PR. Treat its output as informational only; preview-db.yml is what actually
+# applies migrations and is the workflow to look at for real failures.
+
+name: DB Check
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  contract-emit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Offline compile check: reads prisma/ contract source, writes
+      # contract.json/contract.d.ts. This is the hard gate for this
+      # workflow.
+      - name: Compile-check the contract
+        run: npx prisma contract emit
+
+  drift-advisory:
+    needs:
+      - contract-emit
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Emit contract artifacts
+        run: npx prisma contract emit
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      # Advisory only: fork PRs have no SUPABASE_ACCESS_TOKEN, and the
+      # branch may not exist yet — either causes this to fail, which is
+      # expected and fine (continue-on-error).
+      - name: Fetch preview branch connection details (advisory)
+        continue-on-error: true
+        run: |
+          supabase --experimental branches get "$GITHUB_HEAD_REF" -o env >> "$GITHUB_ENV"
+          echo "PRISMA_DB_URL=$POSTGRES_URL_NON_POOLING" >> "$GITHUB_ENV"
+
+      # Advisory dry-run drift check — prints the delta between the branch
+      # DB and the contract without applying anything. Never a required
+      # check; preview-db.yml's `db update` is the one that actually runs.
+      - name: Advisory drift dry-run
+        continue-on-error: true
+        run: npx prisma db update --dry-run

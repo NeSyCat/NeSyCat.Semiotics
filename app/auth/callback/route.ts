@@ -1,10 +1,8 @@
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { NextResponse, type NextRequest } from 'next/server'
-import { desc } from 'drizzle-orm'
 import { COOKIE_DOMAIN, editorHrefForHost, isNesycatHost } from '@/lib/editor-url'
-import { withRLS } from '@/lib/db'
-import { diagrams } from '@/_concept/03-orm-schema/schema'
+import { withRLS, type NewDiagram } from '@/lib/db'
 import { emptyData } from '@/lib/constants'
 import { getMe } from '@/lib/actions/organizations'
 import { resolveActiveOrg } from '@/lib/active-org'
@@ -57,15 +55,14 @@ export async function GET(request: NextRequest) {
   // → apex→subdomain 308 → /editor/<id>).
   let diagramId: string
   try {
-    const rows = await withRLS(jwt, (tx) =>
-      tx
-        .select({ id: diagrams.id })
-        .from(diagrams)
-        .orderBy(desc(diagrams.updatedAt))
-        .limit(1),
+    const first = await withRLS(jwt, (tx) =>
+      tx.orm.public.Diagrams
+        .select('id')
+        .orderBy((d) => d.updatedAt.desc())
+        .first(),
     )
-    if (rows[0]) {
-      diagramId = rows[0].id
+    if (first) {
+      diagramId = first.id
     } else {
       // No diagrams yet for this user's orgs — getMe() bootstraps a personal
       // org on first login (or returns existing memberships), then we pick
@@ -74,12 +71,16 @@ export async function GET(request: NextRequest) {
       const org = await resolveActiveOrg(me)
       if (!org) throw new Error('no organization membership')
       const inserted = await withRLS(jwt, (tx) =>
-        tx
-          .insert(diagrams)
-          .values({ organizationId: org, title: 'Untitled', data: emptyData })
-          .returning({ id: diagrams.id }),
+        tx.orm.public.Diagrams
+          .select('id')
+          // See lib/actions/diagrams.ts's NewDiagram['data'] cast comment.
+          .create({
+            organizationId: org,
+            title: 'Untitled',
+            data: emptyData as unknown as NewDiagram['data'],
+          }),
       )
-      diagramId = inserted[0].id
+      diagramId = inserted.id
     }
   } catch {
     // DB hiccup shouldn't block sign-in — fall back to the resolver page.

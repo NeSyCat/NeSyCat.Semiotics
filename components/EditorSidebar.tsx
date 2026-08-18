@@ -7,7 +7,7 @@ import {
   deleteDiagram,
 } from '@/lib/actions/diagrams'
 import { clientEditorHref } from '@/lib/editor-url'
-import type { Diagram } from '@/_concept/03-orm-schema/schema'
+import type { Diagram } from '@/lib/db'
 import {
   SearchIcon,
   PlusIcon,
