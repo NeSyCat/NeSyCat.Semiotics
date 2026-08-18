@@ -333,20 +333,6 @@ input[type="search"]::-webkit-search-results-decoration {
 }
 /* Inline-rename input — swaps in for a row's .select-option-label button,
    sized/padded to match it exactly so the row doesn't jump. */
-.user-menu-rename-input {
-  flex: 1;
-  min-width: 0;
-  height: 32px;
-  margin: 2px 4px 2px 2px;
-  padding: 0 8px;
-  font: inherit;
-  font-size: 0.9375rem;
-  color: var(--color-foreground);
-  background: var(--color-card);
-  border: 1px solid var(--color-input);
-  border-radius: var(--radius-sm);
-  outline: none;
-}
 
 /* Sidebar row's delete Pill — same DS .pill/.btn, hover tints destructive
    (red) instead of the neutral grey every other .btn hover uses. */

@@ -21,7 +21,7 @@ const db = postgres<Contract>({
   url: rawUrl.replace(/sslmode=(require|prefer|verify-ca)\b/, 'sslmode=no-verify'),
 })
 
-type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
+export type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
 
 export async function withRLS<T>(
   jwt: string | null,
@@ -71,15 +71,7 @@ export type Invitation = FieldOutputTypes['public']['invitations']
 export type NewInvitation = FieldInputTypes['public']['invitations']
 
 // One row of the org roster — the shape prisma/sql/01-functions.sql's
-// org_members_for(requesting_user, org) returns. Row-returning raw SQL
-// CANNOT run through withRLS's tx (tx.execute discards rows and returns only
-// stats — proven by the P8 spike's 03-rls-raw-lane.ts). org_members_for is
-// SECURITY DEFINER with its own membership gate inside (requesting_user must
-// itself be a member of org), so it's safe to call CLIENT-LEVEL — outside
-// any withRLS transaction, on the module's own `db` — passing the verified
-// session user id as the gate. Model: db.sql.raw`...`.returnsRow({...})
-// .build() executed via db.runtime().query<Row>(plan), collected with
-// .toArray() (the spike's 04-client-level-raw.ts working shape).
+// org_members_for(org) returns.
 export type OrgMemberRow = {
   user_id: string
   email: string
