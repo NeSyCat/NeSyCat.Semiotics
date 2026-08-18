@@ -125,6 +125,11 @@ jobs:
       - name: Apply out-of-contract SQL — functions
         run: psql "$BRANCH_DB_URL" -v ON_ERROR_STOP=1 -f prisma/sql/01-functions.sql
 
+      # One-time structural changes the contract planner can't derive (e.g.
+      # primary-key swaps). Existence-guarded + idempotent; no-op on fresh DBs.
+      - name: Apply out-of-contract SQL — structural preflight
+        run: psql "$BRANCH_DB_URL" -v ON_ERROR_STOP=1 -f prisma/sql/00-preflight.sql
+
       # Bootstrap-or-update: a brand-new preview branch DB has no marker
       # signed by a prior contract, so `db verify` fails and we bootstrap
       # with `db init` (builds tables + policies from the contract and

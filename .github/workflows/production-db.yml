@@ -56,6 +56,12 @@ jobs:
       - name: Apply out-of-contract SQL — functions
         run: psql "$PROD_DIRECT_URL" -v ON_ERROR_STOP=1 -f prisma/sql/01-functions.sql
 
+      # One-time structural changes the contract planner can't derive (e.g.
+      # primary-key swaps). Existence-guarded + idempotent; runs BEFORE the
+      # gate/update so `db update` always sees the post-structural shape.
+      - name: Apply out-of-contract SQL — structural preflight
+        run: psql "$PROD_DIRECT_URL" -v ON_ERROR_STOP=1 -f prisma/sql/00-preflight.sql
+
       # Adoption gate. `db verify` fails with CONTRACT.MARKER_MISMATCH for
       # EVERY legitimate contract edit (the signed marker still holds the
       # previous contract's hash) — that is the normal evolution signal, not

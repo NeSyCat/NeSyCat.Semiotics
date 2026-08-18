@@ -54,9 +54,13 @@ BEGIN
     RETURN CASE TG_OP WHEN 'DELETE' THEN OLD ELSE NEW END;
   END IF;
 
+  -- "Other rows" = different user in the same org: since the primary key is
+  -- (user_id, organization_id), user_id alone distinguishes rows within one
+  -- organization. (Rewritten from `id <> OLD.id` when the surrogate id column
+  -- was dropped in favor of the composite PK.)
   SELECT count(*) INTO remaining_owners
   FROM public.memberships
-  WHERE organization_id = OLD.organization_id AND id <> OLD.id AND is_owner;
+  WHERE organization_id = OLD.organization_id AND user_id <> OLD.user_id AND is_owner;
 
   -- An UPDATE that keeps this row an owner of the SAME org adds it back in.
   -- A DELETE, an UPDATE that clears is_owner, or an UPDATE that reassigns the
