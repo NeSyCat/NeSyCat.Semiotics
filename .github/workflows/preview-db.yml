@@ -88,9 +88,19 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # See DB URL passing choice note at the top of this file.
-      - name: Point Prisma at the branch database
-        run: echo "PRISMA_DB_URL=$POSTGRES_URL_NON_POOLING" >> "$GITHUB_ENV"
+      # See DB URL passing choice note at the top of this file. IPv4 note,
+      # learned from a live run: GitHub runners have NO IPv6, and the
+      # branch's POSTGRES_URL_NON_POOLING host (db.<ref>.supabase.co) is
+      # IPv6-only — "Network is unreachable". Supavisor SESSION mode is the
+      # same pooler host as POSTGRES_URL but port 5432: IPv4-reachable and,
+      # unlike transaction mode, safe for DDL/prepared statements — the
+      # right target for both psql and prisma db init/update.
+      - name: Point Prisma at the branch database (IPv4 session pooler)
+        run: |
+          SESSION_URL="${POSTGRES_URL/:6543\//:5432\/}"
+          echo "::add-mask::$SESSION_URL"
+          echo "PRISMA_DB_URL=$SESSION_URL" >> "$GITHUB_ENV"
+          echo "BRANCH_DB_URL=$SESSION_URL" >> "$GITHUB_ENV"
 
       # contract emit is offline (reads prisma/ contract source, writes
       # contract.json/contract.d.ts) and is a hard prerequisite: db
@@ -104,7 +114,7 @@ jobs:
       # init` on a fresh DB, since policy creation would otherwise fail
       # looking for missing functions. Idempotent (CREATE OR REPLACE).
       - name: Apply out-of-contract SQL — functions
-        run: psql "$POSTGRES_URL_NON_POOLING" -v ON_ERROR_STOP=1 -f prisma/sql/01-functions.sql
+        run: psql "$BRANCH_DB_URL" -v ON_ERROR_STOP=1 -f prisma/sql/01-functions.sql
 
       # Bootstrap-or-update: a brand-new preview branch DB has no marker
       # signed by a prior contract, so `db verify` fails and we bootstrap
@@ -125,4 +135,4 @@ jobs:
       # Out-of-contract SQL lane, part 2: orphan-organization guard
       # trigger. Idempotent (DROP TRIGGER IF EXISTS + CREATE).
       - name: Apply out-of-contract SQL — guards
-        run: psql "$POSTGRES_URL_NON_POOLING" -v ON_ERROR_STOP=1 -f prisma/sql/02-guards.sql
+        run: psql "$BRANCH_DB_URL" -v ON_ERROR_STOP=1 -f prisma/sql/02-guards.sql

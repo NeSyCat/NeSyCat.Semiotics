@@ -83,8 +83,13 @@ jobs:
             [ -n "$key" ] || continue
             echo "::add-mask::$value"
             echo "$key=$value" >> "$GITHUB_ENV"
-            if [ "$key" = "POSTGRES_URL_NON_POOLING" ]; then
-              echo "PRISMA_DB_URL=$value" >> "$GITHUB_ENV"
+            if [ "$key" = "POSTGRES_URL" ]; then
+              # Session-pooler transform (port 6543→5432): the non-pooling
+              # host is IPv6-only and unreachable from GitHub runners — see
+              # preview-db.yml's identical note.
+              session="${value/:6543\//:5432\/}"
+              echo "::add-mask::$session"
+              echo "PRISMA_DB_URL=$session" >> "$GITHUB_ENV"
             fi
           done < branch.env
           rm branch.env
