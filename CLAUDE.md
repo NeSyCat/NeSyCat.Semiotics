@@ -135,6 +135,29 @@ through the `_concept/` symlink now.
   variables) before `next build` runs. No-ops locally where that env var
   isn't set, since the submodule is already checked out there.
 
+## Invitation emails (optional)
+
+`inviteMember` (`lib/actions/organizations.ts`) sends a notification email via
+Brevo (`lib/email.ts`, `@getbrevo/brevo`) after writing the invitations row.
+The message carries no token or link back to a specific invite — acceptance
+already works by matching the invitee's verified sign-in email against the
+invitations row (see `getMe`), so the email is purely "you've been invited,
+sign in with this address."
+
+Three env vars, all optional:
+
+- `BREVO_API_KEY` — Brevo API key.
+- `INVITE_EMAIL_FROM` — verified sender address.
+- `INVITE_EMAIL_FROM_NAME` — sender display name; defaults to "NeSyCat Semiotics".
+
+Missing `BREVO_API_KEY` or `INVITE_EMAIL_FROM` (the default state locally and
+in PR previews — neither is set anywhere but production) degrades gracefully:
+the invitations row still gets written and `inviteMember` still reports
+success, just with a `warning` the UI surfaces inline ("Invitation created,
+but the email could not be sent…") instead of silently pretending the email
+went out. Same degrade path if Brevo itself errors. Sending must never throw
+out of `inviteMember` — see `lib/email.ts`'s header comment.
+
 ## Deployment
 
 - Production: `https://semiotics.nesycat.org`

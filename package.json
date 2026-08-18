@@ -15,6 +15,7 @@
     "p8:update": "prisma db update -y --advance-ref db --config prisma/prisma.config.ts"
   },
   "dependencies": {
+    "@getbrevo/brevo": "6.0.3",
     "@prisma/orm-postgres": "8.0.0-rc.3",
     "@supabase/ssr": "^0.10.2",
     "@supabase/supabase-js": "^2.104.0",
