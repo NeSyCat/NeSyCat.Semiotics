@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import type { Me } from '@/lib/actions/organizations'
 import OrgSettings from './OrgSettings'
@@ -75,7 +74,6 @@ function GearIcon() {
 // must leave the current diagram), gear-icon on rows the user owns opens
 // OrgSettings (rename lives inside that panel now, not inline here).
 export default function UserMenu({ me, activeOrgId }: Props) {
-  const router = useRouter()
   const [open, setOpen] = useState(false)
   const wrapRef = useRef<HTMLDivElement>(null)
 
@@ -104,8 +102,16 @@ export default function UserMenu({ me, activeOrgId }: Props) {
     // browser API write, not component state — false positive.
     // eslint-disable-next-line react-hooks/immutability
     document.cookie = `nesycat-active-org=${id}; path=/; max-age=31536000; samesite=lax`
-    router.push('/editor')
-    router.refresh()
+    // Full document navigation, deliberately NOT router.push('/editor'):
+    // /editor is a server route whose redirect depends on this cookie, and a
+    // client-side push reads the App Router's cached payload for it — while a
+    // router.refresh() fired in the same tick can supersede the in-flight
+    // push outright. Together they left the user sitting on the current
+    // diagram: switching organizations appeared to do nothing at all. A real
+    // navigation re-runs the route against the new cookie, and drops every
+    // piece of org-scoped client state with it (the same reason the sibling
+    // app reloads on switch).
+    window.location.assign('/editor')
   }
 
   async function onSignOut() {
