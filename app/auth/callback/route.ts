@@ -56,9 +56,9 @@ export async function GET(request: NextRequest) {
   let diagramId: string
   try {
     const first = await withRLS(jwt, (tx) =>
-      tx.orm.public.Diagrams
+      tx.orm.public.diagrams
         .select('id')
-        .orderBy((d) => d.updatedAt.desc())
+        .orderBy((d) => d.updated_at.desc())
         .first(),
     )
     if (first) {
@@ -71,11 +71,11 @@ export async function GET(request: NextRequest) {
       const org = await resolveActiveOrg(me)
       if (!org) throw new Error('no organization membership')
       const inserted = await withRLS(jwt, (tx) =>
-        tx.orm.public.Diagrams
+        tx.orm.public.diagrams
           .select('id')
           // See lib/actions/diagrams.ts's NewDiagram['data'] cast comment.
           .create({
-            organizationId: org,
+            organization_id: org,
             title: 'Untitled',
             data: emptyData as unknown as NewDiagram['data'],
           }),

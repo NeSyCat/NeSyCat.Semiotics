@@ -5,15 +5,15 @@
   "profileHash": "3916f444a8a17ad749191acf9e08dad97d1a327b88c2f1d45d12f240296aa8b2",
   "roots": {
     "diagrams": {
-      "model": "Diagrams",
+      "model": "diagrams",
       "namespace": "public"
     },
     "memberships": {
-      "model": "Memberships",
+      "model": "memberships",
       "namespace": "public"
     },
     "organizations": {
-      "model": "Organizations",
+      "model": "organizations",
       "namespace": "public"
     }
   },
@@ -21,9 +21,9 @@
     "namespaces": {
       "public": {
         "models": {
-          "Diagrams": {
+          "diagrams": {
             "fields": {
-              "createdAt": {
+              "created_at": {
                 "nullable": false,
                 "type": {
                   "codecId": "pg/timestamptz@1",
@@ -44,7 +44,7 @@
                   "kind": "scalar"
                 }
               },
-              "organizationId": {
+              "organization_id": {
                 "nullable": false,
                 "type": {
                   "codecId": "pg/uuid@1",
@@ -58,7 +58,7 @@
                   "kind": "scalar"
                 }
               },
-              "updatedAt": {
+              "updated_at": {
                 "nullable": false,
                 "type": {
                   "codecId": "pg/timestamptz@1",
@@ -71,21 +71,21 @@
                 "cardinality": "N:1",
                 "on": {
                   "localFields": [
-                    "organizationId"
+                    "organization_id"
                   ],
                   "targetFields": [
                     "id"
                   ]
                 },
                 "to": {
-                  "model": "Organizations",
+                  "model": "organizations",
                   "namespace": "public"
                 }
               }
             },
             "storage": {
               "fields": {
-                "createdAt": {
+                "created_at": {
                   "column": "created_at"
                 },
                 "data": {
@@ -94,13 +94,13 @@
                 "id": {
                   "column": "id"
                 },
-                "organizationId": {
+                "organization_id": {
                   "column": "organization_id"
                 },
                 "title": {
                   "column": "title"
                 },
-                "updatedAt": {
+                "updated_at": {
                   "column": "updated_at"
                 }
               },
@@ -108,9 +108,9 @@
               "table": "diagrams"
             }
           },
-          "Memberships": {
+          "memberships": {
             "fields": {
-              "createdAt": {
+              "created_at": {
                 "nullable": false,
                 "type": {
                   "codecId": "pg/timestamptz@1",
@@ -124,28 +124,28 @@
                   "kind": "scalar"
                 }
               },
-              "isOwner": {
+              "is_owner": {
                 "nullable": false,
                 "type": {
                   "codecId": "pg/bool@1",
                   "kind": "scalar"
                 }
               },
-              "organizationId": {
+              "organization_id": {
                 "nullable": false,
                 "type": {
                   "codecId": "pg/uuid@1",
                   "kind": "scalar"
                 }
               },
-              "updatedAt": {
+              "updated_at": {
                 "nullable": false,
                 "type": {
                   "codecId": "pg/timestamptz@1",
                   "kind": "scalar"
                 }
               },
-              "userId": {
+              "user_id": {
                 "nullable": false,
                 "type": {
                   "codecId": "pg/uuid@1",
@@ -158,36 +158,36 @@
                 "cardinality": "N:1",
                 "on": {
                   "localFields": [
-                    "organizationId"
+                    "organization_id"
                   ],
                   "targetFields": [
                     "id"
                   ]
                 },
                 "to": {
-                  "model": "Organizations",
+                  "model": "organizations",
                   "namespace": "public"
                 }
               }
             },
             "storage": {
               "fields": {
-                "createdAt": {
+                "created_at": {
                   "column": "created_at"
                 },
                 "id": {
                   "column": "id"
                 },
-                "isOwner": {
+                "is_owner": {
                   "column": "is_owner"
                 },
-                "organizationId": {
+                "organization_id": {
                   "column": "organization_id"
                 },
-                "updatedAt": {
+                "updated_at": {
                   "column": "updated_at"
                 },
-                "userId": {
+                "user_id": {
                   "column": "user_id"
                 }
               },
@@ -195,9 +195,9 @@
               "table": "memberships"
             }
           },
-          "Organizations": {
+          "organizations": {
             "fields": {
-              "createdAt": {
+              "created_at": {
                 "nullable": false,
                 "type": {
                   "codecId": "pg/timestamptz@1",
@@ -218,7 +218,7 @@
                   "kind": "scalar"
                 }
               },
-              "updatedAt": {
+              "updated_at": {
                 "nullable": false,
                 "type": {
                   "codecId": "pg/timestamptz@1",
@@ -234,11 +234,11 @@
                     "id"
                   ],
                   "targetFields": [
-                    "organizationId"
+                    "organization_id"
                   ]
                 },
                 "to": {
-                  "model": "Diagrams",
+                  "model": "diagrams",
                   "namespace": "public"
                 }
               },
@@ -249,18 +249,18 @@
                     "id"
                   ],
                   "targetFields": [
-                    "organizationId"
+                    "organization_id"
                   ]
                 },
                 "to": {
-                  "model": "Memberships",
+                  "model": "memberships",
                   "namespace": "public"
                 }
               }
             },
             "storage": {
               "fields": {
-                "createdAt": {
+                "created_at": {
                   "column": "created_at"
                 },
                 "id": {
@@ -269,7 +269,7 @@
                 "name": {
                   "column": "name"
                 },
-                "updatedAt": {
+                "updated_at": {
                   "column": "updated_at"
                 }
               },
@@ -487,7 +487,6 @@
               },
               "foreignKeys": [
                 {
-                  "name": "diagrams_organization_id_organizations_id_fk",
                   "source": {
                     "columns": [
                       "organization_id"
@@ -508,8 +507,7 @@
               "primaryKey": {
                 "columns": [
                   "id"
-                ],
-                "name": "diagrams_pkey"
+                ]
               },
               "uniques": []
             },
@@ -564,7 +562,6 @@
               },
               "foreignKeys": [
                 {
-                  "name": "memberships_organization_id_organizations_id_fk",
                   "source": {
                     "columns": [
                       "organization_id"
@@ -585,16 +582,14 @@
               "primaryKey": {
                 "columns": [
                   "id"
-                ],
-                "name": "memberships_pkey"
+                ]
               },
               "uniques": [
                 {
                   "columns": [
                     "user_id",
                     "organization_id"
-                  ],
-                  "name": "memberships_user_org_unique"
+                  ]
                 }
               ]
             },
@@ -638,8 +633,7 @@
               "primaryKey": {
                 "columns": [
                   "id"
-                ],
-                "name": "organizations_pkey"
+                ]
               },
               "uniques": []
             }
@@ -649,7 +643,7 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "2fd5f07c7980fd669bb7b6606aa727b797549e2ecc3a22ee7ac57596ed5ec542"
+    "storageHash": "ff79b3720557262b934f7d3b314ccd65d56541dbaadd82829908b475f93f988f"
   },
   "capabilities": {
     "postgres": {

@@ -11,12 +11,26 @@
 // are INVISIBLE to this contract — they live in prisma/sql/ and are applied by
 // CI before `db init`/`db update` runs. See prisma/README.md.
 //
+// IDENTICAL NAMES DOCTRINE: models and fields below use the database's
+// verbatim table/column names (lowercase snake_case) with NO @map/@@map — the
+// live names already were canonical, so the code side adopted them instead of
+// re-mapping. Sandbox-proven (p8-spike-pg, 2026-08-18) via `db update
+// --dry-run`: dropping @id/@relation/@@unique's `map:` and every model/field
+// @map/@@map produces ZERO operations (their PSL-default wire names already
+// equal the live names) — see .foreman/scratch/design-prisma8-v3.md for the
+// spike this builds on. Policy blocks are the ONE exception: `@@map` stays on
+// all 11 policies below — the sandbox proved dropping it makes `contract
+// emit` synthesize a wire-name hash suffix, and `db update` then plans an
+// `ALTER POLICY ... RENAME TO "<name>_<hash>"` for every one of them. That's
+// real DDL for no naming benefit (policy names are invisible to app code), so
+// the maps stay and drift detection remains in force for them.
+//
 // DRIFT CHECK IS BYTE-FOR-BYTE: `contract emit` compares each adopted policy's
 // authored predicate text against Postgres's reprinted form byte-for-byte
 // (PN_EXACT_NAME_BODY_COMPARISON). Do not reformat, re-wrap, or "clean up"
-// a policy's `using`/`withCheck` string, and do not rename a model, field,
-// or policy that already has an @@map/@map — any of those breaks drift
-// detection against the adopted production database. Edit with care.
+// a policy's `using`/`withCheck` string, and do not remove a policy's
+// `@@map` — doing so breaks drift detection against the adopted production
+// database. Edit with care.
 //
 // Base: inferred verbatim from the prod-replica via `prisma-next contract
 // infer --db` during the Prisma 8 adoption spike (2026-08-18); see
@@ -24,47 +38,44 @@
 // Contract inferred from the live database schema. Edit as needed, then run `prisma contract emit`.
 
 namespace public {
-  model Organizations {
-    id          Uuid          @id(map: "organizations_pkey") @default(dbgenerated("gen_random_uuid()"))
+  model organizations {
+    id          Uuid          @id @default(dbgenerated("gen_random_uuid()"))
     name        String
-    createdAt   Timestamptz   @default(now()) @map("created_at")
-    updatedAt   Timestamptz   @default(now()) @map("updated_at")
-    diagrams    Diagrams[]
-    memberships Memberships[]
+    created_at  Timestamptz   @default(now())
+    updated_at  Timestamptz   @default(now())
+    diagrams    diagrams[]
+    memberships memberships[]
 
     @@rls
-    @@map("organizations")
   }
 
-  model Diagrams {
-    id             Uuid          @id(map: "diagrams_pkey") @default(dbgenerated("gen_random_uuid()"))
-    title          String
-    data           Jsonb
-    createdAt      Timestamptz   @default(now()) @map("created_at")
-    updatedAt      Timestamptz   @default(now()) @map("updated_at")
-    organizationId Uuid          @map("organization_id")
-    organization   Organizations @relation(fields: [organizationId], references: [id], map: "diagrams_organization_id_organizations_id_fk", index: false)
+  model diagrams {
+    id              Uuid          @id @default(dbgenerated("gen_random_uuid()"))
+    title           String
+    data            Jsonb
+    created_at      Timestamptz   @default(now())
+    updated_at      Timestamptz   @default(now())
+    organization_id Uuid
+    organization    organizations @relation(fields: [organization_id], references: [id], index: false)
 
     @@rls
-    @@map("diagrams")
   }
 
-  model Memberships {
-    id             Uuid          @id(map: "memberships_pkey") @default(dbgenerated("gen_random_uuid()"))
-    userId         Uuid          @map("user_id")
-    organizationId Uuid          @map("organization_id")
-    isOwner        Boolean       @default(false) @map("is_owner")
-    createdAt      Timestamptz   @default(now()) @map("created_at")
-    updatedAt      Timestamptz   @default(now()) @map("updated_at")
-    organization   Organizations @relation(fields: [organizationId], references: [id], map: "memberships_organization_id_organizations_id_fk", index: false)
+  model memberships {
+    id              Uuid          @id @default(dbgenerated("gen_random_uuid()"))
+    user_id         Uuid
+    organization_id Uuid
+    is_owner        Boolean       @default(false)
+    created_at      Timestamptz   @default(now())
+    updated_at      Timestamptz   @default(now())
+    organization    organizations @relation(fields: [organization_id], references: [id], index: false)
 
-    @@unique([userId, organizationId], map: "memberships_user_org_unique")
+    @@unique([user_id, organization_id])
     @@rls
-    @@map("memberships")
   }
 
   policy_all diagrams_member_all {
-    target = Diagrams
+    target = diagrams
     roles = [authenticated]
     using = "(organization_id IN ( SELECT my_member_organizations() AS my_member_organizations))"
     withCheck = "(organization_id IN ( SELECT my_member_organizations() AS my_member_organizations))"
@@ -72,42 +83,42 @@ namespace public {
   }
 
   policy_delete memberships_delete_owner {
-    target = Memberships
+    target = memberships
     roles = [authenticated]
     using = "(organization_id IN ( SELECT my_owner_organizations() AS my_owner_organizations))"
     @@map("memberships_delete_owner")
   }
 
   policy_insert memberships_insert_bootstrap {
-    target = Memberships
+    target = memberships
     roles = [authenticated]
     withCheck = "((user_id = ( SELECT auth.uid() AS uid)) AND (is_owner = true) AND organization_has_no_members(organization_id))"
     @@map("memberships_insert_bootstrap")
   }
 
   policy_insert memberships_insert_owner {
-    target = Memberships
+    target = memberships
     roles = [authenticated]
     withCheck = "(organization_id IN ( SELECT my_owner_organizations() AS my_owner_organizations))"
     @@map("memberships_insert_owner")
   }
 
   policy_select memberships_select_member {
-    target = Memberships
+    target = memberships
     roles = [authenticated]
     using = "(organization_id IN ( SELECT my_member_organizations() AS my_member_organizations))"
     @@map("memberships_select_member")
   }
 
   policy_select memberships_select_self {
-    target = Memberships
+    target = memberships
     roles = [authenticated]
     using = "(user_id = ( SELECT auth.uid() AS uid))"
     @@map("memberships_select_self")
   }
 
   policy_update memberships_update_owner {
-    target = Memberships
+    target = memberships
     roles = [authenticated]
     using = "(organization_id IN ( SELECT my_owner_organizations() AS my_owner_organizations))"
     withCheck = "(organization_id IN ( SELECT my_owner_organizations() AS my_owner_organizations))"
@@ -115,28 +126,28 @@ namespace public {
   }
 
   policy_delete organizations_delete_owner {
-    target = Organizations
+    target = organizations
     roles = [authenticated]
     using = "(id IN ( SELECT my_owner_organizations() AS my_owner_organizations))"
     @@map("organizations_delete_owner")
   }
 
   policy_insert organizations_insert_auth {
-    target = Organizations
+    target = organizations
     roles = [authenticated]
     withCheck = "true"
     @@map("organizations_insert_auth")
   }
 
   policy_select organizations_select_member {
-    target = Organizations
+    target = organizations
     roles = [authenticated]
     using = "(id IN ( SELECT my_member_organizations() AS my_member_organizations))"
     @@map("organizations_select_member")
   }
 
   policy_update organizations_update_owner {
-    target = Organizations
+    target = organizations
     roles = [authenticated]
     using = "(id IN ( SELECT my_owner_organizations() AS my_owner_organizations))"
     withCheck = "(id IN ( SELECT my_owner_organizations() AS my_owner_organizations))"

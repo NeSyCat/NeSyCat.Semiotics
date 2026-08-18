@@ -20,9 +20,9 @@ export async function listDiagrams(organizationId: string): Promise<DiagramRow[]
   return withRLS(jwt, (tx) =>
     // .toArray() (not bare .all()) because withRLS's fn must return a real
     // Promise<T> — .all() is an AsyncIterableResult (thenable, not a Promise).
-    tx.orm.public.Diagrams
-      .where({ organizationId })
-      .orderBy((d) => d.updatedAt.desc())
+    tx.orm.public.diagrams
+      .where({ organization_id: organizationId })
+      .orderBy((d) => d.updated_at.desc())
       .all()
       .toArray(),
   )
@@ -31,8 +31,8 @@ export async function listDiagrams(organizationId: string): Promise<DiagramRow[]
 export async function createDiagram(organizationId: string, title?: string): Promise<DiagramRow> {
   const { jwt } = await session()
   const row = await withRLS(jwt, (tx) =>
-    tx.orm.public.Diagrams.create({
-      organizationId,
+    tx.orm.public.diagrams.create({
+      organization_id: organizationId,
       title: title ?? 'Untitled',
       // `data` is a jsonb column; the contract's JsonValue codec type needs
       // an index signature the app's plain Diagram interface doesn't carry
@@ -47,21 +47,21 @@ export async function createDiagram(organizationId: string, title?: string): Pro
 
 export async function loadDiagram(id: string): Promise<DiagramRow | null> {
   const { jwt } = await session()
-  return withRLS(jwt, (tx) => tx.orm.public.Diagrams.first({ id }))
+  return withRLS(jwt, (tx) => tx.orm.public.diagrams.first({ id }))
 }
 
 export async function saveDiagram(id: string, data: Diagram): Promise<void> {
   const { jwt } = await session()
   await withRLS(jwt, (tx) =>
-    tx.orm.public.Diagrams
+    tx.orm.public.diagrams
       .where({ id })
-      .update({ data: data as unknown as NewDiagram['data'], updatedAt: new Date() }),
+      .update({ data: data as unknown as NewDiagram['data'], updated_at: new Date() }),
   )
 }
 
 export async function deleteDiagram(id: string): Promise<void> {
   const { jwt } = await session()
-  await withRLS(jwt, (tx) => tx.orm.public.Diagrams.where({ id }).delete())
+  await withRLS(jwt, (tx) => tx.orm.public.diagrams.where({ id }).delete())
   revalidatePath('/editor', 'layout')
 }
 
@@ -69,7 +69,7 @@ export async function renameDiagram(id: string, title: string): Promise<void> {
   const { jwt } = await session()
   const trimmed = title.trim() || 'Untitled'
   await withRLS(jwt, (tx) =>
-    tx.orm.public.Diagrams.where({ id }).update({ title: trimmed, updatedAt: new Date() }),
+    tx.orm.public.diagrams.where({ id }).update({ title: trimmed, updated_at: new Date() }),
   )
   revalidatePath('/editor', 'layout')
 }

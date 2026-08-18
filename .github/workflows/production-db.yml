@@ -56,14 +56,41 @@ jobs:
       - name: Apply out-of-contract SQL — functions
         run: psql "$PROD_DIRECT_URL" -v ON_ERROR_STOP=1 -f prisma/sql/01-functions.sql
 
-      # Hard gate — do NOT wrap this in try/init-fallback. A failure here
-      # (drift, missing marker, unreachable DB) must fail the job loudly;
-      # production must never be auto-bootstrapped.
-      - name: Verify production database is signed and matches the contract
-        run: npx prisma db verify
+      # Adoption gate. `db verify` fails with CONTRACT.MARKER_MISMATCH for
+      # EVERY legitimate contract edit (the signed marker still holds the
+      # previous contract's hash) — that is the normal evolution signal, not
+      # an error, and must proceed to `db update` (which applies the delta
+      # and re-signs). What must NEVER proceed: CONTRACT.MARKER_MISSING —
+      # a database that was never adopted (or the wrong database entirely).
+      # Production must never be auto-bootstrapped. Learned in the sandbox
+      # on the first real contract edit; a blanket hard verify here would
+      # have blocked every schema change forever.
+      - name: Adoption gate (verify marker; allow contract advance)
+        run: |
+          set +e
+          out=$(npx prisma db verify 2>&1)
+          code=$?
+          set -e
+          echo "$out"
+          if [ "$code" -eq 0 ]; then
+            echo "Marker and schema match the contract — update will be a no-op."
+          elif echo "$out" | grep -q "CONTRACT.MARKER_MISMATCH"; then
+            echo "Marker holds a previous contract hash — legitimate contract evolution; proceeding to db update."
+          elif echo "$out" | grep -q "CONTRACT.MARKER_MISSING"; then
+            echo "::error::Production database is NOT adopted (no contract marker). Refusing to touch it — run the Adopt Production workflow first."
+            exit 1
+          else
+            echo "::error::db verify failed for an unexpected reason — investigate before any update runs."
+            exit 1
+          fi
 
       - name: Update production database to match the contract
         run: npx prisma db update -y --advance-ref db
+
+      # Post-update hard verify: after the update re-signs, marker AND live
+      # schema must both match the contract exactly — no exceptions here.
+      - name: Verify signed state
+        run: npx prisma db verify
 
       # Out-of-contract SQL lane, part 2: orphan-organization guard
       # trigger. No-op against prod when already applied (DROP TRIGGER IF

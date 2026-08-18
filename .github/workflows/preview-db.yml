@@ -124,12 +124,25 @@ jobs:
       # it incrementally instead.
       - name: Bootstrap or update the branch database against the contract
         run: |
-          if npx prisma db verify; then
-            echo "Branch DB is already signed — applying incremental update."
+          # Three-way route (mirrors production-db.yml's adoption gate):
+          # verify ok            → signed + current: update is a no-op
+          # CONTRACT.MARKER_MISMATCH → signed under a previous contract (this
+          #                        PR edited it): db update applies the delta
+          # CONTRACT.MARKER_MISSING  → fresh branch DB: bootstrap with db init
+          set +e
+          out=$(npx prisma db verify 2>&1)
+          code=$?
+          set -e
+          echo "$out"
+          if [ "$code" -eq 0 ] || echo "$out" | grep -q "CONTRACT.MARKER_MISMATCH"; then
+            echo "Branch DB is signed — applying incremental update."
             npx prisma db update -y --advance-ref db
-          else
+          elif echo "$out" | grep -q "CONTRACT.MARKER_MISSING"; then
             echo "Branch DB is fresh/unsigned — bootstrapping from contract."
             npx prisma db init -y
+          else
+            echo "::error::db verify failed unexpectedly — refusing to guess."
+            exit 1
           fi
 
       # Out-of-contract SQL lane, part 2: orphan-organization guard
