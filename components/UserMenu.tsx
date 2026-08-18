@@ -1,9 +1,10 @@
 'use client'
 
-import { useEffect, useRef, useState, useTransition } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { renameOrganization, type Me, type MeMembership } from '@/lib/actions/organizations'
+import type { Me } from '@/lib/actions/organizations'
+import OrgSettings from './OrgSettings'
 
 interface Props {
   // callbackUrl mirrors AuthSharePill's prop shape (both pills are
@@ -39,20 +40,26 @@ function SignOutIcon() {
   )
 }
 
-// Settings gear — owner-only inline-rename trigger on an org row. Sized/
-// colored by the DS's own `.select-option-action svg` rule (select.css);
-// sprite.tsx has no gear symbol yet, so this lives locally like ExportMenu's
-// CopyGlyph does.
+// Settings gear — owner-only trigger that opens OrgSettings for an org row.
+// A proper cog silhouette (toothed rim + center hub), NOT the previous
+// circle-plus-radiating-spokes glyph — that one read as a sun (direct user
+// complaint). The rim is one closed path: 8 square teeth (radial flanks +
+// a flat outer arc each) joined by root-radius arcs between them; the hub
+// is a plain stroked circle, same two-shape construction as UserIcon's
+// head+body. Sized/colored by the DS's own `.select-option-action svg` rule
+// (select.css); sprite.tsx has no gear symbol yet, so this lives locally
+// like ExportMenu's CopyGlyph does.
 function GearIcon() {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true">
-      <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.8" />
       <path
-        d="M12 3v2.4M12 18.6V21M21 12h-2.4M5.4 12H3M18.1 5.9l-1.7 1.7M7.6 16.4l-1.7 1.7M18.1 18.1l-1.7-1.7M7.6 7.6L5.9 5.9"
+        d="M 10.72 4.71 L 10.33 2.55 A 9.6 9.6 0 0 1 13.67 2.55 L 13.28 4.71 A 7.4 7.4 0 0 1 16.24 5.94 L 17.51 4.14 A 9.6 9.6 0 0 1 19.86 6.49 L 18.06 7.76 A 7.4 7.4 0 0 1 19.29 10.72 L 21.45 10.33 A 9.6 9.6 0 0 1 21.45 13.67 L 19.29 13.28 A 7.4 7.4 0 0 1 18.06 16.24 L 19.86 17.51 A 9.6 9.6 0 0 1 17.51 19.86 L 16.24 18.06 A 7.4 7.4 0 0 1 13.28 19.29 L 13.67 21.45 A 9.6 9.6 0 0 1 10.33 21.45 L 10.72 19.29 A 7.4 7.4 0 0 1 7.76 18.06 L 6.49 19.86 A 9.6 9.6 0 0 1 4.14 17.51 L 5.94 16.24 A 7.4 7.4 0 0 1 4.71 13.28 L 2.55 13.67 A 9.6 9.6 0 0 1 2.55 10.33 L 4.71 10.72 A 7.4 7.4 0 0 1 5.94 7.76 L 4.14 6.49 A 9.6 9.6 0 0 1 6.49 4.14 L 7.76 5.94 A 7.4 7.4 0 0 1 10.72 4.71 Z"
         stroke="currentColor"
         strokeWidth="1.8"
+        strokeLinejoin="round"
         strokeLinecap="round"
       />
+      <circle cx="12" cy="12" r="2.6" stroke="currentColor" strokeWidth="1.8" />
     </svg>
   )
 }
@@ -65,23 +72,26 @@ function GearIcon() {
 // must align with THIS pill's right edge). Content: identity + sign-out,
 // then an "Organizations" section — click a row to switch (cookie write +
 // navigate to /editor, since diagram lists are org-scoped now and switching
-// must leave the current diagram), gear-icon inline rename on rows the user
-// owns.
+// must leave the current diagram), gear-icon on rows the user owns opens
+// OrgSettings (rename lives inside that panel now, not inline here).
 export default function UserMenu({ me, activeOrgId }: Props) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const wrapRef = useRef<HTMLDivElement>(null)
 
-  const [renamingId, setRenamingId] = useState<string | null>(null)
-  const [renameValue, setRenameValue] = useState('')
-  const [isRenaming, startRenameTransition] = useTransition()
+  // Which org's settings panel is open, if any. Just the id — the panel's
+  // own props (name) are looked up from `me.memberships` below so there's a
+  // single source of truth for org names (this component never edits it
+  // directly; OrgSettings calls renameOrganization + router.refresh(), which
+  // re-renders this component with the fresh me.memberships).
+  const [settingsOrgId, setSettingsOrgId] = useState<string | null>(null)
+  const settingsOrg = me.memberships.find((m) => m.organizationId === settingsOrgId) ?? null
 
   useEffect(() => {
     if (!open) return
     const onDocDown = (e: MouseEvent) => {
       if (wrapRef.current && !wrapRef.current.contains(e.target as HTMLElement)) {
         setOpen(false)
-        setRenamingId(null)
       }
     }
     document.addEventListener('mousedown', onDocDown)
@@ -102,20 +112,6 @@ export default function UserMenu({ me, activeOrgId }: Props) {
     const supabase = createClient()
     await supabase.auth.signOut()
     window.location.assign('/')
-  }
-
-  function startRename(m: MeMembership) {
-    setRenamingId(m.organizationId)
-    setRenameValue(m.organizationName)
-  }
-
-  function commitRename(id: string) {
-    const value = renameValue
-    setRenamingId(null)
-    startRenameTransition(async () => {
-      await renameOrganization(id, value)
-      router.refresh()
-    })
   }
 
   return (
@@ -147,36 +143,24 @@ export default function UserMenu({ me, activeOrgId }: Props) {
           <div className="user-menu-label">Organizations</div>
           {me.memberships.map((m) => {
             const active = m.organizationId === activeOrgId
-            const editing = renamingId === m.organizationId
             return (
               <div
                 key={m.organizationId}
                 className={`select-option select-option--row${active ? ' is-selected' : ''}`}
               >
-                {editing ? (
-                  <input
-                    className="user-menu-rename-input"
-                    value={renameValue}
-                    autoFocus
-                    disabled={isRenaming}
-                    onChange={(e) => setRenameValue(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') { e.preventDefault(); commitRename(m.organizationId) }
-                      else if (e.key === 'Escape') { e.preventDefault(); setRenamingId(null) }
-                    }}
-                  />
-                ) : (
-                  <button type="button" className="select-option-label" onClick={() => switchOrg(m.organizationId)}>
-                    {m.organizationName}
-                  </button>
-                )}
-                {m.isOwner && !editing && (
+                <button type="button" className="select-option-label" onClick={() => switchOrg(m.organizationId)}>
+                  {m.organizationName}
+                </button>
+                {m.isOwner && (
                   <button
                     type="button"
                     className="select-option-action"
-                    title={`Rename ${m.organizationName}`}
-                    aria-label={`Rename ${m.organizationName}`}
-                    onClick={() => startRename(m)}
+                    title={`Settings for ${m.organizationName}`}
+                    aria-label={`Settings for ${m.organizationName}`}
+                    onClick={() => {
+                      setSettingsOrgId(m.organizationId)
+                      setOpen(false)
+                    }}
                   >
                     <GearIcon />
                   </button>
@@ -185,6 +169,13 @@ export default function UserMenu({ me, activeOrgId }: Props) {
             )
           })}
         </div>
+      )}
+      {settingsOrg && (
+        <OrgSettings
+          organizationId={settingsOrg.organizationId}
+          organizationName={settingsOrg.organizationName}
+          onClose={() => setSettingsOrgId(null)}
+        />
       )}
     </div>
   )

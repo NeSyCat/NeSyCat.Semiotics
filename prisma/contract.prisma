@@ -39,7 +39,7 @@
 
 namespace public {
   
-  //-------- Entities --------#
+  //-------- Entities --------//
 
   model organizations {
     //Primary Key
@@ -53,6 +53,7 @@ namespace public {
     //Incoming FKs
     diagrams    diagrams[]
     memberships memberships[]
+    invitations invitations[]
 
     @@rls
   }
@@ -74,7 +75,7 @@ namespace public {
     @@rls
   }
 
-  //-------- Relationships --------#
+  //-------- Relationships --------//
 
   model memberships {
     //Primary Key
@@ -93,8 +94,30 @@ namespace public {
     @@rls
   }
 
+  // An OPEN invitation to join an organization. Accepted invitations are
+  // deleted — the membership row is the record. Keyed by (org, email): one
+  // open invite per address per organization. There is no profile table:
+  // the invitee has no row anywhere until they sign in, at which point
+  // getMe() turns this row into a membership.
+  model invitations {
+    //Primary Key
+    organization_id Uuid
+    email           String
+    @@id([organization_id, email])
 
-  //-------- Policies --------#
+    //Attributes
+    is_owner        Boolean       @default(false)
+    invited_by      Uuid
+    created_at      Timestamptz   @default(now())
+
+    //Outgoing FKs
+    organization    organizations @relation(fields: [organization_id], references: [id], index: false)
+
+    @@rls
+  }
+
+
+  //-------- Policies --------//
 
   policy_all diagrams_member_all {
     target = diagrams
@@ -174,5 +197,41 @@ namespace public {
     using = "(id IN ( SELECT my_owner_organizations() AS my_owner_organizations))"
     withCheck = "(id IN ( SELECT my_owner_organizations() AS my_owner_organizations))"
     @@map("organizations_update_owner")
+  }
+
+  // Invitation policies. NEW objects — no @@map: wire naming (name + hash
+  // suffix) is correct for anything this contract creates itself; @@map is
+  // only pinned on the 11 policies adopted from the pre-Prisma database.
+
+  // Owners manage every invitation of their organization.
+  policy_all invitations_owner_all {
+    target = invitations
+    roles = [authenticated]
+    using = "(organization_id IN ( SELECT my_owner_organizations() AS my_owner_organizations))"
+    withCheck = "(organization_id IN ( SELECT my_owner_organizations() AS my_owner_organizations))"
+  }
+
+  // The invitee — matched case-insensitively on their JWT email — may read
+  // and delete their OWN invitation, and nobody else's. That is the whole
+  // acceptance flow: read it, become a member, delete it.
+  policy_select invitations_invitee_select {
+    target = invitations
+    roles = [authenticated]
+    using = "(lower(email) = lower((auth.jwt() ->> 'email'::text)))"
+  }
+
+  policy_delete invitations_invitee_delete {
+    target = invitations
+    roles = [authenticated]
+    using = "(lower(email) = lower((auth.jwt() ->> 'email'::text)))"
+  }
+
+  // Self-service membership creation, allowed ONLY against a matching open
+  // invitation: the row must be for the caller, in the invited organization,
+  // with exactly the invited is_owner value (no self-promotion).
+  policy_insert memberships_insert_invited {
+    target = memberships
+    roles = [authenticated]
+    withCheck = "((user_id = ( SELECT auth.uid() AS uid)) AND (EXISTS ( SELECT 1 FROM invitations i WHERE ((i.organization_id = memberships.organization_id) AND (lower(i.email) = lower((auth.jwt() ->> 'email'::text))) AND (i.is_owner = memberships.is_owner)))))"
   }
 }

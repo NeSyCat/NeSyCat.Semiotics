@@ -8,6 +8,10 @@
       "model": "diagrams",
       "namespace": "public"
     },
+    "invitations": {
+      "model": "invitations",
+      "namespace": "public"
+    },
     "memberships": {
       "model": "memberships",
       "namespace": "public"
@@ -106,6 +110,83 @@
               },
               "namespaceId": "public",
               "table": "diagrams"
+            }
+          },
+          "invitations": {
+            "fields": {
+              "created_at": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/timestamptz@1",
+                  "kind": "scalar"
+                }
+              },
+              "email": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "invited_by": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/uuid@1",
+                  "kind": "scalar"
+                }
+              },
+              "is_owner": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/bool@1",
+                  "kind": "scalar"
+                }
+              },
+              "organization_id": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/uuid@1",
+                  "kind": "scalar"
+                }
+              }
+            },
+            "relations": {
+              "organization": {
+                "cardinality": "N:1",
+                "on": {
+                  "localFields": [
+                    "organization_id"
+                  ],
+                  "targetFields": [
+                    "id"
+                  ]
+                },
+                "to": {
+                  "model": "organizations",
+                  "namespace": "public"
+                }
+              }
+            },
+            "storage": {
+              "fields": {
+                "created_at": {
+                  "column": "created_at"
+                },
+                "email": {
+                  "column": "email"
+                },
+                "invited_by": {
+                  "column": "invited_by"
+                },
+                "is_owner": {
+                  "column": "is_owner"
+                },
+                "organization_id": {
+                  "column": "organization_id"
+                }
+              },
+              "namespaceId": "public",
+              "table": "invitations"
             }
           },
           "memberships": {
@@ -232,6 +313,21 @@
                   "namespace": "public"
                 }
               },
+              "invitations": {
+                "cardinality": "1:N",
+                "on": {
+                  "localFields": [
+                    "id"
+                  ],
+                  "targetFields": [
+                    "organization_id"
+                  ]
+                },
+                "to": {
+                  "model": "invitations",
+                  "namespace": "public"
+                }
+              },
               "memberships": {
                 "cardinality": "1:N",
                 "on": {
@@ -289,6 +385,46 @@
               "using": "(organization_id IN ( SELECT my_member_organizations() AS my_member_organizations))",
               "withCheck": "(organization_id IN ( SELECT my_member_organizations() AS my_member_organizations))"
             },
+            "invitations_invitee_delete": {
+              "kind": "policy",
+              "name": "invitations_invitee_delete_f0d1a5cd",
+              "namespaceId": "public",
+              "operation": "delete",
+              "permissive": true,
+              "prefix": "invitations_invitee_delete",
+              "roles": [
+                "authenticated"
+              ],
+              "tableName": "invitations",
+              "using": "(lower(email) = lower((auth.jwt() ->> 'email'::text)))"
+            },
+            "invitations_invitee_select": {
+              "kind": "policy",
+              "name": "invitations_invitee_select_50218135",
+              "namespaceId": "public",
+              "operation": "select",
+              "permissive": true,
+              "prefix": "invitations_invitee_select",
+              "roles": [
+                "authenticated"
+              ],
+              "tableName": "invitations",
+              "using": "(lower(email) = lower((auth.jwt() ->> 'email'::text)))"
+            },
+            "invitations_owner_all": {
+              "kind": "policy",
+              "name": "invitations_owner_all_1294a2a7",
+              "namespaceId": "public",
+              "operation": "all",
+              "permissive": true,
+              "prefix": "invitations_owner_all",
+              "roles": [
+                "authenticated"
+              ],
+              "tableName": "invitations",
+              "using": "(organization_id IN ( SELECT my_owner_organizations() AS my_owner_organizations))",
+              "withCheck": "(organization_id IN ( SELECT my_owner_organizations() AS my_owner_organizations))"
+            },
             "memberships_delete_owner": {
               "kind": "policy",
               "name": "memberships_delete_owner",
@@ -312,6 +448,19 @@
               ],
               "tableName": "memberships",
               "withCheck": "((user_id = ( SELECT auth.uid() AS uid)) AND (is_owner = true) AND organization_has_no_members(organization_id))"
+            },
+            "memberships_insert_invited": {
+              "kind": "policy",
+              "name": "memberships_insert_invited_693a4250",
+              "namespaceId": "public",
+              "operation": "insert",
+              "permissive": true,
+              "prefix": "memberships_insert_invited",
+              "roles": [
+                "authenticated"
+              ],
+              "tableName": "memberships",
+              "withCheck": "((user_id = ( SELECT auth.uid() AS uid)) AND (EXISTS ( SELECT 1 FROM invitations i WHERE ((i.organization_id = memberships.organization_id) AND (lower(i.email) = lower((auth.jwt() ->> 'email'::text))) AND (i.is_owner = memberships.is_owner)))))"
             },
             "memberships_insert_owner": {
               "kind": "policy",
@@ -418,6 +567,11 @@
               "namespaceId": "public",
               "tableName": "diagrams"
             },
+            "invitations": {
+              "kind": "rls",
+              "namespaceId": "public",
+              "tableName": "invitations"
+            },
             "memberships": {
               "kind": "rls",
               "namespaceId": "public",
@@ -497,6 +651,69 @@
               "primaryKey": {
                 "columns": [
                   "id"
+                ]
+              },
+              "uniques": []
+            },
+            "invitations": {
+              "columns": {
+                "created_at": {
+                  "codecId": "pg/timestamptz@1",
+                  "default": {
+                    "expression": "now()",
+                    "kind": "function"
+                  },
+                  "nativeType": "timestamptz",
+                  "nullable": false
+                },
+                "email": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": false
+                },
+                "invited_by": {
+                  "codecId": "pg/uuid@1",
+                  "nativeType": "uuid",
+                  "nullable": false
+                },
+                "is_owner": {
+                  "codecId": "pg/bool@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": false
+                  },
+                  "nativeType": "bool",
+                  "nullable": false
+                },
+                "organization_id": {
+                  "codecId": "pg/uuid@1",
+                  "nativeType": "uuid",
+                  "nullable": false
+                }
+              },
+              "foreignKeys": [
+                {
+                  "source": {
+                    "columns": [
+                      "organization_id"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "invitations"
+                  },
+                  "target": {
+                    "columns": [
+                      "id"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "organizations"
+                  }
+                }
+              ],
+              "indexes": [],
+              "primaryKey": {
+                "columns": [
+                  "organization_id",
+                  "email"
                 ]
               },
               "uniques": []
@@ -618,7 +835,7 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "0abd273ae75145dbb55ab798e5ad1d62e4d19b4c9b5377b438b22b345bfcd338"
+    "storageHash": "ab4b10a4ebdc0759879f426a8c48b1a4d68e65b8e742337594fa97e897534566"
   },
   "capabilities": {
     "postgres": {

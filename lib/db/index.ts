@@ -21,7 +21,7 @@ const db = postgres<Contract>({
   url: rawUrl.replace(/sslmode=(require|prefer|verify-ca)\b/, 'sslmode=no-verify'),
 })
 
-type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
+export type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
 
 export async function withRLS<T>(
   jwt: string | null,
@@ -67,3 +67,41 @@ export type Organization = FieldOutputTypes['public']['organizations']
 export type NewOrganization = FieldInputTypes['public']['organizations']
 export type Membership = FieldOutputTypes['public']['memberships']
 export type NewMembership = FieldInputTypes['public']['memberships']
+export type Invitation = FieldOutputTypes['public']['invitations']
+export type NewInvitation = FieldInputTypes['public']['invitations']
+
+// One row of the org roster — the shape prisma/sql/01-functions.sql's
+// org_members_for(org) returns.
+export type OrgMemberRow = {
+  user_id: string
+  email: string
+  display_name: string
+  is_owner: boolean
+}
+
+// Roster lookup, run INSIDE the caller's withRLS transaction so the definer
+// function sees the verified auth.uid() (it takes no identity argument — see
+// prisma/sql/01-functions.sql for why that matters).
+//
+// `tx.query` is real at runtime but missing from this RC's TransactionContext
+// type (only `execute` is declared, and execute discards rows) — hence the
+// cast. Verified empirically against the runtime; revisit when the types
+// catch up.
+export async function orgMembersFor(
+  tx: Tx,
+  organizationId: string,
+): Promise<OrgMemberRow[]> {
+  const plan = tx.sql
+    .raw`select * from public.org_members_for(${organizationId})`
+    .returnsRow({
+      user_id: 'pg/uuid@1',
+      email: 'pg/text@1',
+      display_name: 'pg/text@1',
+      is_owner: 'pg/bool@1',
+    })
+    .build()
+  const rows = (tx as unknown as {
+    query: <T>(plan: unknown) => { toArray: () => Promise<T[]> }
+  }).query<OrgMemberRow>(plan)
+  return rows.toArray()
+}
