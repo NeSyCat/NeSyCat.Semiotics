@@ -1,0 +1,3 @@
+-- Seed for Supabase PREVIEW branches (referenced by config.toml [db.seed]).
+-- Runs after migrations on a fresh branch database. Production is never
+-- seeded — real data lives there. Intentionally minimal.
