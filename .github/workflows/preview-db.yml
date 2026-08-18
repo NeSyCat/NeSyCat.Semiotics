@@ -31,27 +31,36 @@ on:
       - main
 
 jobs:
-  wait:
-    runs-on: ubuntu-latest
-    outputs:
-      status: ${{ steps.check.outputs.conclusion }}
-    steps:
-      - uses: fountainhead/action-wait-for-check@v1.2.0
-        id: check
-        with:
-          checkName: Supabase Preview
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
-          token: ${{ secrets.GITHUB_TOKEN }}
-
   migrate:
-    needs:
-      - wait
-    if: ${{ needs.wait.outputs.status == 'success' }}
     runs-on: ubuntu-latest
     env:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
       SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
+      GH_TOKEN: ${{ github.token }}
     steps:
+      # Wait for the Supabase branch DB to exist — signalled by a SUCCESSFUL
+      # "Supabase Preview" check on the head SHA. A naive first-completed-check
+      # wait is race-prone: pushing the branch BEFORE opening the PR leaves a
+      # stale `skipped` check run on the same SHA, and the PR's real run lands
+      # seconds later (bit us live on PR #99). This poll ignores skipped runs,
+      # waits for a success, and fails on failure/timeout.
+      - name: Wait for Supabase Preview success
+        run: |
+          sha="${{ github.event.pull_request.head.sha || github.sha }}"
+          for i in $(seq 1 60); do
+            concl=$(gh api "repos/$GITHUB_REPOSITORY/commits/$sha/check-runs" \
+              --jq '[.check_runs[] | select(.name=="Supabase Preview") | .conclusion] | join(",")')
+            echo "attempt $i: conclusions=[$concl]"
+            case ",$concl," in
+              *,success,*) echo "Supabase branch is ready."; exit 0 ;;
+              *,failure,*|*,cancelled,*|*,timed_out,*)
+                echo "::error::Supabase Preview concluded unsuccessfully."; exit 1 ;;
+            esac
+            sleep 10
+          done
+          echo "::error::Timed out waiting for a successful Supabase Preview check."
+          exit 1
+
       - uses: supabase/setup-cli@v1
         with:
           version: latest
@@ -124,12 +133,25 @@ jobs:
       # it incrementally instead.
       - name: Bootstrap or update the branch database against the contract
         run: |
-          if npx prisma db verify; then
-            echo "Branch DB is already signed — applying incremental update."
+          # Three-way route (mirrors production-db.yml's adoption gate):
+          # verify ok            → signed + current: update is a no-op
+          # CONTRACT.MARKER_MISMATCH → signed under a previous contract (this
+          #                        PR edited it): db update applies the delta
+          # CONTRACT.MARKER_MISSING  → fresh branch DB: bootstrap with db init
+          set +e
+          out=$(npx prisma db verify 2>&1)
+          code=$?
+          set -e
+          echo "$out"
+          if [ "$code" -eq 0 ] || echo "$out" | grep -q "CONTRACT.MARKER_MISMATCH"; then
+            echo "Branch DB is signed — applying incremental update."
             npx prisma db update -y --advance-ref db
-          else
+          elif echo "$out" | grep -q "CONTRACT.MARKER_MISSING"; then
             echo "Branch DB is fresh/unsigned — bootstrapping from contract."
             npx prisma db init -y
+          else
+            echo "::error::db verify failed unexpectedly — refusing to guess."
+            exit 1
           fi
 
       # Out-of-contract SQL lane, part 2: orphan-organization guard

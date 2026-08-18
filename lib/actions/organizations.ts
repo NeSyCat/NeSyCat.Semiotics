@@ -39,19 +39,19 @@ export async function getMe(): Promise<Me> {
   const displayName = displayNameOf(email, userMetadata)
 
   const rows = await withRLS(jwt, async (tx) => {
-    const myMemberships = await tx.orm.public.Memberships.where({ userId }).all()
+    const myMemberships = await tx.orm.public.memberships.where({ user_id: userId }).all()
     if (myMemberships.length > 0) {
       // Restructured from a single memberships⋈organizations join (P8's ORM
       // has no cross-model .include() story this ticket needs) into two
       // sequential reads + an in-code name-sort.
-      const orgIds = myMemberships.map((m) => m.organizationId)
-      const orgs = await tx.orm.public.Organizations.where((o) => o.id.in(orgIds)).all()
+      const orgIds = myMemberships.map((m) => m.organization_id)
+      const orgs = await tx.orm.public.organizations.where((o) => o.id.in(orgIds)).all()
       const orgById = new Map(orgs.map((org) => [org.id, org]))
       return myMemberships
         .flatMap((m) => {
-          const org = orgById.get(m.organizationId)
+          const org = orgById.get(m.organization_id)
           return org
-            ? [{ organizationId: org.id, organizationName: org.name, isOwner: m.isOwner }]
+            ? [{ organizationId: org.id, organizationName: org.name, isOwner: m.is_owner }]
             : []
         })
         .sort((a, b) => a.organizationName.localeCompare(b.organizationName))
@@ -64,11 +64,11 @@ export async function getMe(): Promise<Me> {
     // no members yet). Small create-race window is accepted (mirrors
     // Admination's client-side bootstrap; single-user flow — see design
     // doc's DECIDED ADAPTATIONS).
-    const org = await tx.orm.public.Organizations.create({ name: `${displayName}'s Organization` })
-    await tx.orm.public.Memberships.create({
-      userId,
-      organizationId: org.id,
-      isOwner: true,
+    const org = await tx.orm.public.organizations.create({ name: `${displayName}'s Organization` })
+    await tx.orm.public.memberships.create({
+      user_id: userId,
+      organization_id: org.id,
+      is_owner: true,
     })
     return [{ organizationId: org.id, organizationName: org.name, isOwner: true }]
   })
@@ -80,7 +80,7 @@ export async function renameOrganization(id: string, name: string): Promise<void
   const { jwt } = await session()
   const trimmed = name.trim() || 'Untitled'
   await withRLS(jwt, (tx) =>
-    tx.orm.public.Organizations.where({ id }).update({ name: trimmed, updatedAt: new Date() }),
+    tx.orm.public.organizations.where({ id }).update({ name: trimmed, updated_at: new Date() }),
   )
   revalidatePath('/editor', 'layout')
 }

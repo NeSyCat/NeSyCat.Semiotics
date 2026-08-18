@@ -57,10 +57,13 @@ export async function withServiceRole<T>(fn: (tx: Tx) => Promise<T>): Promise<T>
 
 // Row types the app queries against — aliased off the generated contract so
 // call sites (lib/actions/*, components/*) keep importing stable names
-// instead of reaching into FieldOutputTypes/FieldInputTypes directly.
-export type Diagram = FieldOutputTypes['public']['Diagrams']
-export type NewDiagram = FieldInputTypes['public']['Diagrams']
-export type Organization = FieldOutputTypes['public']['Organizations']
-export type NewOrganization = FieldInputTypes['public']['Organizations']
-export type Membership = FieldOutputTypes['public']['Memberships']
-export type NewMembership = FieldInputTypes['public']['Memberships']
+// instead of reaching into FieldOutputTypes/FieldInputTypes directly. The
+// lookup keys below are the contract's model names (now identical to the
+// database's table names — see prisma/contract.prisma's IDENTICAL NAMES
+// DOCTRINE); the exported TS type names stay PascalCase and unchanged.
+export type Diagram = FieldOutputTypes['public']['diagrams']
+export type NewDiagram = FieldInputTypes['public']['diagrams']
+export type Organization = FieldOutputTypes['public']['organizations']
+export type NewOrganization = FieldInputTypes['public']['organizations']
+export type Membership = FieldOutputTypes['public']['memberships']
+export type NewMembership = FieldInputTypes['public']['memberships']
