@@ -4,6 +4,8 @@ import { randomUUID } from 'node:crypto'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { withRLS, orgMembersFor, type Tx } from '@/lib/db'
+import { EDITOR_SUBDOMAIN } from '@/lib/editor-url'
+import { sendInvitationEmail } from '@/lib/email'
 
 // Same session() idiom as lib/actions/diagrams.ts, extended with the display
 // fields getMe needs (email + user_metadata) — GitHub OAuth is the only
@@ -170,7 +172,10 @@ export async function renameOrganization(id: string, name: string): Promise<Acti
 export type OrgMember = { userId: string; email: string; displayName: string; isOwner: boolean }
 export type OrgInvitation = { email: string; isOwner: boolean; createdAt: Date }
 export type OrgRoster = { members: OrgMember[]; invitations: OrgInvitation[] }
-export type ActionResult = { ok: true } | { ok: false; error: string }
+// `warning` is OPTIONAL and only ever set on the ok branch — every existing
+// `if (!result.ok)` / `result.error` consumer keeps compiling unchanged; only
+// inviteMember's degraded path (row written, email not sent) sets it.
+export type ActionResult = { ok: true; warning?: string } | { ok: false; error: string }
 
 const EMAIL_SHAPE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -230,25 +235,40 @@ export async function listOrgRoster(organizationId: string): Promise<OrgRoster> 
   }
 }
 
+// The invitation email links to the editor itself, not to a per-invite
+// token — see the module-level note above sendInvitationEmail's caller for
+// why. NEXT_PUBLIC_SITE_URL wins when set (so a preview deploy's email
+// points at itself); otherwise this falls back to the same
+// request-independent EDITOR_SUBDOMAIN constant lib/editor-url.ts already
+// uses for canonical links, rather than inventing a second env var.
+function inviteAppUrl(): string {
+  return process.env.NEXT_PUBLIC_SITE_URL || `https://${EDITOR_SUBDOMAIN}`
+}
+
 export async function inviteMember(organizationId: string, rawEmail: string): Promise<ActionResult> {
-  const { jwt, userId } = await session()
+  const { jwt, userId, email: callerEmail, userMetadata } = await session()
   const email = rawEmail.trim().toLowerCase()
   if (!EMAIL_SHAPE.test(email)) {
     return { ok: false, error: 'Enter a valid email address.' }
   }
 
+  let organizationName = 'this organization'
   try {
     // Pre-checks are advisory (a small TOCTOU race against a concurrent
     // invite/join is accepted, same posture as getMe's bootstrap race) — the
     // invitations PK (organization_id, email) is the real backstop, and a
-    // race there surfaces through the catch below as a friendly error.
-    const { isOwner, members, alreadyInvited } = await withRLS(jwt, async (tx) => ({
+    // race there surfaces through the catch below as a friendly error. The
+    // org row is read here too, purely for the invitation email's copy — its
+    // absence isn't a failure condition, hence the plain fallback above
+    // rather than threading an Optional through the destructure below.
+    const { isOwner, members, alreadyInvited, org } = await withRLS(jwt, async (tx) => ({
       isOwner: await callerIsOwner(tx, organizationId, userId),
       members: await orgMembersFor(tx, organizationId),
       alreadyInvited: await tx.orm.public.invitations.first({
         organization_id: organizationId,
         email,
       }),
+      org: await tx.orm.public.organizations.first({ id: organizationId }),
     }))
     if (!isOwner) return NOT_OWNER
     if (members.some((m) => m.email.toLowerCase() === email)) {
@@ -257,6 +277,7 @@ export async function inviteMember(organizationId: string, rawEmail: string): Pr
     if (alreadyInvited) {
       return { ok: false, error: 'This person has already been invited.' }
     }
+    if (org?.name) organizationName = org.name
 
     // invitations_owner_all's withCheck enforces the caller is an owner of
     // organizationId — a non-owner's insert is rejected by RLS and lands in
@@ -274,6 +295,35 @@ export async function inviteMember(organizationId: string, rawEmail: string): Pr
   }
 
   revalidatePath('/editor', 'layout')
+
+  // The email is a courtesy notification, not part of the invite's contract
+  // — the invitations row above is already the durable, authoritative state
+  // (acceptance matches on it at sign-in, see getMe). sendInvitationEmail
+  // itself never throws, but the try/catch is kept anyway as a hard backstop
+  // so a defect in this call can never turn a successful invite into a
+  // reported failure.
+  try {
+    const invitedByName = displayNameOf(callerEmail, userMetadata)
+    const result = await sendInvitationEmail({
+      to: email,
+      organizationName,
+      invitedByName,
+      appUrl: inviteAppUrl(),
+    })
+    if (!result.sent) {
+      return {
+        ok: true,
+        warning: 'Invitation created, but the email could not be sent — tell them to sign in with this address.',
+      }
+    }
+  } catch (err) {
+    console.error('inviteMember: sendInvitationEmail threw unexpectedly:', err)
+    return {
+      ok: true,
+      warning: 'Invitation created, but the email could not be sent — tell them to sign in with this address.',
+    }
+  }
+
   return { ok: true }
 }
 

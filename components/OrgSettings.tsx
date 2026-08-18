@@ -49,10 +49,14 @@ export default function OrgSettings({ organizationId, organizationName, onClose 
   const [nameError, setNameError] = useState<string | null>(null)
   const nameInputRef = useRef<HTMLInputElement>(null)
 
-  // Invite field.
+  // Invite field. inviteWarning is set instead of inviteSuccess when the
+  // invitations row was written but the notification email could not be
+  // sent (see inviteMember's ActionResult.warning) — the invite itself still
+  // succeeded, so this renders in a non-alarming style, not as an error.
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviteError, setInviteError] = useState<string | null>(null)
   const [inviteSuccess, setInviteSuccess] = useState(false)
+  const [inviteWarning, setInviteWarning] = useState<string | null>(null)
   const [isInviting, startInviteTransition] = useTransition()
 
   // Which roster action is in flight, if any — keys the specific row/button
@@ -136,6 +140,7 @@ export default function OrgSettings({ organizationId, organizationName, onClose 
     if (!email || isInviting) return
     setInviteError(null)
     setInviteSuccess(false)
+    setInviteWarning(null)
     startInviteTransition(async () => {
       const result = await inviteMember(organizationId, email)
       if (!result.ok) {
@@ -143,7 +148,8 @@ export default function OrgSettings({ organizationId, organizationName, onClose 
         return
       }
       setInviteEmail('')
-      setInviteSuccess(true)
+      if (result.warning) setInviteWarning(result.warning)
+      else setInviteSuccess(true)
       await reload()
     })
   }
@@ -282,7 +288,7 @@ export default function OrgSettings({ organizationId, organizationName, onClose 
                   placeholder="name@example.com"
                   value={inviteEmail}
                   disabled={isInviting}
-                  onChange={(e) => { setInviteEmail(e.target.value); setInviteError(null); setInviteSuccess(false) }}
+                  onChange={(e) => { setInviteEmail(e.target.value); setInviteError(null); setInviteSuccess(false); setInviteWarning(null) }}
                   onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); onInvite() } }}
                 />
                 <button type="button" className="btn btn--primary" disabled={!inviteEmail.trim() || isInviting} onClick={onInvite}>
@@ -290,6 +296,7 @@ export default function OrgSettings({ organizationId, organizationName, onClose 
                 </button>
               </div>
               {inviteError && <div className="org-settings-error">{inviteError}</div>}
+              {inviteWarning && <div className="org-settings-warning">{inviteWarning}</div>}
               {inviteSuccess && <div className="org-settings-success">Invitation sent.</div>}
             </div>
           </div>

@@ -478,3 +478,11 @@ html, body { background: #ffffff; }
   font-size: 0.8125rem;
   color: var(--color-success);
 }
+/* Invite succeeded but the notification email couldn't be sent (e.g. no
+   Brevo key configured locally/in previews) — the invitations row still
+   stands, so this reads as neutral information, not a failure: same slot
+   as .org-settings-success, muted rather than red or green. */
+.org-settings-warning {
+  font-size: 0.8125rem;
+  color: var(--color-muted-foreground);
+}
