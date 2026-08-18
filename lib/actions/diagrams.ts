@@ -17,20 +17,24 @@ async function session() {
   return { jwt: s.access_token, userId: s.user.id }
 }
 
-export async function listDiagrams(): Promise<DiagramRow[]> {
+export async function listDiagrams(organizationId: string): Promise<DiagramRow[]> {
   const { jwt } = await session()
   return withRLS(jwt, (tx) =>
-    tx.select().from(diagrams).orderBy(desc(diagrams.updatedAt)),
+    tx
+      .select()
+      .from(diagrams)
+      .where(eq(diagrams.organizationId, organizationId))
+      .orderBy(desc(diagrams.updatedAt)),
   )
 }
 
-export async function createDiagram(title?: string): Promise<DiagramRow> {
-  const { jwt, userId } = await session()
+export async function createDiagram(organizationId: string, title?: string): Promise<DiagramRow> {
+  const { jwt } = await session()
   const rows = await withRLS(jwt, (tx) =>
     tx
       .insert(diagrams)
       .values({
-        ownedBy: userId,
+        organizationId,
         title: title ?? 'Untitled',
         data: emptyData,
       })

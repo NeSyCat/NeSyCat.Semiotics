@@ -6,6 +6,8 @@ import { COOKIE_DOMAIN, editorHrefForHost, isNesycatHost } from '@/lib/editor-ur
 import { withRLS } from '@/lib/db'
 import { diagrams } from '@/_concept/03-orm-schema/schema'
 import { emptyData } from '@/lib/constants'
+import { getMe } from '@/lib/actions/organizations'
+import { resolveActiveOrg } from '@/lib/active-org'
 
 export async function GET(request: NextRequest) {
   const { searchParams, origin, host } = new URL(request.url)
@@ -49,7 +51,6 @@ export async function GET(request: NextRequest) {
   }
 
   const jwt = data.session.access_token
-  const userId = data.session.user.id
 
   // Resolve the post-login destination right here, so the browser makes
   // exactly one redirect hop instead of three (callback → /editor resolver
@@ -66,10 +67,16 @@ export async function GET(request: NextRequest) {
     if (rows[0]) {
       diagramId = rows[0].id
     } else {
+      // No diagrams yet for this user's orgs — getMe() bootstraps a personal
+      // org on first login (or returns existing memberships), then we pick
+      // the active one the same way every other entry point does.
+      const me = await getMe()
+      const org = await resolveActiveOrg(me)
+      if (!org) throw new Error('no organization membership')
       const inserted = await withRLS(jwt, (tx) =>
         tx
           .insert(diagrams)
-          .values({ ownedBy: userId, title: 'Untitled', data: emptyData })
+          .values({ organizationId: org, title: 'Untitled', data: emptyData })
           .returning({ id: diagrams.id }),
       )
       diagramId = inserted[0].id

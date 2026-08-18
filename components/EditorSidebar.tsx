@@ -23,7 +23,15 @@ import DiagramItem from '@/components/DiagramItem'
 const UUID_IN_PATH = /\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?:\/|$)/i
 
 // ── EditorSidebar ────────────────────────────────────────────────────────────
-export default function EditorSidebar({ diagrams }: { diagrams: Diagram[] }) {
+export default function EditorSidebar({
+  diagrams,
+  activeOrgId,
+}: {
+  diagrams: Diagram[]
+  // Computed server-side (resolveActiveOrg) in app/editor/layout.tsx — new
+  // diagrams from the sidebar's "+" button go into the active org.
+  activeOrgId: string
+}) {
   const router = useRouter()
   const pathname = usePathname()
   const [open, setOpen] = useState(true)
@@ -69,7 +77,7 @@ export default function EditorSidebar({ diagrams }: { diagrams: Diagram[] }) {
     setCreating(true)
     startNavTransition(async () => {
       try {
-        const row = await createDiagram()
+        const row = await createDiagram(activeOrgId)
         setOptimisticNew(row)
         setOptimisticId(row.id)
         router.push(clientEditorHref(row.id))

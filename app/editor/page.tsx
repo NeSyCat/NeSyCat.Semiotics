@@ -1,6 +1,8 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { createDiagram, listDiagrams } from '@/lib/actions/diagrams'
+import { getMe } from '@/lib/actions/organizations'
+import { resolveActiveOrg } from '@/lib/active-org'
 import { serverCallbackUrl, serverEditorHref } from '@/lib/editor-url.server'
 import AnonymousEditor from '@/components/editor/AnonymousEditor'
 import AuthSharePill from '@/components/AuthSharePill'
@@ -14,14 +16,20 @@ export default async function EditorIndex() {
     return (
       <AnonymousEditor
         topRight={
-          <AuthSharePill isSignedIn={false} callbackUrl={await serverCallbackUrl()} />
+          <AuthSharePill callbackUrl={await serverCallbackUrl()} />
         }
       />
     )
   }
 
-  const list = await listDiagrams()
+  const me = await getMe()
+  const org = await resolveActiveOrg(me)
+  // getMe() always bootstraps at least one membership, so this can't fire —
+  // resolveActiveOrg is typed honestly (null when memberships is empty) so
+  // we still guard rather than assert.
+  if (!org) throw new Error('no organization membership')
+  const list = await listDiagrams(org)
   if (list.length > 0) redirect(await serverEditorHref(list[0].id))
-  const row = await createDiagram()
+  const row = await createDiagram(org)
   redirect(await serverEditorHref(row.id))
 }

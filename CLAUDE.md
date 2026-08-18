@@ -63,15 +63,23 @@ Supabase's GitHub integration auto-applies migrations from
 `<workdir>/supabase/migrations/` and reads config from
 `<workdir>/supabase/config.toml`. Its working dir is `.` (repo root), so it
 looks at the root. Our canonical locations are deeper, per the `_concept/`
-taxonomy:
+taxonomy — bridged by symlinks, whose DIRECTION matters:
 
-- migrations: `_concept/03-orm-schema/migrations/` (Drizzle's `out:` target)
-- config:     `_concept/04-data-schema/config.toml`
+- migrations: REAL files live in `supabase/migrations/` (Drizzle's `out:`
+  path `_concept/03-orm-schema/migrations` is a symlink into it, so the
+  taxonomy path keeps working). The integration's change detection reads
+  git DIFF PATHS, and a diff never contains paths behind a symlink — with
+  the real files on the `_concept/` side (the original layout), every
+  migration PR reported "No changes detected in `supabase` directory" and
+  Supabase skipped branching entirely (discovered on PR #95). Real files
+  must stay on the `supabase/` side.
+- config: `supabase/config.toml` is still a symlink to the real
+  `_concept/04-data-schema/config.toml`. The integration READS it fine
+  (symlinks resolve in a checkout; only diff detection is blind to them),
+  but a config-only change won't trigger a Supabase run on its own.
 
-`supabase/` at root is a real directory containing two symlinks bridging
-both. Drizzle remains the single source of truth for migrations; Supabase
-reads through the bridge. Don't put real files in `supabase/` — only
-symlinks back into `_concept/`.
+Drizzle remains the single source of truth for migrations; it just writes
+through the `_concept/` symlink now.
 
 ## Branch + PR strategy
 
