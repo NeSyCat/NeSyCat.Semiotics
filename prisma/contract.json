@@ -117,13 +117,6 @@
                   "kind": "scalar"
                 }
               },
-              "id": {
-                "nullable": false,
-                "type": {
-                  "codecId": "pg/uuid@1",
-                  "kind": "scalar"
-                }
-              },
               "is_owner": {
                 "nullable": false,
                 "type": {
@@ -174,9 +167,6 @@
               "fields": {
                 "created_at": {
                   "column": "created_at"
-                },
-                "id": {
-                  "column": "id"
                 },
                 "is_owner": {
                   "column": "is_owner"
@@ -522,15 +512,6 @@
                   "nativeType": "timestamptz",
                   "nullable": false
                 },
-                "id": {
-                  "codecId": "pg/uuid@1",
-                  "default": {
-                    "expression": "gen_random_uuid()",
-                    "kind": "function"
-                  },
-                  "nativeType": "uuid",
-                  "nullable": false
-                },
                 "is_owner": {
                   "codecId": "pg/bool@1",
                   "default": {
@@ -581,17 +562,11 @@
               "indexes": [],
               "primaryKey": {
                 "columns": [
-                  "id"
+                  "user_id",
+                  "organization_id"
                 ]
               },
-              "uniques": [
-                {
-                  "columns": [
-                    "user_id",
-                    "organization_id"
-                  ]
-                }
-              ]
+              "uniques": []
             },
             "organizations": {
               "columns": {
@@ -643,7 +618,7 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "ff79b3720557262b934f7d3b314ccd65d56541dbaadd82829908b475f93f988f"
+    "storageHash": "0abd273ae75145dbb55ab798e5ad1d62e4d19b4c9b5377b438b22b345bfcd338"
   },
   "capabilities": {
     "postgres": {

@@ -38,11 +38,19 @@
 // Contract inferred from the live database schema. Edit as needed, then run `prisma contract emit`.
 
 namespace public {
+  
+  //-------- Entities --------#
+
   model organizations {
-    id          Uuid          @id @default(dbgenerated("gen_random_uuid()"))
+    //Primary Key
+    id              Uuid          @id @default(dbgenerated("gen_random_uuid()"))
+    
+    //Attributes
     name        String
     created_at  Timestamptz   @default(now())
     updated_at  Timestamptz   @default(now())
+
+    //Incoming FKs
     diagrams    diagrams[]
     memberships memberships[]
 
@@ -50,29 +58,43 @@ namespace public {
   }
 
   model diagrams {
+    //Primary Key
     id              Uuid          @id @default(dbgenerated("gen_random_uuid()"))
+
+    //Attributes
     title           String
     data            Jsonb
     created_at      Timestamptz   @default(now())
     updated_at      Timestamptz   @default(now())
+
+    //Outgoing FKs
     organization_id Uuid
     organization    organizations @relation(fields: [organization_id], references: [id], index: false)
 
     @@rls
   }
 
+  //-------- Relationships --------#
+
   model memberships {
-    id              Uuid          @id @default(dbgenerated("gen_random_uuid()"))
+    //Primary Key
     user_id         Uuid
     organization_id Uuid
+    @@id([user_id, organization_id])
+
+    //Attributes
     is_owner        Boolean       @default(false)
     created_at      Timestamptz   @default(now())
     updated_at      Timestamptz   @default(now())
+
+    //Outgoing FKs
     organization    organizations @relation(fields: [organization_id], references: [id], index: false)
 
-    @@unique([user_id, organization_id])
     @@rls
   }
+
+
+  //-------- Policies --------#
 
   policy_all diagrams_member_all {
     target = diagrams
