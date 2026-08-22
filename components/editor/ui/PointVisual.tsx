@@ -165,7 +165,7 @@ export function PointVisual({ pid, pt, anchor, labelSplay, hid, isSelected, isHo
         style={{ position: 'absolute', ...lblPos, zIndex: 0, pointerEvents: 'none' }}
       >
         <span style={{ visibility: 'hidden' }}>
-          <Tex fontSize={POINT_NAME_SIZE} color={theme.text.ink}>{pt.name ?? pid}</Tex>
+          <Tex fontSize={POINT_NAME_SIZE} color={theme.text.ink}>{pt.name ?? ''}</Tex>
         </span>
         <span style={{
           position: 'absolute', left: -2, right: -2, top: '15%', bottom: '15%',
@@ -178,7 +178,7 @@ export function PointVisual({ pid, pt, anchor, labelSplay, hid, isSelected, isHo
         onClick={(e) => onSelect(e, pid)}
         style={{ position: 'absolute', ...lblPos, zIndex: 4, cursor: 'pointer' }}
       >
-        <Tex fontSize={POINT_NAME_SIZE} color={theme.text.ink}>{pt.name ?? pid}</Tex>
+        <Tex fontSize={POINT_NAME_SIZE} color={theme.text.ink}>{pt.name ?? ''}</Tex>
       </div>
     </span>
   )
