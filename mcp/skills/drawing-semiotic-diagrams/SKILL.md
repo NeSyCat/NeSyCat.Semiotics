@@ -27,12 +27,46 @@ A diagram is `{ schemaVersion: 1, forms: Form[], points: Record<id, Point>, line
   A fork is **several separate wires** from the same source point, each independently named — never
   one wire with many targets (that would force one shared name across branches).
 
-## The core encoding — points are TYPES, wires are NAMES
+## The core encoding — a field IS a wire–point pair
 
 This is the rule that everything else follows:
 
 - **A point = a type** (its `name` is a type: `\mathtt{String}`, `\mathtt{ObjectID}`, a model name).
 - **A wire = a named thing** connecting typed points (its `name` is the field/relation name).
+
+### A field = a wire–point pair = a key–type pair
+
+In Prisma/TypeScript a field is written `key: Type` (`name: String`, `author: User`). The diagram
+**is** that pair:
+
+- the **wire is the key** — the field name (`name`, `email`, `author`, `street`);
+- the **point is the type** — the codomain. **Which** type depends *only on where that point sits*:
+  - point on an **`empty`** form → a **scalar** (`String`, `ObjectId`, …);
+  - point on a **square** → **that model** (a relation);
+  - point on a **circle** → a **compound type**.
+
+So every field, in every model and every compound type, is **one wire : point = one key : type** — a
+single property. The min/max glyph on the point just **decorates** the type (`T` / `T?` / `T[]`). That
+is the whole grammar:
+
+```
+model / type  =  a set of  (wire, point)  pairs
+              =  a set of  (key,  type)   pairs
+```
+
+### The triangle is the one non-field
+
+The **triangle** is the single thing that is *not* a key→type field: it's the **coproduct /
+discriminator** gluing variants to a base, so it maps to `@@discriminator` / `@@base`, not to a
+`field: Type`.
+
+- The discriminator itself **is still a normal field**: `kind`'s wire is the key, its point (a
+  `String` type-node on the peak) is the type → emitted as `kind String` + `@@discriminator(kind)`.
+- The only genuine exception is each **variant injection** wire (`article`, `tutorial` → the base):
+  its key is the variant field name and its "value" is the **base table**, not a type. The base is
+  **implicit in the triangle connection**, so it maps to `@@base(Post, "article")` — and the
+  injection's **target point is left BLANK** (do *not* label it with the base model's name; that
+  label is redundant and the exporter never reads it).
 
 ### Schema → shapes
 
@@ -106,7 +140,7 @@ variant named after its discriminator value. Variant models carry only their *ow
 Tools: `list_organizations`, `list_diagrams`, `get_diagram`, `create_diagram`, `update_diagram`,
 `rename_diagram`, `delete_diagram` (needs `confirm: true`), `duplicate_diagram`; drawing ops
 `add_form`, `add_point`, `add_line`, `remove_element`, `set_element_name`, `move_form`;
-`validate_diagram`, `import_diagram`, `export_diagram` (`json` | `tikz` | `html`).
+`validate_diagram`, `import_diagram`, `export_diagram` (`json` | `tikz` | `html` | `prisma`).
 
 Build the full `{schemaVersion, forms, points, lines}` and `create_diagram`/`update_diagram`, or
 draw incrementally with the ops. Every write is validated (dangling references are refused). Before
