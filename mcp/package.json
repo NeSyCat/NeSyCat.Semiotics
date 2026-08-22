@@ -1,0 +1,27 @@
+{
+  "name": "nesycat-semiotics-mcp",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Local stdio MCP server exposing full CRUD + drawing control over NeSyCat Semiotics diagrams, authenticated AS the signed-in user (Supabase GitHub PKCE) so Postgres RLS scopes every query to that user's organizations — no service-role key, no direct DB connection.",
+  "scripts": {
+    "start": "tsx src/index.ts",
+    "login": "tsx src/login.ts",
+    "whoami": "tsx src/whoami.ts",
+    "logout": "tsx src/logout.ts",
+    "build": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@supabase/supabase-js": "^2.104.0",
+    "dotenv": "^16.4.7",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}
