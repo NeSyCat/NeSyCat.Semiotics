@@ -143,6 +143,29 @@ describe('co-edge point-label splay', () => {
     expect(tikz, 'TikZ output contains the Tutorial label').toContain('\\mathtt{Tutorial}')
   })
 
+  it('no splay on an unrotated VERTICAL edge — labels keep their plain horizontal offset', () => {
+    // three points on a square's left edge (unrotated): labels extend left and
+    // stack vertically, so they must NOT be splayed along the edge (the bug).
+    const d: Diagram = {
+      schemaVersion: 1,
+      forms: [{ id: 'F', shape: 'square', position: { x: 0, y: 0 }, edges: { top: [], right: [], bottom: [], left: ['a', 'b', 'c'] } }],
+      points: {
+        a: { id: 'a', shape: 'empty', formId: 'F', edgeKey: 'left', name: 'x' },
+        b: { id: 'b', shape: 'empty', formId: 'F', edgeKey: 'left', name: 'y' },
+        c: { id: 'c', shape: 'empty', formId: 'F', edgeKey: 'left', name: 'z' },
+      },
+      lines: [],
+    }
+    const pos = pointPositionsPx(d)
+    const cmds = buildDrawCmds(d)
+    for (const nm of ['x', 'y', 'z']) {
+      const id = nm === 'x' ? 'a' : nm === 'y' ? 'b' : 'c'
+      const lbl = findLabel(cmds, nm)
+      // left-cardinal label: at.y must equal the point's own y (no vertical splay)
+      expect(lbl.at.y, `left-edge label ${nm} keeps its point's y (no vertical splay)`).toBeCloseTo(pos.get(id)!.pos.y, 6)
+    }
+  })
+
   it('sanity: HTML/SVG export for the 2-point triangle base still emits BOTH point labels', () => {
     const svg = diagramToHtmlCore(triangleBase)
     expect(svg, 'SVG output contains the Article label text').toContain('Article')

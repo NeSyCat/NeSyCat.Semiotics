@@ -46,7 +46,7 @@ const SPLAY_PX = 40
 // so canvas and exports agree pixel-for-pixel — see that function's own
 // comment for the full rationale (why a roughly-horizontal rotated edge
 // ends up splaying in screen-X, an unrotated vertical edge in screen-Y).
-function edgeLabelSplay(geom: FormGeometry, edgeKey: EdgeKey, index: number, count: number, n: number): { x: number; y: number } {
+function edgeLabelSplay(geom: FormGeometry, edgeKey: EdgeKey, index: number, count: number, n: number, rotation: number): { x: number; y: number } {
   if (count <= 1) return { x: 0, y: 0 }
   const mid = (count - 1) / 2
   const sign = Math.sign(index - mid)
@@ -57,6 +57,13 @@ function edgeLabelSplay(geom: FormGeometry, edgeKey: EdgeKey, index: number, cou
   const ty = end.y - start.y
   const len = Math.hypot(tx, ty)
   if (len < 1e-6) return { x: 0, y: 0 } // degenerate edge — no meaningful tangent, no bias
+  // Only splay a SCREEN-horizontal edge (see geometry-ir's edgeLabelSplayLocal):
+  // rotate the local tangent by the form's rotation (clockwise, Y-down) and bail
+  // if the result is more vertical than horizontal.
+  const th = (rotation * Math.PI) / 180
+  const sx = tx * Math.cos(th) - ty * Math.sin(th)
+  const sy = tx * Math.sin(th) + ty * Math.cos(th)
+  if (Math.abs(sy) > Math.abs(sx)) return { x: 0, y: 0 }
   return { x: (sign * SPLAY_PX * tx) / len, y: (sign * SPLAY_PX * ty) / len }
 }
 
@@ -315,7 +322,7 @@ function FormNode({ id, data, selected }: NodeProps) {
       const pt = points[pid]
       if (!pt) return
       const anchor = geom.pointAnchor(edgeKey, index, ids.length, n)
-      const labelSplay = edgeLabelSplay(geom, edgeKey, index, ids.length, n)
+      const labelSplay = edgeLabelSplay(geom, edgeKey, index, ids.length, n, form.rotation ?? 0)
       // gapBody is the POINT's own shape geometry (not the parent form's) —
       // the cutout must match what's actually sitting there.
       if (pt.shape !== 'empty') gapPoints.push({ x: anchor.x, y: anchor.y, gapBody: geometryFor(pt.shape).body })
