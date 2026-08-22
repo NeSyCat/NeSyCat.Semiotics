@@ -20,7 +20,7 @@
 //      happens downstream, in each backend module — not here.
 
 import { geometryFor, pointIdsAt, bodyCentroid, POINT_SIZE, type Body } from '../domain/forms'
-import type { Diagram, Form, Point, Shape, Color } from '../domain/types'
+import type { Diagram, Form, Point, Shape, Color, EdgeKey } from '../domain/types'
 
 export interface Vec { x: number; y: number }
 
@@ -100,6 +100,13 @@ interface PointPx {
   // forms.ts's Anchor) — decides which way small glyphs/labels face.
   cardinal: string
   layout: FormLayout
+  // Which edge this point sits on, and its 0-based position/count among
+  // that edge's OTHER points — carried through so label placement can
+  // splay same-edge labels apart (see edgeLabelSplayLocal below). Not used
+  // for anything else (glyph/wire placement stays purely anchor-driven).
+  edgeKey: EdgeKey
+  siblingIndex: number
+  siblingCount: number
 }
 
 // Every point's absolute, rotated flow-px position (+ the form it sits on),
@@ -115,7 +122,15 @@ export function pointPositionsPx(diagram: Diagram): Map<string, PointPx> {
       ids.forEach((pid, index) => {
         const anchor = geom.pointAnchor(edgeKey, index, ids.length, layout.n)
         const local = { x: anchor.x, y: anchor.y }
-        out.set(pid, { pos: layout.toAbs(local), local, cardinal: String(anchor.position), layout })
+        out.set(pid, {
+          pos: layout.toAbs(local),
+          local,
+          cardinal: String(anchor.position),
+          layout,
+          edgeKey,
+          siblingIndex: index,
+          siblingCount: ids.length,
+        })
       })
     }
   }
@@ -165,6 +180,10 @@ const LINE_STROKE_PT = 0.4
 // canvas <-> TikZ <-> HTML stay in visual lockstep.
 const POINT_GLYPH_R = POINT_SIZE / 2
 const LABEL_GAP_PX = 11 // matches FormNode.tsx's point-label GAP
+// Extra along-EDGE nudge for a point's label when it shares its edge with
+// other points — see edgeLabelSplayLocal below. Matches FormNode.tsx's own
+// SPLAY_PX (kept in sync by hand, same pattern as LABEL_GAP_PX/GAP above).
+const SPLAY_PX = 40
 // White, as a Color triple — the export glyph's default (uncolored) fill,
 // and the backing every colored glyph's tint flattens over (see
 // flattenOverWhite). Exports assume a white background (unlike canvas).
@@ -275,6 +294,44 @@ function buildFormCmds(form: Form, cmds: DrawCmd[]) {
   }
 }
 
+// Fix for "two named points on the same edge collide" (e.g. a discriminated
+// -union triangle's base with 'Article'/'Tutorial'): when a point shares its
+// edge with siblings, nudge its label an EXTRA fixed distance along the
+// edge's own tangent direction — sign flips by whether this point sits
+// before or after its siblings' midpoint index, so adjacent labels grow
+// APART instead of stacking on top of each other. A lone point, or the
+// exact centre point of an odd-count edge, gets zero bias (unchanged).
+//
+// Deliberately pure (index, count) + real pointAnchor geometry — NO DOM
+// text-width measurement (exports have no DOM) and no dependency on the
+// label text itself. The tangent is derived from the edge's own first/last
+// sibling anchors (in the SAME pre-rotation local frame buildPointLabelCmd's
+// `local + offset` already lives in), so it automatically comes out through
+// the SAME toAbs rotation as everything else: a roughly-horizontal edge
+// (e.g. this triangle's base at rotation 270, where a normally-vertical
+// side becomes horizontal on screen) ends up splaying its labels apart in
+// screen-X — which is exactly the collision the ticket describes — while an
+// unrotated vertical edge splays in screen-Y, harmlessly (its labels were
+// already spaced apart by pointAnchor there).
+//
+// Mirror EXACTLY in ui/FormNode.tsx's edgeLabelSplay — canvas and exports
+// must agree pixel-for-pixel (same rule as LABEL_GAP_PX/GAP above).
+function edgeLabelSplayLocal(px: PointPx): Vec {
+  const { edgeKey, siblingIndex: index, siblingCount: count, layout } = px
+  if (count <= 1) return { x: 0, y: 0 }
+  const mid = (count - 1) / 2
+  const sign = Math.sign(index - mid)
+  if (sign === 0) return { x: 0, y: 0 } // exact centre of an odd-count edge
+  const geom = geometryFor(layout.form.shape)
+  const start = geom.pointAnchor(edgeKey, 0, count, layout.n)
+  const end = geom.pointAnchor(edgeKey, count - 1, count, layout.n)
+  const tx = end.x - start.x
+  const ty = end.y - start.y
+  const len = Math.hypot(tx, ty)
+  if (len < 1e-6) return { x: 0, y: 0 } // degenerate edge — no meaningful tangent, no bias
+  return { x: (sign * SPLAY_PX * tx) / len, y: (sign * SPLAY_PX * ty) / len }
+}
+
 // Points render a label ONLY when explicitly named (unlike forms/lines,
 // which always show a name-or-id label on screen) — an un-named point's
 // auto id (P1, P2, …) would clutter an exported figure with noise nobody
@@ -283,7 +340,8 @@ function buildFormCmds(form: Form, cmds: DrawCmd[]) {
 function buildPointLabelCmd(pt: Point, px: PointPx): DrawCmd | null {
   if (!pt.name) return null
   const { offset, anchor } = labelAnchorFor(px.cardinal)
-  const at = px.layout.toAbs({ x: px.local.x + offset.x, y: px.local.y + offset.y })
+  const splay = edgeLabelSplayLocal(px)
+  const at = px.layout.toAbs({ x: px.local.x + offset.x + splay.x, y: px.local.y + offset.y + splay.y })
   return { kind: 'label', at, text: mathWrap(pt.name), anchor, masked: true }
 }
 
