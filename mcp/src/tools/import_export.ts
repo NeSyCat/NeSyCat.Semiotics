@@ -7,6 +7,7 @@ import { validateDiagram } from '../diagram/ops.js'
 import { restoreDiagram } from '../../../components/editor/persist/io.js'
 import { diagramToTikzCore } from '../../../components/editor/export/tikz.js'
 import { diagramToHtmlCore } from '../../../components/editor/export/html.js'
+import { diagramToPrisma } from '../../../components/editor/export/prisma.js'
 
 export function registerImportExportTools(server: McpServer, getClient: () => SupabaseClient) {
   server.registerTool(
@@ -46,8 +47,8 @@ export function registerImportExportTools(server: McpServer, getClient: () => Su
     {
       title: 'Export diagram',
       description:
-        "Export a diagram as json (the raw data blob), tikz (LaTeX/TikZ source), or html (a self-contained SVG snippet).",
-      inputSchema: { id: z.string().uuid(), format: z.enum(['json', 'tikz', 'html']) },
+        "Export a diagram as json (the raw data blob), tikz (LaTeX/TikZ source), html (a self-contained SVG snippet), or prisma (a Prisma Next schema generated from the diagram's models/fields/multiplicities).",
+      inputSchema: { id: z.string().uuid(), format: z.enum(['json', 'tikz', 'html', 'prisma']) },
     },
     async ({ id, format }) => {
       const { data: row, error } = await getClient().from('diagrams').select('*').eq('id', id).maybeSingle()
@@ -57,6 +58,7 @@ export function registerImportExportTools(server: McpServer, getClient: () => Su
       const diagram = restoreDiagram(row.data)
       if (format === 'json') return text({ id, format, content: diagram })
       if (format === 'tikz') return text({ id, format, content: diagramToTikzCore(diagram) })
+      if (format === 'prisma') return text({ id, format, content: diagramToPrisma(diagram) })
       return text({ id, format, content: diagramToHtmlCore(diagram) })
     },
   )

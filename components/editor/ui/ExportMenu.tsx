@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react'
 import { encodeDiagramToFragment } from '../persist/share'
 import { diagramToTikz } from '../export/tikz'
 import { diagramToHtml } from '../export/html'
+import { diagramToPrisma } from '../export/prisma'
 import type { Diagram } from '../domain/types'
 import { CopyGlyph } from './sprite'
 
@@ -114,6 +115,7 @@ export function ExportMenu({ diagram }: { diagram: Diagram }) {
             }}
           />
           <ExportRow label="HTML" getText={() => diagramToHtml(diagram)} />
+          <ExportRow label="Prisma" getText={async () => diagramToPrisma(diagram)} />
         </div>
       )}
     </div>
