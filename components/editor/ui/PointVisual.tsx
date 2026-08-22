@@ -64,7 +64,7 @@ function PointGlyph({ shape, accent, isSelected, isHovered }: { shape: Shape; ac
 // point. Props are exactly what that loop body reads per-point; the
 // geometry loop itself (edgeKeys × pointIdsAt) stays in FormNode since it's
 // shared setup, not per-point rendering.
-export function PointVisual({ pid, pt, anchor, labelSplay, hid, isSelected, isHovered, formRotation, onSelect, onEmptyForm }: {
+export function PointVisual({ pid, pt, anchor, labelSplay, hid, isSelected, isHovered, formRotation, onSelect }: {
   pid: string
   pt: Point
   anchor: Anchor
@@ -79,11 +79,6 @@ export function PointVisual({ pid, pt, anchor, labelSplay, hid, isSelected, isHo
   isHovered: boolean
   formRotation: number
   onSelect: (e: React.MouseEvent, pid: string) => void
-  // Whether this point sits on an EMPTY form (a type node). Nameless points on
-  // empty forms render blank; nameless points elsewhere (ports on real forms —
-  // which the user always names) fall back to showing their id, so an unnamed
-  // one is still identifiable rather than an invisible mystery.
-  onEmptyForm: boolean
 }) {
   // Own color only — see PointGlyph's comment above for why this must NOT
   // fall back to the form's accent.
@@ -106,6 +101,12 @@ export function PointVisual({ pid, pt, anchor, labelSplay, hid, isSelected, isHo
       : anchor.position === Position.Right ? { left: lx + GAP, top: ly, transform: `translate(0, -50%)${counterRotate}` }
         : anchor.position === Position.Top ? { left: lx, top: ly - GAP, transform: `translate(-50%, -100%)${counterRotate}` }
           : { left: lx, top: ly + GAP, transform: `translate(-50%, 0)${counterRotate}` }
+  // The rendered label text: the point's own name, or its generated id ("p3")
+  // as a default placeholder. A cleared name ('' — set via renamePoints) yields
+  // an EMPTY label, in which case NOTHING is rendered (no text AND no mask), so
+  // a blank point never leaves a stray band masking the wires under it.
+  const labelText = pt.name ?? pid
+
   // Handles are 1px AT the glyph centre, so a line anchors dead-centre on the
   // point (RF pins a handle to its position-edge — a large handle offsets the
   // line). The source carries an ~18px transparent grab pad; its pointer
@@ -164,27 +165,31 @@ export function PointVisual({ pid, pt, anchor, labelSplay, hid, isSelected, isHo
           the actual fill is an INSET band, tighter than KaTeX's tall line
           box, so the mask doesn't blank the wire farther out than the
           glyphs themselves. */}
-      <div
-        className="point-label"
-        aria-hidden="true"
-        style={{ position: 'absolute', ...lblPos, zIndex: 0, pointerEvents: 'none' }}
-      >
-        <span style={{ visibility: 'hidden' }}>
-          <Tex fontSize={POINT_NAME_SIZE} color={theme.text.ink}>{pt.name ?? (onEmptyForm ? '' : pid)}</Tex>
-        </span>
-        <span style={{
-          position: 'absolute', left: -2, right: -2, top: '15%', bottom: '15%',
-          background: theme.canvas.background, borderRadius: 5,
-        }} />
-      </div>
-      <div
-        className="point-label"
-        data-point-id={pid}
-        onClick={(e) => onSelect(e, pid)}
-        style={{ position: 'absolute', ...lblPos, zIndex: 4, cursor: 'pointer' }}
-      >
-        <Tex fontSize={POINT_NAME_SIZE} color={theme.text.ink}>{pt.name ?? (onEmptyForm ? '' : pid)}</Tex>
-      </div>
+      {labelText !== '' && (
+        <>
+          <div
+            className="point-label"
+            aria-hidden="true"
+            style={{ position: 'absolute', ...lblPos, zIndex: 0, pointerEvents: 'none' }}
+          >
+            <span style={{ visibility: 'hidden' }}>
+              <Tex fontSize={POINT_NAME_SIZE} color={theme.text.ink}>{labelText}</Tex>
+            </span>
+            <span style={{
+              position: 'absolute', left: -2, right: -2, top: '15%', bottom: '15%',
+              background: theme.canvas.background, borderRadius: 5,
+            }} />
+          </div>
+          <div
+            className="point-label"
+            data-point-id={pid}
+            onClick={(e) => onSelect(e, pid)}
+            style={{ position: 'absolute', ...lblPos, zIndex: 4, cursor: 'pointer' }}
+          >
+            <Tex fontSize={POINT_NAME_SIZE} color={theme.text.ink}>{labelText}</Tex>
+          </div>
+        </>
+      )}
     </span>
   )
 }

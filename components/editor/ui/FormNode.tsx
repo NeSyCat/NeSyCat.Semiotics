@@ -344,7 +344,6 @@ function FormNode({ id, data, selected }: NodeProps) {
           isSelected={isSel}
           isHovered={isHovered}
           formRotation={form.rotation ?? 0}
-          onEmptyForm={form.shape === 'empty'}
           onSelect={selectPoint}
         />,
       )
