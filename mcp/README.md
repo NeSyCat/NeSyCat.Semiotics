@@ -119,3 +119,11 @@ dangling point→form reference, line→point reference, and form-edge→point r
 tool handlers in `src/tools/` are thin wrappers around this pure core (`src/diagram/ops.ts`) plus
 the actual `select`/`insert`/`update`/`delete` calls, so the core is testable without a live
 session or database.
+
+## Plugin / skill
+
+This directory is also a Claude Code **plugin** (`.claude-plugin/plugin.json`): it bundles the MCP
+server together with the **`drawing-semiotic-diagrams`** skill (`skills/…`), which documents the
+conventions for turning a Prisma Next contract into a sysmer diagram (shape mapping, `\mathtt{}`
+labels, grid snapping, relation direction, discriminated-union triangles). Installing the plugin
+registers both the tools and the skill.
