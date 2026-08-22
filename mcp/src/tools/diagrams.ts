@@ -5,7 +5,7 @@ import { text, errorText } from './result.js'
 import { resolveOrganizationId } from './org-resolve.js'
 import { restoreDiagram } from '../vendor/editor/persist/io.js'
 import { emptyDiagram } from '../diagram/defaults.js'
-import { duplicateData, duplicateTitle } from '../diagram/ops.js'
+import { duplicateData, duplicateTitle, validateDiagram } from '../diagram/ops.js'
 
 // `data` arrives from an LLM caller as arbitrary JSON — always run it
 // through restoreDiagram (persist/io.ts) before it ever reaches a write, the
@@ -55,10 +55,12 @@ export function registerDiagramTools(server: McpServer, getClient: () => Supabas
       inputSchema: { title: z.string().min(1), organizationId: z.string().uuid().optional(), data: dataSchema.optional() },
     },
     async ({ title, organizationId, data }) => {
+      const validated = validateDiagram(data ?? emptyDiagram())
+      if (!validated.ok) return errorText(`Diagram has dangling references, refusing to save:\n${validated.problems.join('\n')}`)
+      const diagramData = validated.diagram
       const client = getClient()
       const resolved = await resolveOrganizationId(client, organizationId)
       if ('error' in resolved) return errorText(resolved.error)
-      const diagramData = restoreDiagram(data ?? emptyDiagram())
       const { data: row, error } = await client
         .from('diagrams')
         .insert({ title, organization_id: resolved.organizationId, data: diagramData })
@@ -73,11 +75,13 @@ export function registerDiagramTools(server: McpServer, getClient: () => Supabas
     'update_diagram',
     {
       title: 'Update diagram',
-      description: "Full replace of a diagram's data, after restoreDiagram validation/normalization.",
+      description: "Full replace of a diagram's data, after normalization and referential validation (rejects dangling point/form/line references).",
       inputSchema: { id: z.string().uuid(), data: dataSchema },
     },
     async ({ id, data }) => {
-      const diagramData = restoreDiagram(data)
+      const validated = validateDiagram(data)
+      if (!validated.ok) return errorText(`Diagram has dangling references, refusing to save:\n${validated.problems.join('\n')}`)
+      const diagramData = validated.diagram
       const { data: row, error } = await getClient()
         .from('diagrams')
         .update({ data: diagramData, updated_at: new Date().toISOString() })
