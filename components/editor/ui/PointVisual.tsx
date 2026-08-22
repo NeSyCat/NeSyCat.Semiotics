@@ -64,7 +64,7 @@ function PointGlyph({ shape, accent, isSelected, isHovered }: { shape: Shape; ac
 // point. Props are exactly what that loop body reads per-point; the
 // geometry loop itself (edgeKeys × pointIdsAt) stays in FormNode since it's
 // shared setup, not per-point rendering.
-export function PointVisual({ pid, pt, anchor, labelSplay, hid, isSelected, isHovered, formRotation, onSelect }: {
+export function PointVisual({ pid, pt, anchor, labelSplay, hid, isSelected, isHovered, formRotation, onSelect, onEmptyForm }: {
   pid: string
   pt: Point
   anchor: Anchor
@@ -79,6 +79,11 @@ export function PointVisual({ pid, pt, anchor, labelSplay, hid, isSelected, isHo
   isHovered: boolean
   formRotation: number
   onSelect: (e: React.MouseEvent, pid: string) => void
+  // Whether this point sits on an EMPTY form (a type node). Nameless points on
+  // empty forms render blank; nameless points elsewhere (ports on real forms —
+  // which the user always names) fall back to showing their id, so an unnamed
+  // one is still identifiable rather than an invisible mystery.
+  onEmptyForm: boolean
 }) {
   // Own color only — see PointGlyph's comment above for why this must NOT
   // fall back to the form's accent.
@@ -165,7 +170,7 @@ export function PointVisual({ pid, pt, anchor, labelSplay, hid, isSelected, isHo
         style={{ position: 'absolute', ...lblPos, zIndex: 0, pointerEvents: 'none' }}
       >
         <span style={{ visibility: 'hidden' }}>
-          <Tex fontSize={POINT_NAME_SIZE} color={theme.text.ink}>{pt.name ?? ''}</Tex>
+          <Tex fontSize={POINT_NAME_SIZE} color={theme.text.ink}>{pt.name ?? (onEmptyForm ? '' : pid)}</Tex>
         </span>
         <span style={{
           position: 'absolute', left: -2, right: -2, top: '15%', bottom: '15%',
@@ -178,7 +183,7 @@ export function PointVisual({ pid, pt, anchor, labelSplay, hid, isSelected, isHo
         onClick={(e) => onSelect(e, pid)}
         style={{ position: 'absolute', ...lblPos, zIndex: 4, cursor: 'pointer' }}
       >
-        <Tex fontSize={POINT_NAME_SIZE} color={theme.text.ink}>{pt.name ?? ''}</Tex>
+        <Tex fontSize={POINT_NAME_SIZE} color={theme.text.ink}>{pt.name ?? (onEmptyForm ? '' : pid)}</Tex>
       </div>
     </span>
   )
