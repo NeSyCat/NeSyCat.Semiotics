@@ -207,6 +207,11 @@ input[type="search"]::-webkit-search-results-decoration {
 .editor-pill.pill .btn.btn-icon { width: 36px; }
 .editor-pill.pill .btn svg { width: 21px; height: 21px; }
 
+/* Export-panel Shiki code view: transparent so the glass panel shows through
+   (token colours stay inline from the theme); inherit the panel's coding font. */
+.export-shiki .shiki, .export-shiki .shiki code { background: transparent !important; }
+.export-shiki .shiki { margin: 0; padding: 0 14px 14px; font-family: inherit; }
+
 /* Centered toolbar pill track (MainToolbar/SecondToolbar, via
    CenteredPillRow) — see that component's comment for the collision-
    avoidance mechanism. --topright-width is set by TopRightPills (ref +
