@@ -2,20 +2,18 @@
 
 import type { ReactNode } from 'react'
 import { useEffect, useRef } from 'react'
-import type { Diagram } from '../../domain/types'
-import { ExportMenu } from '../ExportMenu'
 
 // Top-right pill cluster: [grid + points-visibility] [import/export]
 // [topRight — the auth/share pill], in that left-to-right order (the
 // cluster itself is right-anchored; import/export sits immediately LEFT of
 // the share pill, mirroring quiver's round-trip idiom).
 export function TopRightPills({
-  gridEnabled, toggleGridEnabled, pointsVisible, togglePointsVisible, diagram, onImportClick, topRight,
+  gridEnabled, toggleGridEnabled, pointsVisible, togglePointsVisible, onImportClick, onExportClick, topRight,
 }: {
   gridEnabled: boolean; toggleGridEnabled: () => void
   pointsVisible: boolean; togglePointsVisible: () => void
-  diagram: Diagram
   onImportClick: () => void
+  onExportClick: () => void
   topRight?: ReactNode
 }) {
   // Exposes this cluster's rendered width as --topright-width, mirroring how
@@ -58,14 +56,10 @@ export function TopRightPills({
           </button>
         </div>
         {/* Round trip: Import (paste a share link OR TikZ this editor
-            exported, opens a paste panel) on the left, Export (a Copy
-            URL / Copy TikZ code dropdown — minimalist, no code preview)
-            on the right — one pill, mirrored icons. */}
-        {/* position:relative lives HERE (the whole pill), not on ExportMenu's
-            own inner wrapper — the dropdown's `right: 0` needs to align with
-            the PILL's right edge, not just the Export button's slightly-
-            inset flex-item box, or it reads as sitting too far left. */}
-        <div className="pill editor-pill" style={{ position: 'relative' }}>
+            exported, opens a paste panel) on the left, Export (opens the
+            right-edge slide-in code panel) on the right — one pill,
+            mirrored icons. */}
+        <div className="pill editor-pill">
           <button
             className="btn btn-icon"
             title="Import from link or TikZ"
@@ -74,7 +68,9 @@ export function TopRightPills({
           >
             <svg aria-hidden="true"><use href="#ic-import" /></svg>
           </button>
-          <ExportMenu diagram={diagram} />
+          <button className="btn btn-icon" title="Export" aria-label="Export" onClick={onExportClick}>
+            <svg aria-hidden="true"><use href="#ic-export" /></svg>
+          </button>
         </div>
         {topRight}
       </div>
