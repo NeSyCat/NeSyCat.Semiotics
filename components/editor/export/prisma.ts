@@ -4,24 +4,26 @@
 // the browser (the Export menu) AND in plain node (the nesycat-semiotics MCP's
 // export_diagram tool) from the SAME function — one source of truth.
 //
-// It reads the diagram's "points are types, wires are names" encoding plus the
-// min/max glyph multiplicities:
-//   - square form            = a model
-//   - empty hub (fans out)   = a composite `type`
-//   - empty leaf type-node   = a scalar type (String, Int, …)
-//   - wire f: M → T          = a field `f` on M of type T
-//   - TARGET glyph            = the field's cardinality:
-//        rhombus + white  → T      (Identity,  1..1)
-//        rhombus + black  → T?     (Maybe,     0..1)
-//        square  + *      → T[]    (PowerSet / NonEmptyPowerSet, *..∞)
-//   - a wire onto another MODEL = a relation, declared on the OWNING side only
-//        (FK `fId` + `@relation`); the FK is `@unique` iff the SOURCE glyph is a
-//        single (diamond) — that turns one-to-many into one-to-one. No mirror
-//        field is emitted (Prisma Next doesn't support it; query from this side).
-//   - a variant model whose port injects into a discriminator point on a base
-//        → `@@base(Base, "tag")` on the variant, `@@discriminator(kind)` + a
-//        `kind String` field on the base. (Prisma Next requires the
-//        discriminator to be String.)
+// Encoding it reads:
+//   - square form                 = a model
+//   - triangle form               = a discriminated union (a coproduct): its
+//        PEAK carries the discriminator field wire (base model → peak), its
+//        BASE ('c') edge carries the variant injection wires (variant → base).
+//        ⇒ `<field> String` + `@@discriminator(<field>)` on the base model, and
+//        `@@base(Base, "<tag>")` on each variant (the injection wire's name).
+//        Prisma Next requires the discriminator field to be String.
+//   - circle form                 = a compound `type`; the wires fanning out of
+//        its points are its fields, its name is the type name.
+//   - empty form                  = a scalar type node (a leaf; its point label
+//        is the scalar type, e.g. String).
+//   - wire f: M → T                = a field `f` on M.
+//        · target on a model  → a RELATION, declared on the owning side only:
+//          FK `fId` + `@relation`, `@unique` iff the SOURCE glyph is a single
+//          (one-to-one), no mirror field. Type = the target model.
+//        · target on a composite → `f <TypeName>`; type = the target form.
+//        · target on a leaf     → `f <label>`; type = the target point label.
+//   - TARGET glyph → cardinality: rhombus+white `T`, rhombus+black `T?`,
+//        square `T[]`. (Type is ALWAYS read from the target, never the source.)
 //   - every non-variant model gets `id ObjectId @id @map("_id")`.
 //
 // Output is ALWAYS multi-line: one field / attribute per line, a blank line
@@ -47,50 +49,54 @@ function plain(s: string | undefined): string {
 export function diagramToPrisma(d: Diagram): string {
   const form = (id: string): Form | undefined => d.forms.find((f) => f.id === id)
   const pt = (id: string): Point | undefined => d.points[id]
-  const modelNameOfForm = (fid: string): string => plain(form(fid)?.name)
   const outWires = (fid: string): Line[] => d.lines.filter((l) => !!l.source && pt(l.source)?.formId === fid)
 
-  const isModelForm = (f: Form): boolean => f.shape === 'square' && plain(f.name) !== ''
-  const modelForms = d.forms.filter(isModelForm)
-  const models = new Set(modelForms.map((f) => plain(f.name)))
+  const isModel = (f: Form | undefined): f is Form => !!f && f.shape === 'square' && plain(f.name) !== ''
+  // Shape vocabulary: square = model, circle = compound type, triangle =
+  // discriminator, empty = scalar type node. So ONLY a circle is a composite.
+  const isComposite = (f: Form | undefined): f is Form => !!f && f.shape === 'circle'
+  const modelForms = d.forms.filter(isModel)
 
   const single = (p: Point): boolean => p.shape === 'rhombus' // max 1
   const optional = (p: Point): boolean => !!p.color // filled/black = min 0
   const modifierOf = (p: Point): string => (!single(p) ? '[]' : optional(p) ? '?' : '')
 
-  // A discriminator point: sits on a MODEL, is labelled with neither a scalar
-  // nor a model name, and is the target of variant-injection wires.
-  const discOf: Record<string, { field: string; variants: { model: string; tag: string }[] }> = {}
-  const baseOf: Record<string, { base: string; tag: string }> = {}
-  for (const l of d.lines) {
-    const tp = pt(l.targets[0])
-    if (!tp) continue
-    const tf = form(tp.formId)
-    const label = plain(tp.name)
-    if (tf && isModelForm(tf) && !SCALARS.has(label) && !models.has(label)) {
-      const base = plain(tf.name)
-      const src = pt(l.source)
-      const variant = src ? modelNameOfForm(src.formId) : ''
-      const tag = plain(l.name)
-      if (!variant) continue
-      discOf[base] ??= { field: (label || 'kind').toLowerCase(), variants: [] }
-      discOf[base].variants.push({ model: variant, tag })
-      baseOf[variant] = { base, tag }
+  // ── Discriminated unions, from coproduct triangles ────────────────────
+  const discOf: Record<string, { field: string; type: string }> = {} // base model → discriminator
+  const baseOf: Record<string, { base: string; tag: string }> = {} // variant model → its @@base
+  const discWireIds = new Set<string>() // wires that are part of a union (skipped as fields)
+  for (const tri of d.forms.filter((f) => f.shape === 'triangle')) {
+    const peakPts = new Set(tri.edges['peak'] ?? [])
+    const basePts = new Set(tri.edges['c'] ?? [])
+    const peakWire = d.lines.find((l) => l.targets.some((t) => peakPts.has(t)))
+    if (!peakWire) continue
+    const baseForm = form(pt(peakWire.source)?.formId ?? '')
+    if (!isModel(baseForm)) continue
+    const baseModel = plain(baseForm.name)
+    const field = plain(peakWire.name) || 'kind'
+    // Discriminator MUST be String in Prisma Next; use the peak's own scalar label if it is one.
+    const peakLabel = plain(pt([...peakPts][0] ?? '')?.name)
+    const type = peakLabel && SCALARS.has(peakLabel) ? peakLabel : 'String'
+    discOf[baseModel] = { field, type }
+    discWireIds.add(peakWire.id)
+    for (const bw of d.lines.filter((l) => l.targets.some((t) => basePts.has(t)))) {
+      const vForm = form(pt(bw.source)?.formId ?? '')
+      if (!isModel(vForm)) continue
+      baseOf[plain(vForm.name)] = { base: baseModel, tag: plain(bw.name) }
+      discWireIds.add(bw.id)
     }
   }
 
+  // ── Fields ────────────────────────────────────────────────────────────
   const typeBlocks: Record<string, string[]> = {}
   function fieldLines(l: Line): string[] {
+    if (discWireIds.has(l.id)) return [] // part of a union — emitted as @@discriminator/@@base
     const tp = pt(l.targets[0])
     if (!tp) return []
     const tf = form(tp.formId)
     const fname = plain(l.name)
-    // The type label: prefer the target (the codomain type node), but fall back
-    // to the SOURCE port's label — type nodes on empty forms are nameless by
-    // default, while the port on the model always carries the type.
-    const label = plain(tp.name) || plain(pt(l.source)?.name)
-    // relation — the field's target sits on another model
-    if (tf && isModelForm(tf)) {
+    // relation — the target sits on another model
+    if (isModel(tf)) {
       const src = pt(l.source)
       const uniq = src && single(src) ? ' @unique' : ''
       const opt = optional(tp) ? '?' : ''
@@ -99,21 +105,23 @@ export function diagramToPrisma(d: Diagram): string {
         `  ${fname} ${plain(tf.name)}${opt} @relation(fields: [${fname}Id], references: [id])`,
       ]
     }
-    // embedded composite — the target is an empty hub that fans out into fields
-    if (tf && tf.shape === 'empty' && outWires(tf.id).length > 0) {
-      buildType(label, tf.id)
-      return [`  ${fname} ${label}${modifierOf(tp)}`]
+    // embedded composite — the target form fans out into its own fields
+    if (isComposite(tf)) {
+      const typeName = plain(tf.name) || plain(tp.name)
+      buildType(typeName, tf.id)
+      return [`  ${fname} ${typeName}${modifierOf(tp)}`]
     }
-    // scalar
-    return [`  ${fname} ${label}${modifierOf(tp)}`]
+    // scalar — the type is the target point's label
+    return [`  ${fname} ${plain(tp.name)}${modifierOf(tp)}`]
   }
-  function buildType(name: string, hubFormId: string): void {
+  function buildType(name: string, formId: string): void {
     if (typeBlocks[name]) return
     const lines: string[] = []
     typeBlocks[name] = lines // set first so a self-referential composite terminates
-    for (const l of outWires(hubFormId)) lines.push(...fieldLines(l))
+    for (const l of outWires(formId)) lines.push(...fieldLines(l))
   }
 
+  // ── Models ────────────────────────────────────────────────────────────
   const blocks: string[] = []
   for (const mf of modelForms) {
     const name = plain(mf.name)
@@ -121,16 +129,9 @@ export function diagramToPrisma(d: Diagram): string {
     const attrs: string[] = []
     if (baseOf[name]) attrs.push(`  @@base(${baseOf[name].base}, "${baseOf[name].tag}")`)
     else fields.push('  id ObjectId @id @map("_id")')
-    for (const l of outWires(mf.id)) {
-      const tp = pt(l.targets[0])
-      const tf = tp && form(tp.formId)
-      const label = tp ? plain(tp.name) : ''
-      // a wire onto a discriminator point is a variant injection (→ @@base), not a field
-      if (tf && isModelForm(tf) && !SCALARS.has(label) && !models.has(label)) continue
-      fields.push(...fieldLines(l))
-    }
+    for (const l of outWires(mf.id)) fields.push(...fieldLines(l))
     if (discOf[name]) {
-      fields.push(`  ${discOf[name].field} String`)
+      fields.push(`  ${discOf[name].field} ${discOf[name].type}`)
       attrs.push(`  @@discriminator(${discOf[name].field})`)
     }
     blocks.push(`model ${name} {\n${[...fields, ...attrs].join('\n')}\n}`)
