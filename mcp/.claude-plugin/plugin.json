@@ -1,0 +1,16 @@
+{
+  "name": "nesycat-semiotics",
+  "version": "0.1.0",
+  "description": "Draw and manage NeSyCat Semiotics diagrams as knowledge: a user-authenticated MCP server (full diagram CRUD, RLS-scoped) bundled with a skill for turning Prisma Next contracts into sysmer diagrams.",
+  "author": { "name": "NeSyCat" },
+  "repository": "https://github.com/NeSyCat/NeSyCat.Semiotics",
+  "license": "MIT",
+  "keywords": ["nesycat", "semiotics", "diagrams", "prisma", "knowledge", "mcp", "sysmer"],
+  "skills": "./skills/",
+  "mcpServers": {
+    "nesycat-semiotics": {
+      "command": "${CLAUDE_PLUGIN_ROOT}/node_modules/.bin/tsx",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/src/index.ts"]
+    }
+  }
+}
