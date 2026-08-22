@@ -179,7 +179,7 @@ const LINE_STROKE_PT = 0.4
 // (domain/forms.ts, also the on-screen glyph/hover/grab-pad size) — so
 // canvas <-> TikZ <-> HTML stay in visual lockstep.
 const POINT_GLYPH_R = POINT_SIZE / 2
-const LABEL_GAP_PX = 11 // matches FormNode.tsx's point-label GAP
+const LABEL_GAP_PX = 16 // matches PointVisual.tsx GAP; clears the POINT_SIZE/2=13px glyph so labels do not touch the form
 // Extra along-EDGE nudge for a point's label when it shares its edge with
 // other points — see edgeLabelSplayLocal below. Matches FormNode.tsx's own
 // SPLAY_PX (kept in sync by hand, same pattern as LABEL_GAP_PX/GAP above).

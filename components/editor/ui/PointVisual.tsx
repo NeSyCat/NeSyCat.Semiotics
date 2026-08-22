@@ -88,7 +88,7 @@ export function PointVisual({ pid, pt, anchor, labelSplay, hid, isSelected, isHo
   // (apex point → right, left-edge point → left, etc.). Counter-rotate so
   // it stays upright/readable when the form is rotated — same billboard
   // trick as the form's own name label.
-  const GAP = 11
+  const GAP = 16 // matches geometry-ir LABEL_GAP_PX; clears the 13px glyph half so labels do not overlap the form
   const counterRotate = ` rotate(${-formRotation}deg)`
   // labelSplay is added on BOTH axes unconditionally (same as
   // geometry-ir.ts's `local + offset + splay`) — it's ~0 on whichever axis
