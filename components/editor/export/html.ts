@@ -43,6 +43,27 @@ function unwrapMath(text: string): string {
   return text.length >= 2 && text.startsWith('$') && text.endsWith('$') ? text.slice(1, -1) : text
 }
 
+// The SVG export renders label text with a real (monospace) font, not a LaTeX
+// engine — so unwrap the common label commands to their text so a name like
+// `\mathtt{Article}` shows as "Article" (matching the canvas's KaTeX, whose
+// \mathtt is monospace) instead of leaking the raw LaTeX source. Style-only
+// wrappers (\mathtt/\mathrm/\mathbf/\text/…) are stripped to their content;
+// escaped specials and thin-spaces are normalised; stray braces dropped.
+// Full math typesetting (fractions, symbols) is NOT handled here by design —
+// the TikZ export keeps the raw LaTeX for that.
+const TEX_WRAPPERS =
+  /\\(?:mathtt|texttt|mathrm|textrm|mathbf|textbf|mathit|textit|mathsf|textsf|mathcal|mathbb|mathfrak|text|operatorname|emph|mbox)\s*\{((?:[^{}]|\{[^{}]*\})*)\}/g
+
+function latexToPlain(text: string): string {
+  let t = text
+  let prev: string
+  do { prev = t; t = t.replace(TEX_WRAPPERS, '$1') } while (t !== prev)
+  t = t.replace(/\\([_%&#$·{}])/g, '$1') // \_ \% \& \# \$ \{ \}
+  t = t.replace(/\\[,;:! ]/g, ' ')        // thin/med spaces -> a space
+  t = t.replace(/[{}]/g, '')                // drop any remaining braces
+  return t
+}
+
 function esc(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 }
@@ -102,7 +123,7 @@ function emitCmd(cmd: DrawCmd): string {
       return `<line x1="${round(cmd.from.x)}" y1="${round(cmd.from.y)}" x2="${round(cmd.to.x)}" y2="${round(cmd.to.y)}" stroke="${colorRef(cmd.color)}" stroke-width="1.5"/>`
     case 'label': {
       const anchor = cmd.anchor ? (ANCHOR_MAP[cmd.anchor] ?? 'middle') : 'middle'
-      const text = unwrapMath(cmd.text)
+      const text = latexToPlain(unwrapMath(cmd.text))
       const textEl = `<text x="${round(cmd.at.x)}" y="${round(cmd.at.y)}" text-anchor="${anchor}" dominant-baseline="middle" font-family="ui-monospace, SFMono-Regular, monospace" font-size="14" fill="${INK}">${esc(text)}</text>`
       if (!cmd.masked) return textEl
       // masked (line-name/point-name labels): a white rect painted

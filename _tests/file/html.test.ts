@@ -58,6 +58,13 @@ describe('HTML/SVG exporter', () => {
     expect(html.includes('$square$'), 'no literal $ delimiters leak into the SVG text').toBe(false)
   })
 
+  it('unwraps \\mathtt{...} (and friends) to plain text so labels do not leak LaTeX', () => {
+    const d = { schemaVersion: 1, forms: [{ id: 'F', shape: 'square' as const, name: '\\mathtt{User}', position: { x: 0, y: 0 }, edges: {} }], points: {}, lines: [] }
+    const out = diagramToHtmlCore(d)
+    expect(out).toMatch(/<text[^>]*>User<\/text>/)
+    expect(out.includes('\\mathtt'), 'no raw \\mathtt leaks into the SVG').toBe(false)
+  })
+
   it('header comment carries the re-import fragment when provided', () => {
     const withFrag = diagramToHtmlCore(d, 'd=1.deadbeef')
     expect(
