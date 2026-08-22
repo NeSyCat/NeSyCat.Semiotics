@@ -203,26 +203,13 @@ export function setPointsColor(d: Diagram, ids: string[], color: Color | null): 
 }
 
 // ── Lines ────────────────────────────────────────────────────────────
-// COPY-NODE naming: an 'empty' form (pointIsForm — it IS its middle point)
-// acts as a copy node. A wire drawn OUT of that point inherits the name of
-// the wire already flowing IN (a line whose targets include the point), so
-// branching a typed wire through a copy point keeps every outgoing branch
-// carrying the incoming wire's name automatically. First named inflow wins;
-// nothing to inherit (no inflow, or unnamed) → the new line stays unnamed.
-// Inheritance happens at CREATION time only — renaming the inflow later
-// does not retro-rename existing outflows.
-function inheritedCopyName(d: Diagram, sourcePtId: string): string | undefined {
-  const pt = d.points[sourcePtId]
-  if (!pt) return undefined
-  const form = d.forms.find((f) => f.id === pt.formId)
-  if (!form || !geometryFor(form.shape).pointIsForm) return undefined
-  return d.lines.find((l) => l.targets.includes(sourcePtId) && l.name)?.name
-}
-
+// Each wire is its own independently-named Line — including every branch
+// fanning out of a single source point (e.g. through a copy-node's 'empty'
+// form). A new line always starts unnamed; naming one branch never affects
+// any sibling or downstream line.
 export function addLine(d: Diagram, sourcePtId: string, targetPtId: string): [Diagram, string] {
   const id = newLineId(d)
-  const name = inheritedCopyName(d, sourcePtId)
-  const line: Line = { id, ...(name ? { name } : {}), source: sourcePtId, targets: [targetPtId] }
+  const line: Line = { id, source: sourcePtId, targets: [targetPtId] }
   return [{ ...d, lines: [...d.lines, line] }, id]
 }
 
@@ -248,49 +235,17 @@ export function deleteLineTarget(d: Diagram, lineId: string, idx: number): Diagr
   }
 }
 
-// COPY-NODE rename propagation: renaming a wire cascades DOWNSTREAM through
-// copy points. Starting from the renamed lines, whenever a renamed line
-// TARGETS a copy point's middle point (pointIsForm — the empty form), every
-// line SOURCED at that point takes the same name too, and the cascade
-// continues through chains of copy points (depth-first, visited-guarded,
-// so copy cycles terminate). Downstream only: renaming an outgoing branch
-// directly renames just that branch — it never syncs back upstream or
-// across to sibling branches.
-function copyDownstreamLineIds(d: Diagram, seedIds: Set<string>): Set<string> {
-  const isCopyPoint = (pid: string): boolean => {
-    const pt = d.points[pid]
-    const form = pt && d.forms.find((f) => f.id === pt.formId)
-    return !!form && !!geometryFor(form.shape).pointIsForm
-  }
-  const all = new Set(seedIds)
-  const queue = [...seedIds]
-  while (queue.length > 0) {
-    const id = queue.pop()
-    const line = d.lines.find((l) => l.id === id)
-    if (!line) continue
-    for (const pid of line.targets) {
-      if (!isCopyPoint(pid)) continue
-      for (const out of d.lines) {
-        if (out.source === pid && !all.has(out.id)) {
-          all.add(out.id)
-          queue.push(out.id)
-        }
-      }
-    }
-  }
-  return all
-}
-
+// Renaming a wire affects ONLY that wire — no propagation to siblings
+// sharing its source point, and no cascade downstream through copy points.
 export function renameLine(d: Diagram, id: string, name: string): Diagram {
-  const set = copyDownstreamLineIds(d, new Set([id]))
-  // Same clearing rule as renameLines: '' clears the name (undefined), and
-  // that clearing propagates through copy points like any other rename.
+  const set = new Set([id])
+  // '' clears the name (undefined).
   const nm = name === '' ? undefined : name
   return { ...d, lines: d.lines.map((l) => (set.has(l.id) ? { ...l, name: nm } : l)) }
 }
 
 export function renameLines(d: Diagram, ids: string[], name: string): Diagram {
-  const set = copyDownstreamLineIds(d, new Set(ids))
+  const set = new Set(ids)
   const nm = name === '' ? undefined : name
   return { ...d, lines: d.lines.map((l) => (set.has(l.id) ? { ...l, name: nm } : l)) }
 }
