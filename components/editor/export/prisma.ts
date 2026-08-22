@@ -51,10 +51,10 @@ export function diagramToPrisma(d: Diagram): string {
   const pt = (id: string): Point | undefined => d.points[id]
   const outWires = (fid: string): Line[] => d.lines.filter((l) => !!l.source && pt(l.source)?.formId === fid)
 
-  const isModel = (f: Form | undefined): f is Form => !!f && f.shape === 'square' && plain(f.name) !== ''
+  const isModel = (f: Form | undefined): f is Form & { shape: 'square' } => !!f && f.shape === 'square' && plain(f.name) !== ''
   // Shape vocabulary: square = model, circle = compound type, triangle =
   // discriminator, empty = scalar type node. So ONLY a circle is a composite.
-  const isComposite = (f: Form | undefined): f is Form => !!f && f.shape === 'circle'
+  const isComposite = (f: Form | undefined): f is Form & { shape: 'circle' } => !!f && f.shape === 'circle'
   const modelForms = d.forms.filter(isModel)
 
   const single = (p: Point): boolean => p.shape === 'rhombus' // max 1

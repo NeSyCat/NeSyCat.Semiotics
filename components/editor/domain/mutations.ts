@@ -168,7 +168,10 @@ export function renamePoint(d: Diagram, id: string, name: string): Diagram {
 }
 
 export function renamePoints(d: Diagram, ids: string[], name: string): Diagram {
-  const nm = name === '' ? undefined : name
+  // Keep '' (do NOT collapse to undefined): undefined = "never named" → the id
+  // shows as a default placeholder; '' = "name removed" → the point renders
+  // blank. Clearing the name field is how you remove a point's label.
+  const nm = name
   const points = { ...d.points }
   for (const id of ids) if (points[id]) points[id] = { ...points[id], name: nm }
   return { ...d, points }
