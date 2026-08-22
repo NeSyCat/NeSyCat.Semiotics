@@ -14,25 +14,10 @@ import theme, { panelStyle } from './theme'
 import { extractFragment } from '../export/importText'
 import { decodeDiagramFromFragment } from '../persist/share'
 import { useStore } from '../state/store'
+import { CloseIcon, CheckIcon } from './sprite'
 
 interface Props {
   onClose: () => void
-}
-
-function CloseIcon() {
-  return (
-    <svg width={24} height={24} viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
-    </svg>
-  )
-}
-
-function CheckIcon() {
-  return (
-    <svg width={24} height={24} viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M5 12.5l4.5 4.5L19 7" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  )
 }
 
 export default function ImportPanel({ onClose }: Props) {

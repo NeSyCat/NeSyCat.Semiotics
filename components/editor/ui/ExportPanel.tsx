@@ -7,7 +7,7 @@
 // ExportMenu's copy idiom (clipboard write, `window.prompt` fallback,
 // checkmark feedback).
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { encodeDiagramToFragment } from '../persist/share'
 import { diagramToTikz } from '../export/tikz'
 import { diagramToHtml } from '../export/html'
@@ -15,26 +15,11 @@ import { diagramToPrisma } from '../export/prisma'
 import { highlight, type HighlightLang, type TokenKind } from '../export/highlight'
 import type { Diagram } from '../domain/types'
 import { panelStyle } from './theme'
+import { CloseIcon, CopyGlyph } from './sprite'
 
 interface Props {
   diagram: Diagram
   onClose: () => void
-}
-
-function CloseIcon() {
-  return (
-    <svg width={24} height={24} viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
-    </svg>
-  )
-}
-
-function CheckIcon() {
-  return (
-    <svg width={24} height={24} viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M5 12.5l4.5 4.5L19 7" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  )
 }
 
 // The ID-LESS editor base — see ExportMenu's (now deleted) original comment
@@ -81,10 +66,16 @@ const HIGHLIGHT_LANG: Partial<Record<Format, HighlightLang>> = {
 export default function ExportPanel({ diagram, onClose }: Props) {
   const [shown, setShown] = useState(false)
   const [format, setFormat] = useState<Format>('prisma')
-  const [text, setText] = useState('')
   const [copied, setCopied] = useState(false)
 
-  useEffect(() => setShown(true), [])
+  // rAF (not a bare effect setState) guarantees the browser paints the
+  // off-screen translateX(100%) frame before we flip to shown, so the
+  // slide-in transition actually plays instead of the panel just appearing
+  // already open.
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setShown(true))
+    return () => cancelAnimationFrame(id)
+  }, [])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
@@ -92,28 +83,30 @@ export default function ExportPanel({ diagram, onClose }: Props) {
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
 
-  // Computes the text for the active format. Prisma/JSON are synchronous;
-  // LaTeX/HTML/URL are async (LaTeX and HTML embed the share fragment, URL
-  // IS the share fragment) — all three are guarded against races with a
-  // local `cancelled` flag in case the user flips tabs mid-encode.
-  useEffect(() => {
-    let cancelled = false
-    if (format === 'url') {
-      encodeDiagramToFragment(diagram).then((frag) => {
-        if (cancelled) return
-        setText(`${location.origin}${shareBasePath()}#${frag}`)
-      })
-    } else if (format === 'prisma') {
-      setText(diagramToPrisma(diagram))
-    } else if (format === 'latex') {
-      diagramToTikz(diagram).then((t) => { if (!cancelled) setText(t) })
-    } else if (format === 'html') {
-      diagramToHtml(diagram).then((t) => { if (!cancelled) setText(t) })
-    } else if (format === 'json') {
-      setText(JSON.stringify(diagram, null, 2))
-    }
-    return () => { cancelled = true }
+  // Sync formats are derived, not stored — no effect-body setState needed.
+  const syncText = useMemo(() => {
+    if (format === 'prisma') return diagramToPrisma(diagram)
+    if (format === 'json') return JSON.stringify(diagram, null, 2)
+    return null
   }, [format, diagram])
+
+  // Async formats (LaTeX and HTML embed the share fragment, URL IS the share
+  // fragment) resolve into state tagged with the format they were computed
+  // for, so a late result for a tab the user already left is never shown.
+  const [asyncText, setAsyncText] = useState<{ format: Format; text: string } | null>(null)
+  useEffect(() => {
+    if (syncText !== null) return
+    let cancelled = false
+    const run =
+      format === 'url' ? encodeDiagramToFragment(diagram).then((frag) => `${location.origin}${shareBasePath()}#${frag}`)
+      : format === 'latex' ? diagramToTikz(diagram)
+      : diagramToHtml(diagram)
+    run.then((t) => { if (!cancelled) setAsyncText({ format, text: t }) })
+    return () => { cancelled = true }
+  }, [format, diagram, syncText])
+
+  const pending = syncText === null && asyncText?.format !== format
+  const text = syncText ?? (asyncText?.format === format ? asyncText.text : '')
 
   const onCopy = async () => {
     try {
@@ -127,7 +120,11 @@ export default function ExportPanel({ diagram, onClose }: Props) {
   }
 
   const lang = HIGHLIGHT_LANG[format]
-  const lines = text.split('\n')
+  // Every exporter's output ends with '\n'; strip it once so the gutter's
+  // line count and the <pre>'s rendered lines always agree (no phantom
+  // trailing line number). The Copy button still copies the full `text`.
+  const body = text.endsWith('\n') ? text.slice(0, -1) : text
+  const lines = body.split('\n')
 
   return (
     <div
@@ -154,21 +151,20 @@ export default function ExportPanel({ diagram, onClose }: Props) {
           <span style={{ fontFamily: 'var(--font-sans, system-ui, sans-serif)', fontSize: 14, fontWeight: 500, color: 'var(--color-foreground)' }}>
             Export
           </span>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          {/* Pill wrapper sizes both icons uniformly via `.editor-pill.pill
+              .btn svg` (21px) — bare buttons would leave Close at its
+              intrinsic 24px beside Copy's 16px. */}
+          <div className="pill editor-pill">
             <button
               className="btn btn-icon"
               title={copied ? 'Copied' : 'Copy'}
               aria-label={copied ? 'Copied' : 'Copy'}
               onClick={onCopy}
+              disabled={pending}
             >
               {copied
-                ? <svg width={16} height={16} viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="#ic-check" /></svg>
-                : (
-                  <svg width={16} height={16} viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                    <rect x="8" y="8" width="12" height="12" rx="1.5" stroke="currentColor" strokeWidth="1.7" />
-                    <path d="M16 8V6a2 2 0 00-2-2H6a2 2 0 00-2 2v8a2 2 0 002 2h2" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                )}
+                ? <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="#ic-check" /></svg>
+                : <CopyGlyph />}
             </button>
             <button className="btn btn-icon" title="Close" aria-label="Close" onClick={onClose}>
               <CloseIcon />
@@ -205,7 +201,9 @@ export default function ExportPanel({ diagram, onClose }: Props) {
             background: 'var(--color-background)',
           }}
         >
-          {lang ? (
+          {pending ? (
+            <div style={{ padding: 12, color: 'var(--color-muted-foreground)' }}>Generating…</div>
+          ) : lang ? (
             <div style={{ display: 'flex' }}>
               <div
                 style={{
@@ -219,15 +217,19 @@ export default function ExportPanel({ diagram, onClose }: Props) {
               >
                 {lines.map((_, i) => i + 1).join('\n')}
               </div>
-              <pre style={{ margin: 0, padding: '10px 12px 10px 0', whiteSpace: 'pre' }}>
-                {highlight(text, lang).map((t, i) => (
+              {/* fontFamily/fontSize/lineHeight: inherit — without this the
+                  <pre> falls back to the UA's `monospace`, which can differ
+                  from the gutter's var(--font-mono) and drift line numbers
+                  out of vertical alignment with the code. */}
+              <pre style={{ margin: 0, padding: '10px 12px 10px 0', whiteSpace: 'pre', fontFamily: 'inherit', fontSize: 'inherit', lineHeight: 'inherit' }}>
+                {highlight(body, lang).map((t, i) => (
                   <span key={i} style={{ color: KIND_COLOR[t.kind] }}>{t.text}</span>
                 ))}
               </pre>
             </div>
           ) : (
             <div style={{ padding: 12, whiteSpace: 'pre-wrap', wordBreak: 'break-all', color: 'var(--color-foreground)' }}>
-              {text}
+              {body}
             </div>
           )}
         </div>
