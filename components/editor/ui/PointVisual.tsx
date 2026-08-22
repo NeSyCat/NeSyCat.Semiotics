@@ -64,10 +64,16 @@ function PointGlyph({ shape, accent, isSelected, isHovered }: { shape: Shape; ac
 // point. Props are exactly what that loop body reads per-point; the
 // geometry loop itself (edgeKeys × pointIdsAt) stays in FormNode since it's
 // shared setup, not per-point rendering.
-export function PointVisual({ pid, pt, anchor, hid, isSelected, isHovered, formRotation, onSelect }: {
+export function PointVisual({ pid, pt, anchor, labelSplay, hid, isSelected, isHovered, formRotation, onSelect }: {
   pid: string
   pt: Point
   anchor: Anchor
+  // Extra along-edge label nudge computed by FormNode's edgeLabelSplay
+  // (mirrors ir/geometry-ir.ts's edgeLabelSplayLocal) — {0,0} for a lone
+  // point or an odd-count edge's exact centre point. See that function's
+  // comment for the full "why" (splays co-edge labels apart instead of
+  // letting them collide).
+  labelSplay: { x: number; y: number }
   hid: string
   isSelected: boolean
   isHovered: boolean
@@ -84,11 +90,17 @@ export function PointVisual({ pid, pt, anchor, hid, isSelected, isHovered, formR
   // trick as the form's own name label.
   const GAP = 11
   const counterRotate = ` rotate(${-formRotation}deg)`
+  // labelSplay is added on BOTH axes unconditionally (same as
+  // geometry-ir.ts's `local + offset + splay`) — it's ~0 on whichever axis
+  // the edge's tangent doesn't run along, so this doesn't need a per-
+  // cardinal branch of its own.
+  const lx = anchor.x + labelSplay.x
+  const ly = anchor.y + labelSplay.y
   const lblPos: React.CSSProperties =
-    anchor.position === Position.Left ? { left: anchor.x - GAP, top: anchor.y, transform: `translate(-100%, -50%)${counterRotate}` }
-      : anchor.position === Position.Right ? { left: anchor.x + GAP, top: anchor.y, transform: `translate(0, -50%)${counterRotate}` }
-        : anchor.position === Position.Top ? { left: anchor.x, top: anchor.y - GAP, transform: `translate(-50%, -100%)${counterRotate}` }
-          : { left: anchor.x, top: anchor.y + GAP, transform: `translate(-50%, 0)${counterRotate}` }
+    anchor.position === Position.Left ? { left: lx - GAP, top: ly, transform: `translate(-100%, -50%)${counterRotate}` }
+      : anchor.position === Position.Right ? { left: lx + GAP, top: ly, transform: `translate(0, -50%)${counterRotate}` }
+        : anchor.position === Position.Top ? { left: lx, top: ly - GAP, transform: `translate(-50%, -100%)${counterRotate}` }
+          : { left: lx, top: ly + GAP, transform: `translate(-50%, 0)${counterRotate}` }
   // Handles are 1px AT the glyph centre, so a line anchors dead-centre on the
   // point (RF pins a handle to its position-edge — a large handle offsets the
   // line). The source carries an ~18px transparent grab pad; its pointer

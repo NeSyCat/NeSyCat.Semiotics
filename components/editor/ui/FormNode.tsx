@@ -3,14 +3,14 @@
 import { memo, useEffect, useRef } from 'react'
 import { Handle, useConnection, useReactFlow, useUpdateNodeInternals, type NodeProps } from '@xyflow/react'
 import theme from './theme'
-import { geometryFor, pointIdsAt, insertionIndex, shrunkBodyPoints, bodyCentroid, CENTER_SHRINK, POINT_SIZE, type Body, type RegionShape } from '../domain/forms'
+import { geometryFor, pointIdsAt, insertionIndex, shrunkBodyPoints, bodyCentroid, CENTER_SHRINK, POINT_SIZE, type Body, type FormGeometry, type RegionShape } from '../domain/forms'
 import { encodeHandle, encodePhantomHandle, decodePhantomHandle } from '../domain/handles'
 import { toRgbTriple } from '../domain/color'
 import { useStore } from '../state/store'
 import { Tex } from './Tex'
 import { PointVisual } from './PointVisual'
 import { ShapeBody, tintFill, type GapPoint } from './ShapeBody'
-import type { Form, Point } from '../domain/types'
+import type { EdgeKey, Form, Point } from '../domain/types'
 
 export interface FormNodeData {
   form: Form
@@ -27,6 +27,38 @@ const FORM_NAME_SIZE = 16 // forms and lines share this size
 // its own comment in domain/forms.ts — so a glyph sitting on this stripe
 // fits flush inside it, outer edge to outer edge, instead of overflowing.
 const REGION_STRIPE_WIDTH = POINT_SIZE
+
+// Extra along-edge nudge for a point's label when it shares its edge with
+// other points — matches ir/geometry-ir.ts's own SPLAY_PX (kept in sync by
+// hand, same pattern as PointVisual.tsx's GAP/LABEL_GAP_PX pair).
+const SPLAY_PX = 40
+
+// Fix for "two named points on the same edge collide" (e.g. a discriminated
+// -union triangle's base with 'Article'/'Tutorial'): when a point shares its
+// edge with siblings, nudge its label an EXTRA fixed distance along the
+// edge's own tangent direction — sign flips by whether this point sits
+// before or after its siblings' midpoint index, so adjacent labels grow
+// APART instead of stacking on top of each other. A lone point, or the
+// exact centre point of an odd-count edge, gets zero bias (unchanged).
+//
+// MIRRORS ir/geometry-ir.ts's edgeLabelSplayLocal EXACTLY (same tangent-
+// from-first/last-sibling-anchor math, same sign-by-index-vs-midpoint rule)
+// so canvas and exports agree pixel-for-pixel — see that function's own
+// comment for the full rationale (why a roughly-horizontal rotated edge
+// ends up splaying in screen-X, an unrotated vertical edge in screen-Y).
+function edgeLabelSplay(geom: FormGeometry, edgeKey: EdgeKey, index: number, count: number, n: number): { x: number; y: number } {
+  if (count <= 1) return { x: 0, y: 0 }
+  const mid = (count - 1) / 2
+  const sign = Math.sign(index - mid)
+  if (sign === 0) return { x: 0, y: 0 } // exact centre of an odd-count edge
+  const start = geom.pointAnchor(edgeKey, 0, count, n)
+  const end = geom.pointAnchor(edgeKey, count - 1, count, n)
+  const tx = end.x - start.x
+  const ty = end.y - start.y
+  const len = Math.hypot(tx, ty)
+  if (len < 1e-6) return { x: 0, y: 0 } // degenerate edge — no meaningful tangent, no bias
+  return { x: (sign * SPLAY_PX * tx) / len, y: (sign * SPLAY_PX * ty) / len }
+}
 
 // The visual hover tint for a point-creation region — an INDICATOR of which
 // edge the cursor's zone maps to. Purely decorative; the grabbable area is
@@ -283,6 +315,7 @@ function FormNode({ id, data, selected }: NodeProps) {
       const pt = points[pid]
       if (!pt) return
       const anchor = geom.pointAnchor(edgeKey, index, ids.length, n)
+      const labelSplay = edgeLabelSplay(geom, edgeKey, index, ids.length, n)
       // gapBody is the POINT's own shape geometry (not the parent form's) —
       // the cutout must match what's actually sitting there.
       if (pt.shape !== 'empty') gapPoints.push({ x: anchor.x, y: anchor.y, gapBody: geometryFor(pt.shape).body })
@@ -299,6 +332,7 @@ function FormNode({ id, data, selected }: NodeProps) {
           pid={pid}
           pt={pt}
           anchor={anchor}
+          labelSplay={labelSplay}
           hid={hid}
           isSelected={isSel}
           isHovered={isHovered}
