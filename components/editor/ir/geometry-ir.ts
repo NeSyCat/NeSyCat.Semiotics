@@ -329,6 +329,14 @@ function edgeLabelSplayLocal(px: PointPx): Vec {
   const ty = end.y - start.y
   const len = Math.hypot(tx, ty)
   if (len < 1e-6) return { x: 0, y: 0 } // degenerate edge — no meaningful tangent, no bias
+  // Only splay a SCREEN-horizontal edge: there labels extend vertically and long
+  // ones collide in x, so nudging them apart along the edge helps. On a
+  // screen-vertical edge labels extend horizontally and already stack with their
+  // own gap — splaying along it just shoves them off their ports. Judge
+  // orientation AFTER rotation (toAbs), so a rotated triangle base still counts.
+  const sAbs = layout.toAbs({ x: start.x, y: start.y })
+  const eAbs = layout.toAbs({ x: end.x, y: end.y })
+  if (Math.abs(eAbs.y - sAbs.y) > Math.abs(eAbs.x - sAbs.x)) return { x: 0, y: 0 }
   return { x: (sign * SPLAY_PX * tx) / len, y: (sign * SPLAY_PX * ty) / len }
 }
 
