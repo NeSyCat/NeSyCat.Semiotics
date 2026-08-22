@@ -618,9 +618,7 @@ function Canvas({ topRight }: CanvasContentProps) {
     const src = resolvePointForHandle(params.source, params.sourceHandle, connectStartRef.current, screenToFlowPosition, getNodes)
     const tgt = resolvePointForHandle(params.target, params.targetHandle, connectPointerRef.current, screenToFlowPosition, getNodes)
     if (!src || !tgt || src === tgt) return
-    const existing = useStore.getState().diagram.lines.find((l) => l.source === src)
-    if (existing) useStore.getState().addLineTarget(existing.id, tgt)
-    else useStore.getState().addLine(src, tgt)
+    useStore.getState().addLine(src, tgt)
   }, [screenToFlowPosition, getNodes])
 
   // ── Drag from a point (or phantom) handle onto a form body → attach to
@@ -631,13 +629,10 @@ function Canvas({ topRight }: CanvasContentProps) {
     if (connectionState.isValid || !connectionState.fromNode || !connectionState.fromHandle?.id) return
     const fromPointId = resolvePointForHandle(connectionState.fromNode.id, connectionState.fromHandle.id, connectStartRef.current, screenToFlowPosition, getNodes)
     if (!fromPointId) return
-    const d = useStore.getState().diagram
     const { clientX, clientY } = 'changedTouches' in event ? (event as TouchEvent).changedTouches[0] : (event as MouseEvent)
     const newPtId = resolveDropPoint(clientX, clientY, connectionState.fromNode.id, screenToFlowPosition, getNodes)
     if (!newPtId) return
-    const srcLine = d.lines.find((l) => l.source === fromPointId)
-    if (srcLine && connectionState.fromHandle.type === 'source') useStore.getState().addLineTarget(srcLine.id, newPtId)
-    else useStore.getState().addLine(fromPointId, newPtId)
+    useStore.getState().addLine(fromPointId, newPtId)
   }, [screenToFlowPosition, getNodes, onConnectPointerMove])
 
   // Shared by the double-click-to-add-point handler and the hover tracker: a

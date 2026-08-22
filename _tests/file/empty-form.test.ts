@@ -7,7 +7,7 @@
 
 import { describe, expect, it } from 'vitest'
 import { geometryFor } from '../../components/editor/domain/forms'
-import { addPoint, addForm, addLine, removePoint, renameLines } from '../../components/editor/domain/mutations'
+import { addPoint, addForm, addLine, removePoint, renameLine, renameLines } from '../../components/editor/domain/mutations'
 import { useStore, initStore } from '../../components/editor/state/store'
 import { restoreDiagram } from '../../components/editor/persist/io'
 import type { Diagram, Form } from '../../components/editor/domain/types'
@@ -243,11 +243,12 @@ describe("'empty' Form shape", () => {
   })
 })
 
-// ── COPY-NODE naming: wires drawn OUT of an empty form's middle point
-// inherit the name of the wire flowing IN — the empty form is the copy
-// point, so every outgoing branch automatically carries the incoming
-// wire's name. Creation-time only; scoped to pointIsForm (empty) points. ──
-describe("copy-node naming (empty form's middle point)", () => {
+// ── Per-branch wire naming: every wire is a SEPARATE, independently-named
+// Line — including every branch fanning out of a copy point's shared
+// source point. A new wire never inherits a name at creation, regardless
+// of what's flowing in, and each branch out of the same point can carry a
+// different name (or none) from the others. ────────────────────────────
+describe("copy-node point (empty form's middle point) — no name inheritance", () => {
   // dice[SQ,right:DP] --Nat--> copy(empty,self:CP) , plus OUT targets on TG
   function rig(inflowName?: string): Diagram {
     return {
@@ -267,29 +268,36 @@ describe("copy-node naming (empty form's middle point)", () => {
     }
   }
 
-  it('a wire drawn OUT of the copy point inherits the inflow name', () => {
+  it('a wire drawn OUT of the copy point starts unnamed even with a NAMED inflow', () => {
     const [d1, id1] = addLine(rig('Nat'), 'CP', 'TP1')
-    expect(d1.lines.find((l) => l.id === id1)?.name, 'outflow inherits "Nat"').toBe('Nat')
+    expect(d1.lines.find((l) => l.id === id1)?.name, 'no inheritance from the inflow').toBeUndefined()
   })
 
-  it('multiple outflows each inherit the same inflow name', () => {
-    const [d1] = addLine(rig('Nat'), 'CP', 'TP1')
+  it('two SEPARATE outflows from the same copy point can hold two DIFFERENT names, independently', () => {
+    const [d1, id1] = addLine(rig('Nat'), 'CP', 'TP1')
     const [d2, id2] = addLine(d1, 'CP', 'TP2')
-    expect(d2.lines.find((l) => l.id === id2)?.name, 'second outflow also inherits "Nat"').toBe('Nat')
+    expect(d2.lines.find((l) => l.id === id1)?.name, 'first branch starts unnamed').toBeUndefined()
+    expect(d2.lines.find((l) => l.id === id2)?.name, 'second branch starts unnamed too').toBeUndefined()
+    const named = renameLines(renameLines(d2, [id1], 'Nat'), [id2], 'Int')
+    expect(named.lines.find((l) => l.id === id1)?.name, 'branch 1 keeps its own name').toBe('Nat')
+    expect(named.lines.find((l) => l.id === id2)?.name, 'branch 2 keeps its own, different name').toBe('Int')
+    const renamedAgain = renameLines(named, [id1], 'Nat2')
+    expect(renamedAgain.lines.find((l) => l.id === id1)?.name, 'renaming branch 1 again').toBe('Nat2')
+    expect(renamedAgain.lines.find((l) => l.id === id2)?.name, 'branch 2 is untouched by branch 1s rename').toBe('Int')
   })
 
-  it('an UNNAMED inflow gives nothing to inherit — outflow stays unnamed', () => {
+  it('an UNNAMED inflow also yields an unnamed outflow — no inheritance either way', () => {
     const [d1, id1] = addLine(rig(undefined), 'CP', 'TP1')
-    expect(d1.lines.find((l) => l.id === id1)?.name, 'no inherited name').toBeUndefined()
+    expect(d1.lines.find((l) => l.id === id1)?.name, 'still unnamed').toBeUndefined()
   })
 
-  it('scope: a NON-empty form point with a named inflow does NOT propagate', () => {
+  it('a NON-empty form point with a named inflow also never inherits (no copy-node special-casing left)', () => {
     // draw a wire out of TG's TP1 (a square's side point) which has a named
-    // inflow — no copy-node semantics outside pointIsForm forms.
+    // inflow — creation never inherits a name from any point shape.
     const base = rig('Nat')
     const withIn: Diagram = { ...base, lines: [...base.lines, { id: 'IN2', name: 'Bool', source: 'CP', targets: ['TP1'] }] }
     const [d1, id1] = addLine(withIn, 'TP1', 'TP2')
-    expect(d1.lines.find((l) => l.id === id1)?.name, 'square points do not copy names').toBeUndefined()
+    expect(d1.lines.find((l) => l.id === id1)?.name, 'square points do not inherit names').toBeUndefined()
   })
 
   it('no inflow at all — outflow from a bare copy point stays unnamed', () => {
@@ -300,10 +308,12 @@ describe("copy-node naming (empty form's middle point)", () => {
   })
 })
 
-// ── COPY-NODE rename PROPAGATION: renaming the inflow renames every
-// outflow of the copy point, live — cascading through chains of copy
-// points; renaming a branch directly stays local. ──────────────────────
-describe('copy-node rename propagation', () => {
+// ── Renaming a wire is LOCAL: it affects only the renamed line's own id(s)
+// — never a sibling sharing its source point, and never anything
+// downstream through a copy point. Formerly this cascaded; the fork
+// gesture now produces separate, independently-named Lines, so rename
+// must stay local too. ──────────────────────────────────────────────────
+describe('per-branch rename is local (no propagation)', () => {
   // SQ(DP) --IN1--> copy CN(CP) --OUT1--> TG(TP1)
   //                            \--OUT2--> TG(TP2)
   function rig(): Diagram {
@@ -328,13 +338,14 @@ describe('copy-node rename propagation', () => {
     }
   }
 
-  it('renaming the inflow renames every outflow of the copy point', () => {
+  it('renaming the inflow renames ONLY the inflow — outflows of the copy point are untouched', () => {
     const d = renameLines(rig(), ['IN1'], 'Natasc')
-    expect(d.lines.find((l) => l.id === 'OUT1')?.name, 'OUT1 follows').toBe('Natasc')
-    expect(d.lines.find((l) => l.id === 'OUT2')?.name, 'OUT2 follows').toBe('Natasc')
+    expect(d.lines.find((l) => l.id === 'IN1')?.name, 'IN1 renamed').toBe('Natasc')
+    expect(d.lines.find((l) => l.id === 'OUT1')?.name, 'OUT1 does NOT follow').toBe('Nat')
+    expect(d.lines.find((l) => l.id === 'OUT2')?.name, 'OUT2 does NOT follow').toBe('Nat')
   })
 
-  it('cascades through a CHAIN of copy points', () => {
+  it('no cascade through a CHAIN of copy points either', () => {
     const base = rig()
     // add a second copy node fed by OUT1: CN2(CP2), OUT1 retargeted to CP2, OUT3 out of CP2
     const chained: Diagram = {
@@ -349,38 +360,40 @@ describe('copy-node rename propagation', () => {
       ],
     }
     const d = renameLines(chained, ['IN1'], 'Natasc')
-    expect(d.lines.find((l) => l.id === 'OUT1')?.name, 'first hop follows').toBe('Natasc')
-    expect(d.lines.find((l) => l.id === 'OUT3')?.name, 'second hop follows through the chain').toBe('Natasc')
+    expect(d.lines.find((l) => l.id === 'OUT1')?.name, 'first hop stays as-is').toBe('Nat')
+    expect(d.lines.find((l) => l.id === 'OUT3')?.name, 'second hop stays as-is too').toBe('Nat')
   })
 
   it('renaming a BRANCH directly stays local — no upstream or sibling sync', () => {
-    const d = renameLines(rig(), ['OUT1'], 'Special')
+    const d = renameLine(rig(), 'OUT1', 'Special')
     expect(d.lines.find((l) => l.id === 'OUT1')?.name, 'renamed branch').toBe('Special')
     expect(d.lines.find((l) => l.id === 'IN1')?.name, 'inflow untouched').toBe('Nat')
     expect(d.lines.find((l) => l.id === 'OUT2')?.name, 'sibling untouched').toBe('Nat')
   })
 
-  it('copy CYCLES terminate (visited guard)', () => {
+  it('a wire created from a copy-node point starts unnamed (creation no longer inherits)', () => {
     const base = rig()
-    // CN2 cycle: CP -> CP2 -> CP
-    const cyclic: Diagram = {
-      ...base,
-      forms: [...base.forms, { id: 'CN2', shape: 'empty', position: { x: 450, y: 0 }, edges: { self: ['CP2'] } }],
-      points: { ...base.points, CP2: { id: 'CP2', shape: 'empty', formId: 'CN2', edgeKey: 'self' } },
-      lines: [
-        base.lines[0],
-        { id: 'OUT1', name: 'Nat', source: 'CP', targets: ['CP2'] },
-        { id: 'BACK', name: 'Nat', source: 'CP2', targets: ['CP'] },
-      ],
-    }
-    const d = renameLines(cyclic, ['IN1'], 'Natasc')
-    expect(d.lines.find((l) => l.id === 'OUT1')?.name, 'cycle hop 1 renamed').toBe('Natasc')
-    expect(d.lines.find((l) => l.id === 'BACK')?.name, 'cycle hop 2 renamed, no infinite loop').toBe('Natasc')
+    const [d1, id1] = addLine(base, 'CP', 'TP1')
+    expect(d1.lines.find((l) => l.id === id1)?.name, 'new branch out of CP starts unnamed').toBeUndefined()
+    // pre-existing OUT1/OUT2 (named 'Nat') are unaffected by the new sibling
+    expect(d1.lines.find((l) => l.id === 'OUT1')?.name, 'OUT1 unaffected').toBe('Nat')
+    expect(d1.lines.find((l) => l.id === 'OUT2')?.name, 'OUT2 unaffected').toBe('Nat')
   })
 
-  it('clearing the inflow name (empty string) clears the branches too', () => {
-    const d = renameLines(rig(), ['IN1'], '')
-    expect(d.lines.find((l) => l.id === 'OUT1')?.name, 'branch cleared').toBeUndefined()
-    expect(d.lines.find((l) => l.id === 'OUT2')?.name, 'branch cleared').toBeUndefined()
+  it('clearing one name (empty string) clears ONLY that line — siblings keep theirs', () => {
+    const d = renameLines(rig(), ['OUT1'], '')
+    expect(d.lines.find((l) => l.id === 'OUT1')?.name, 'OUT1 cleared').toBeUndefined()
+    expect(d.lines.find((l) => l.id === 'OUT2')?.name, 'OUT2 keeps its name').toBe('Nat')
+    expect(d.lines.find((l) => l.id === 'IN1')?.name, 'IN1 keeps its name').toBe('Nat')
+  })
+
+  it('two lines from the SAME source point hold two DIFFERENT names; renaming one leaves the other unchanged', () => {
+    // OUT1 and OUT2 both source from CP (see rig()) — give them distinct names.
+    const named = renameLines(renameLines(rig(), ['OUT1'], 'Alpha'), ['OUT2'], 'Beta')
+    expect(named.lines.find((l) => l.id === 'OUT1')?.name, 'OUT1 = Alpha').toBe('Alpha')
+    expect(named.lines.find((l) => l.id === 'OUT2')?.name, 'OUT2 = Beta').toBe('Beta')
+    const renamedAgain = renameLine(named, 'OUT1', 'Gamma')
+    expect(renamedAgain.lines.find((l) => l.id === 'OUT1')?.name, 'renaming OUT1 again').toBe('Gamma')
+    expect(renamedAgain.lines.find((l) => l.id === 'OUT2')?.name, 'OUT2 is untouched by OUT1s rename').toBe('Beta')
   })
 })
