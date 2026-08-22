@@ -2,14 +2,14 @@
 // Supabase, no I/O — this is what mcp/test/*.test.ts exercises directly.
 // tools/drawing.ts is the thin Supabase-facing wrapper: load row -> call one
 // of these -> write row back.
-import type { Diagram, Shape, Color } from '../vendor/editor/domain/types.js'
-import { geometryFor, SHAPES } from '../vendor/editor/domain/forms.js'
+import type { Diagram, Shape, Color } from '../../../components/editor/domain/types.js'
+import { geometryFor, SHAPES } from '../../../components/editor/domain/forms.js'
 import {
   addForm, deleteForm, moveForm, renameForm,
   addPoint, removePoint, renamePoint,
   addLine, addLineTarget, deleteLine, renameLine,
-} from '../vendor/editor/domain/mutations.js'
-import { restoreDiagram } from '../vendor/editor/persist/io.js'
+} from '../../../components/editor/domain/mutations.js'
+import { restoreDiagram } from '../../../components/editor/persist/io.js'
 
 export type OpResult = { ok: true; diagram: Diagram; id?: string } | { ok: false; error: string }
 

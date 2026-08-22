@@ -4,9 +4,9 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { text, errorText } from './result.js'
 import { resolveOrganizationId } from './org-resolve.js'
 import { validateDiagram } from '../diagram/ops.js'
-import { restoreDiagram } from '../vendor/editor/persist/io.js'
-import { diagramToTikzCore } from '../vendor/editor/export/tikz.js'
-import { diagramToHtmlCore } from '../vendor/editor/export/html.js'
+import { restoreDiagram } from '../../../components/editor/persist/io.js'
+import { diagramToTikzCore } from '../../../components/editor/export/tikz.js'
+import { diagramToHtmlCore } from '../../../components/editor/export/html.js'
 
 export function registerImportExportTools(server: McpServer, getClient: () => SupabaseClient) {
   server.registerTool(

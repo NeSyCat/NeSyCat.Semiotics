@@ -3,14 +3,14 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { text, errorText } from './result.js'
 import { resolveOrganizationId } from './org-resolve.js'
-import { restoreDiagram } from '../vendor/editor/persist/io.js'
+import { restoreDiagram } from '../../../components/editor/persist/io.js'
 import { emptyDiagram } from '../diagram/defaults.js'
 import { duplicateData, duplicateTitle, validateDiagram } from '../diagram/ops.js'
 
-// `data` arrives from an LLM caller as arbitrary JSON — always run it
-// through restoreDiagram (persist/io.ts) before it ever reaches a write, the
-// same load-boundary normalization the editor itself applies to anything
-// coming out of `diagrams.data` jsonb.
+// `data` arrives from an LLM caller as arbitrary JSON. create_diagram and
+// update_diagram run it through validateDiagram (normalize via the editor's
+// restoreDiagram + referential checks) and refuse dangling references before
+// any write — the same guard import_diagram and the drawing tools use.
 const dataSchema = z.unknown().describe('The diagram document (Diagram JSON: schemaVersion/forms/points/lines).')
 
 export function registerDiagramTools(server: McpServer, getClient: () => SupabaseClient) {

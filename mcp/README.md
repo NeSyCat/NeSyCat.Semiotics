@@ -73,7 +73,7 @@ file location, not the caller's cwd, but the MCP host still needs an absolute pa
 | Import/Export | `import_diagram`, `export_diagram` (`json`/`tikz`/`html`) |
 
 Every write tool runs the diagram data through `restoreDiagram` (the editor's own load-boundary
-normalizer — see `src/vendor/`, below) before it ever reaches the database, so an MCP-authored
+normalizer — see below) before it ever reaches the database, so an MCP-authored
 diagram is validated exactly the same way a diagram loaded in the browser editor is.
 
 `create_diagram`/`import_diagram`'s `organizationId` is optional: it falls back to
@@ -81,33 +81,27 @@ diagram is validated exactly the same way a diagram loaded in the browser editor
 otherwise call `list_organizations` first and pass one explicitly — the same pattern
 `Admination.08-Management/mcp`'s `create_area` uses for its own organization-resolution.
 
-## `src/vendor/editor/` — reused editor logic, and why it's a copy
+## Shared editor logic — imported live, never copied
 
-The pure, DOM-free parts of the editor's own domain model
-(`components/editor/domain/{types,forms,mutations,ids,color}.ts`,
-`components/editor/persist/{io,share}.ts`, `components/editor/ir/geometry-ir.ts`,
-`components/editor/export/{tikz,html}.ts`) back every tool here — the SAME `restoreDiagram`
-normalizer, the SAME `addForm`/`addPoint`/`addLine`/… mutators (so an MCP edit matches what the
-editor itself would produce, id-generation included), the SAME TikZ/HTML export geometry pass.
+Every tool here is backed by the editor's own pure, DOM-free domain modules, imported **directly**
+from `../components/editor/` (single source of truth — no copies):
 
-These live under `src/vendor/editor/` as **verbatim copies**, not a live relative import into
-`../components/editor/`, despite that being the more obvious approach. The app root has no
-`"type": "module"` in its `package.json`; this package does. Node's ESM loader resolves a file's
-own module format by walking up from *that file's* location, not the importer's — so a source file
-under `components/editor/` loaded from here is treated as CommonJS regardless of how this package
-imports it, and `tsx`'s on-the-fly CJS transpile of a `.ts` file is then subject to
-`cjs-module-lexer`'s static named-export detection, which turned out unreliable across these
-specific files (confirmed empirically — some named imports resolved fine, others silently came
-back `undefined`). Copying the files into this package's own ESM module graph sidesteps the
-boundary entirely. Each vendored file's header comment explains this and names its source; the one
-logic edit (not just a copy) is `domain/forms.ts`'s `Position` import, swapped for a tiny local
-shim (`domain/xyflow-position.ts`) instead of depending on all of `@xyflow/react` (a React Flow
-package with no business being a dependency of a Node-only stdio server) for what turned out to be
-a plain four-member string enum. See that file's own header comment for the detail.
+- `domain/{types,forms,mutations,ids,color}.ts`, `persist/{io,share}.ts`, `ir/geometry-ir.ts`,
+  `export/{tikz,html}.ts`.
 
-**Not vendored**, and out of scope here: `components/editor/domain/{grid,handles}.ts` and
-`ui/`/`state/` — nothing in this server's tool set touches canvas grid-snapping, hover/drag
-handles, or React state.
+So an MCP edit uses the SAME `restoreDiagram` normalizer, the SAME `addForm`/`addPoint`/`addLine`
+mutators (id-generation included), and the SAME TikZ/HTML export pass the browser editor uses — and
+can never drift from it.
+
+Notes:
+- This server is a sub-package of the app: `forms.ts` imports `Position` from `@xyflow/react`, which
+  resolves from the app's own `node_modules`. Run `npm install` at the repo root once so the app's
+  deps are present.
+- The relative import (`../../../components/editor/…`) works under `tsx` (runtime) and `tsc`
+  (`moduleResolution: bundler`, `.js` specifiers). It resolves through this package's ESM graph
+  without issue; no `"type": "module"` change to the app is needed.
+- Out of scope (not imported): `components/editor/domain/{grid,handles}.ts` and `ui/`/`state/` —
+  nothing in this server's tool set touches canvas grid-snapping, hover/drag handles, or React state.
 
 ## Development
 

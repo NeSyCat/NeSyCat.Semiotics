@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { emptyDiagram } from '../src/diagram/defaults.js'
 import { addFormOp, addPointOp, addLineOp, removeElementOp, setElementNameOp, moveFormOp } from '../src/diagram/ops.js'
-import { restoreDiagram } from '../src/vendor/editor/persist/io.js'
+import { restoreDiagram } from '../../components/editor/persist/io.js'
 
 describe('drawing ops (pure core)', () => {
   it('add form -> add points on valid edges -> add line produces a diagram that passes restoreDiagram', () => {

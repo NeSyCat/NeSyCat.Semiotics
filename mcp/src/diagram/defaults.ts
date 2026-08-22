@@ -1,4 +1,4 @@
-import type { Diagram } from '../vendor/editor/domain/types.js'
+import type { Diagram } from '../../../components/editor/domain/types.js'
 
 // The editor's own empty-diagram shape (persist/io.ts's restoreDiagram
 // produces exactly this for any unrecognized/absent input) — used as

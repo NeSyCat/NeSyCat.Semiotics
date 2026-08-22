@@ -3,9 +3,9 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js'
 import { text, errorText } from './result.js'
-import { restoreDiagram } from '../vendor/editor/persist/io.js'
-import { SHAPES } from '../vendor/editor/domain/forms.js'
-import type { Diagram, Shape } from '../vendor/editor/domain/types.js'
+import { restoreDiagram } from '../../../components/editor/persist/io.js'
+import { SHAPES } from '../../../components/editor/domain/forms.js'
+import type { Diagram, Shape } from '../../../components/editor/domain/types.js'
 import { addFormOp, addPointOp, addLineOp, removeElementOp, setElementNameOp, moveFormOp, type OpResult } from '../diagram/ops.js'
 
 const ShapeEnum = z.enum(SHAPES as unknown as [Shape, ...Shape[]])
