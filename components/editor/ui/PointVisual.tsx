@@ -14,6 +14,27 @@ const POINT_NAME_SIZE = 12 // points a little smaller than the form name
 // glyph coincide exactly.
 const REGION_CORNER_SIZE = POINT_SIZE
 
+// The screen-space cardinal that a form-local edge direction faces once the
+// node is rotated by `rotation` (CSS rotate — clockwise in screen Y-down
+// space). Used to place a point's label outward ON SCREEN, not in the
+// unrotated frame: e.g. an apex-up triangle sits at rotation 270, where its
+// 'peak' edge (form-local Right) points UP on screen, so its label belongs
+// above the apex — not off to one side.
+function screenCardinal(position: Position, rotation: number): 'left' | 'right' | 'top' | 'bottom' {
+  const base: [number, number] =
+    position === Position.Left ? [-1, 0]
+      : position === Position.Right ? [1, 0]
+        : position === Position.Top ? [0, -1]
+          : [0, 1]
+  const th = (rotation * Math.PI) / 180
+  const c = Math.cos(th)
+  const s = Math.sin(th)
+  const x = base[0] * c - base[1] * s
+  const y = base[0] * s + base[1] * c
+  // snap to the nearest screen cardinal (exact for 90° multiples)
+  return Math.abs(x) >= Math.abs(y) ? (x >= 0 ? 'right' : 'left') : y >= 0 ? 'bottom' : 'top'
+}
+
 // A point's glyph reuses the SAME geometry a form of that shape draws its
 // own body from (geometryFor(shape).body — domain/forms.ts's registry) and
 // renders it through ui/ShapeBody.tsx, the ONE shared border/fill
@@ -84,23 +105,30 @@ export function PointVisual({ pid, pt, anchor, labelSplay, hid, isSelected, isHo
   // fall back to the form's accent.
   const glyphAccent = pt.color ? toRgbTriple(pt.color) : null
 
-  // The name label sits OUTSIDE the point, in its edge's outward direction
-  // (apex point → right, left-edge point → left, etc.). Counter-rotate so
-  // it stays upright/readable when the form is rotated — same billboard
-  // trick as the form's own name label.
+  // The name label sits GAP px OUTSIDE the point, in the direction its edge
+  // faces ON SCREEN. That direction is form-LOCAL (anchor.position), but the
+  // whole node — points and labels — is rotated by formRotation (FormNode's CSS
+  // rotate), so a form-local "Right" edge can point any way on screen (UP, for
+  // an apex-up triangle at rotation 270). screenCardinal maps the local edge
+  // direction through the rotation to the real screen cardinal; each label is
+  // then rendered inside a per-point wrapper (below) that COUNTER-rotates by
+  // -formRotation, so lblPos acts in an upright, screen-aligned frame and the
+  // edge-pinning translate keeps the label's INNER edge GAP from the point.
+  // Pin/offset in the LOCAL frame instead and a wide label's TEXT WIDTH becomes
+  // outward distance under the rotation, flinging it far off the body — the
+  // "labels sit too far from the triangle" bug.
   const GAP = 16 // matches geometry-ir LABEL_GAP_PX; clears the 13px glyph half so labels do not overlap the form
-  const counterRotate = ` rotate(${-formRotation}deg)`
-  // labelSplay is added on BOTH axes unconditionally (same as
-  // geometry-ir.ts's `local + offset + splay`) — it's ~0 on whichever axis
-  // the edge's tangent doesn't run along, so this doesn't need a per-
-  // cardinal branch of its own.
-  const lx = anchor.x + labelSplay.x
-  const ly = anchor.y + labelSplay.y
+  const screenDir = screenCardinal(anchor.position, formRotation)
+  // labelSplay is already a SCREEN-space nudge (FormNode.edgeLabelSplay rotates
+  // the edge tangent by formRotation), so it adds directly in the wrapper's
+  // screen-aligned frame — ~0 on whichever screen axis the edge doesn't run along.
+  const sx = labelSplay.x
+  const sy = labelSplay.y
   const lblPos: React.CSSProperties =
-    anchor.position === Position.Left ? { left: lx - GAP, top: ly, transform: `translate(-100%, -50%)${counterRotate}` }
-      : anchor.position === Position.Right ? { left: lx + GAP, top: ly, transform: `translate(0, -50%)${counterRotate}` }
-        : anchor.position === Position.Top ? { left: lx, top: ly - GAP, transform: `translate(-50%, -100%)${counterRotate}` }
-          : { left: lx, top: ly + GAP, transform: `translate(-50%, 0)${counterRotate}` }
+    screenDir === 'left' ? { left: -GAP + sx, top: sy, transform: 'translate(-100%, -50%)' }
+      : screenDir === 'right' ? { left: GAP + sx, top: sy, transform: 'translate(0, -50%)' }
+        : screenDir === 'top' ? { left: sx, top: -GAP + sy, transform: 'translate(-50%, -100%)' }
+          : { left: sx, top: GAP + sy, transform: 'translate(-50%, 0)' }
   // The rendered label text: the point's own name, or its generated id ("p3")
   // as a default placeholder. A cleared name ('' — set via renamePoints) yields
   // an EMPTY label, in which case NOTHING is rendered (no text AND no mask), so
@@ -167,26 +195,34 @@ export function PointVisual({ pid, pt, anchor, labelSplay, hid, isSelected, isHo
           glyphs themselves. */}
       {labelText !== '' && (
         <>
-          <div
-            className="point-label"
-            aria-hidden="true"
-            style={{ position: 'absolute', ...lblPos, zIndex: 0, pointerEvents: 'none' }}
-          >
-            <span style={{ visibility: 'hidden' }}>
-              <Tex fontSize={POINT_NAME_SIZE} color={theme.text.ink}>{labelText}</Tex>
-            </span>
-            <span style={{
-              position: 'absolute', left: -2, right: -2, top: '15%', bottom: '15%',
-              background: theme.canvas.background, borderRadius: 5,
-            }} />
+          {/* Both label layers live in a per-point wrapper anchored AT the point
+              that counter-rotates by -formRotation — giving lblPos an upright,
+              screen-aligned frame (see screenCardinal above). Each wrapper keeps
+              its own zIndex so the rotation fix doesn't disturb the layering:
+              mask at 0 (above the edges, below every tint overlay so form hover
+              sweeps across the name instead of notching it), visible name at 4
+              (above the tints). transformOrigin '0 0' pins the rotation to the
+              anchor, which is where left/top place the wrapper's top-left. */}
+          <div style={{ position: 'absolute', left: anchor.x, top: anchor.y, transform: `rotate(${-formRotation}deg)`, transformOrigin: '0 0', zIndex: 0, pointerEvents: 'none' }}>
+            <div className="point-label" aria-hidden="true" style={{ position: 'absolute', ...lblPos }}>
+              <span style={{ visibility: 'hidden' }}>
+                <Tex fontSize={POINT_NAME_SIZE} color={theme.text.ink}>{labelText}</Tex>
+              </span>
+              <span style={{
+                position: 'absolute', left: -2, right: -2, top: '15%', bottom: '15%',
+                background: theme.canvas.background, borderRadius: 5,
+              }} />
+            </div>
           </div>
-          <div
-            className="point-label"
-            data-point-id={pid}
-            onClick={(e) => onSelect(e, pid)}
-            style={{ position: 'absolute', ...lblPos, zIndex: 4, cursor: 'pointer' }}
-          >
-            <Tex fontSize={POINT_NAME_SIZE} color={theme.text.ink}>{labelText}</Tex>
+          <div style={{ position: 'absolute', left: anchor.x, top: anchor.y, transform: `rotate(${-formRotation}deg)`, transformOrigin: '0 0', zIndex: 4 }}>
+            <div
+              className="point-label"
+              data-point-id={pid}
+              onClick={(e) => onSelect(e, pid)}
+              style={{ position: 'absolute', ...lblPos, cursor: 'pointer' }}
+            >
+              <Tex fontSize={POINT_NAME_SIZE} color={theme.text.ink}>{labelText}</Tex>
+            </div>
           </div>
         </>
       )}
