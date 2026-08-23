@@ -196,8 +196,20 @@ function collapseEmptyForms(
   return { forms: nextForms, points: nextPoints, lines: nextLines }
 }
 
+// A caller may hand us the diagram as a JSON STRING rather than a parsed
+// object — a `.json` import pasted as text, or an LLM MCP client that
+// stringifies its `data` argument (create_diagram/update_diagram pass it
+// straight through). Parse a string first so string and object inputs behave
+// identically; an unparseable string yields null and falls through to the
+// empty default below, exactly like any other non-object.
+function parseIfString(raw: unknown): unknown {
+  if (typeof raw !== 'string') return raw
+  try { return JSON.parse(raw) } catch { return null }
+}
+
 export function restoreDiagram(raw: unknown): Diagram {
-  const d = (typeof raw === 'object' && raw !== null ? raw : {}) as Record<string, unknown>
+  const src = parseIfString(raw)
+  const d = (typeof src === 'object' && src !== null ? src : {}) as Record<string, unknown>
   const rawForms = Array.isArray(d.forms) ? (d.forms as Record<string, unknown>[]) : []
   const rawPoints = (d.points && typeof d.points === 'object' ? d.points : {}) as Record<string, unknown>
   const dropped = dropRemovedShapes(rawForms, rawPoints)
