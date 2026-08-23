@@ -13,7 +13,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { encodeDiagramToFragment } from '../persist/share'
 import { diagramToTikz } from '../export/tikz'
 import { diagramToHtml } from '../export/html'
-import { diagramToPrisma } from '../export/prisma'
+import { diagramToPrisma, diagramToPrismaPostgres } from '../export/prisma'
 import { highlightToHtml, type HighlightLang } from '../export/highlight'
 import type { Diagram } from '../domain/types'
 import { CloseIcon, CopyGlyph } from './sprite'
@@ -33,10 +33,11 @@ function shareBasePath(): string {
   return location.pathname.startsWith('/editor') ? '/editor' : '/'
 }
 
-type Format = 'prisma' | 'latex' | 'html' | 'json' | 'url'
+type Format = 'prisma' | 'postgres' | 'latex' | 'html' | 'json' | 'url'
 
 const TABS: { format: Format; label: string }[] = [
   { format: 'prisma', label: 'Prisma' },
+  { format: 'postgres', label: 'Postgres' },
   { format: 'latex', label: 'LaTeX' },
   { format: 'html', label: 'HTML' },
   { format: 'json', label: 'JSON' },
@@ -45,7 +46,7 @@ const TABS: { format: Format; label: string }[] = [
 
 // URL isn't code, so it has no highlighter language (rendered as plain text).
 const HIGHLIGHT_LANG: Partial<Record<Format, HighlightLang>> = {
-  prisma: 'prisma', latex: 'latex', html: 'html', json: 'json',
+  prisma: 'prisma', postgres: 'prisma', latex: 'latex', html: 'html', json: 'json',
 }
 
 export default function ExportPanel({ diagram, onClose }: Props) {
@@ -69,6 +70,7 @@ export default function ExportPanel({ diagram, onClose }: Props) {
   // Sync formats are derived, not stored.
   const syncText = useMemo(() => {
     if (format === 'prisma') return diagramToPrisma(diagram)
+    if (format === 'postgres') return diagramToPrismaPostgres(diagram)
     if (format === 'json') return JSON.stringify(diagram, null, 2)
     return null
   }, [format, diagram])

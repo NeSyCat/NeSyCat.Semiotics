@@ -4,6 +4,13 @@
 // the browser (the Export menu) AND in plain node (the nesycat-semiotics MCP's
 // export_diagram tool) from the SAME function — one source of truth.
 //
+// Two targets share one `render()` body, differing ONLY in a tiny dialect:
+//   - `diagramToPrisma`         (Document/MongoDB) — id = `ObjectId @id @map("_id")`
+//   - `diagramToPrismaPostgres` (Postgres/relational) — id = `Uuid @id @default(uuid())`
+// Everything else (value-object `type` blocks, relations, cardinality,
+// `@@discriminator`/`@@base`, every other scalar) is byte-identical between
+// the two — only the id line and the FK scalar type change.
+//
 // Encoding it reads:
 //   - square form                 = a model
 //   - triangle form               = a discriminated union (a coproduct): its
@@ -24,7 +31,8 @@
 //        · target on a leaf     → `f <label>`; type = the target point label.
 //   - TARGET glyph → cardinality: rhombus+white `T`, rhombus+black `T?`,
 //        square `T[]`. (Type is ALWAYS read from the target, never the source.)
-//   - every non-variant model gets `id ObjectId @id @map("_id")`.
+//   - every non-variant model gets the dialect's id line (Mongo:
+//        `id ObjectId @id @map("_id")`; Postgres: `id Uuid @id @default(uuid())`).
 //
 // Output is ALWAYS multi-line: one field / attribute per line, a blank line
 // between every block. Never condensed.
@@ -46,7 +54,11 @@ function plain(s: string | undefined): string {
   return t.replace(/\\[a-zA-Z]+/g, '').replace(/[{}$]/g, '').trim()
 }
 
-export function diagramToPrisma(d: Diagram): string {
+interface PrismaDialect { idField: string; fkType: string }
+const MONGO_DIALECT: PrismaDialect = { idField: 'id ObjectId @id @map("_id")', fkType: 'ObjectId' }
+const POSTGRES_DIALECT: PrismaDialect = { idField: 'id Uuid @id @default(uuid())', fkType: 'Uuid' }
+
+function render(d: Diagram, dialect: PrismaDialect): string {
   const form = (id: string): Form | undefined => d.forms.find((f) => f.id === id)
   const pt = (id: string): Point | undefined => d.points[id]
   const outWires = (fid: string): Line[] => d.lines.filter((l) => !!l.source && pt(l.source)?.formId === fid)
@@ -101,7 +113,7 @@ export function diagramToPrisma(d: Diagram): string {
       const uniq = src && single(src) ? ' @unique' : ''
       const opt = optional(tp) ? '?' : ''
       return [
-        `  ${fname}Id ObjectId${uniq}`,
+        `  ${fname}Id ${dialect.fkType}${uniq}`,
         `  ${fname} ${plain(tf.name)}${opt} @relation(fields: [${fname}Id], references: [id])`,
       ]
     }
@@ -128,7 +140,7 @@ export function diagramToPrisma(d: Diagram): string {
     const fields: string[] = []
     const attrs: string[] = []
     if (baseOf[name]) attrs.push(`  @@base(${baseOf[name].base}, "${baseOf[name].tag}")`)
-    else fields.push('  id ObjectId @id @map("_id")')
+    else fields.push(`  ${dialect.idField}`)
     for (const l of outWires(mf.id)) fields.push(...fieldLines(l))
     if (discOf[name]) {
       fields.push(`  ${discOf[name].field} ${discOf[name].type}`)
@@ -140,3 +152,6 @@ export function diagramToPrisma(d: Diagram): string {
 
   return `// use prisma-next\n// Generated from a NeSyCat Semiotics diagram.\n\n${blocks.join('\n\n')}\n`
 }
+
+export function diagramToPrisma(d: Diagram): string { return render(d, MONGO_DIALECT) }
+export function diagramToPrismaPostgres(d: Diagram): string { return render(d, POSTGRES_DIALECT) }
