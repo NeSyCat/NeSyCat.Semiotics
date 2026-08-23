@@ -26,6 +26,7 @@ import { geometryFor, pointIdsAt, isInsideBody, isInCenterZone, insertionIndex, 
 import { encodeHandle, decodeHandle, decodePhantomHandle } from '../domain/handles'
 import { GRID_SIZE, snapCenterPosition } from '../domain/grid'
 import ImportPanel from './ImportPanel'
+import ExportPanel from './ExportPanel'
 import theme from './theme'
 import type { Diagram, Form, Shape, Color } from '../domain/types'
 import { ToolbarSprite } from './sprite'
@@ -247,6 +248,7 @@ function Canvas({ topRight }: CanvasContentProps) {
   const gridEnabled = useStore((s) => s.gridEnabled)
   const toggleGridEnabled = useStore((s) => s.toggleGridEnabled)
   const [importOpen, setImportOpen] = useState(false)
+  const [exportOpen, setExportOpen] = useState(false)
   const { screenToFlowPosition, getNodes } = useReactFlow()
 
   const [activeShape, setActiveShape] = useState<Shape>(() => {
@@ -882,12 +884,13 @@ function Canvas({ topRight }: CanvasContentProps) {
         toggleGridEnabled={toggleGridEnabled}
         pointsVisible={pointsVisible}
         togglePointsVisible={togglePointsVisible}
-        diagram={diagram}
         onImportClick={() => setImportOpen(true)}
+        onExportClick={() => setExportOpen(true)}
         topRight={topRight}
       />
 
       {importOpen && <ImportPanel onClose={() => setImportOpen(false)} />}
+      {exportOpen && <ExportPanel diagram={diagram} onClose={() => setExportOpen(false)} />}
 
       <MainToolbar
         activeCategory={activeCategory}
