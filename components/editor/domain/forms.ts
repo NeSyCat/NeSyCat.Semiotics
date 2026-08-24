@@ -128,7 +128,7 @@ export interface FormGeometry {
   // boundary attribution — a cursor over the body's middle otherwise resolves
   // to the nearest side. Canvas resolves them here instead, only when the
   // cursor is inside the centre zone. Returns the centre-spot key within
-  // CENTER_SPOT_R (its own drawn disc) of the cursor, else undefined — so the
+  // SPOT_DISC_R (its own drawn disc) of the cursor, else undefined — so the
   // indicator appears only where you can actually drag. Absent for shapes with
   // no centre spots.
   centerSpotAt?: (rx: number, ry: number) => EdgeKey | undefined
@@ -307,13 +307,13 @@ export interface Spot { at: readonly [number, number]; position: Position }
 // spot" feel across every shape.
 const SPOT_R = CORNER_R
 
-// A CENTRE spot's hit radius = the drawn disc's OWN radius (POINT_SIZE), NOT the
-// larger SPOT_R corners use. So its hover indicator appears EXACTLY where a wire
-// can be dragged from it — its "self-region" — and the rest of the centre zone
-// stays plain form-selection instead of flickering the draw dot as the cursor
-// crosses the middle. (Corners sit on the boundary with no selection conflict,
-// so they keep the generous SPOT_R.)
-const CENTER_SPOT_R = POINT_SIZE / BASE_SIZE / 2
+// A spot's hit radius when the indicator should coincide with the drag disc:
+// the drawn disc's OWN radius (POINT_SIZE), NOT the larger SPOT_R. Used for both
+// the interior centre spots (so the rest of the centre zone stays plain
+// form-selection instead of flickering the draw dot) and the corner spots (so a
+// corner's indicator appears EXACTLY where a wire can be dragged from it — its
+// "self-region" — leaving the near-vertex ends of the sides grabbable again).
+const SPOT_DISC_R = POINT_SIZE / BASE_SIZE / 2
 
 function spotAnchor(spot: Spot, n: number): Anchor {
   return { x: spot.at[0] * n, y: spot.at[1] * n, position: spot.position }
@@ -445,7 +445,7 @@ const triangleGeometry: FormGeometry = {
   hasCenterZone: true,
   nodeSize: () => BASE_SIZE,
   edgeCapacity: { peak: 1, ...spotCapacities(Object.keys(TRI_SPOTS)) },
-  centerSpotAt: (rx, ry) => spotAt(IDENTITY_SPOT, rx, ry, CENTER_SPOT_R),
+  centerSpotAt: (rx, ry) => spotAt(IDENTITY_SPOT, rx, ry, SPOT_DISC_R),
   pointAnchor: (edgeKey, index, count, n) => {
     // 'peak' has capacity 1 — always the apex itself, regardless of
     // index/count (same "constant anchor" pattern as emptyGeometry's middle
@@ -466,7 +466,7 @@ const triangleGeometry: FormGeometry = {
     if (Math.hypot(rx - TRI_APEX_X, ry - TRI_APEX_Y) <= PEAK_R) return 'peak'
     // Base-vertex spots win over side attribution the same way (both slants and
     // 'c' terminate at these two vertices), checked before a/b/c.
-    const corner = spotAt(TRI_CORNERS, rx, ry)
+    const corner = spotAt(TRI_CORNERS, rx, ry, SPOT_DISC_R)
     if (corner) return corner
     const da = distToSeg(rx, ry, TRI_BASE_X, TRI_BASE_Y_TOP, TRI_APEX_X, 0.5) // a = top slant
     const db = distToSeg(rx, ry, TRI_BASE_X, TRI_BASE_Y_BOT, TRI_APEX_X, 0.5) // b = bottom slant
@@ -533,7 +533,7 @@ const squareGeometry: FormGeometry = {
   hasCenterZone: true,
   nodeSize: () => BASE_SIZE,
   edgeCapacity: spotCapacities([...Object.keys(SQUARE_CORNERS), ...CENTER_SPOT_KEYS]),
-  centerSpotAt: (rx, ry) => spotAt(CENTER_SPOTS, rx, ry, CENTER_SPOT_R),
+  centerSpotAt: (rx, ry) => spotAt(CENTER_SPOTS, rx, ry, SPOT_DISC_R),
   pointAnchor: (edgeKey, index, count, n) => {
     const spot = SQUARE_SPOTS[edgeKey]
     if (spot) return spotAnchor(spot, n)
@@ -546,7 +546,7 @@ const squareGeometry: FormGeometry = {
     }
   },
   edgeAt: (rx, ry) => {
-    const corner = spotAt(SQUARE_CORNERS, rx, ry)
+    const corner = spotAt(SQUARE_CORNERS, rx, ry, SPOT_DISC_R)
     if (corner) return corner
     const d = { top: ry, right: 1 - rx, bottom: 1 - ry, left: rx }
     return (Object.keys(d) as Array<keyof typeof d>).reduce((a, b) => (d[b] < d[a] ? b : a))
@@ -640,7 +640,7 @@ const circleGeometry: FormGeometry = {
   hasCenterZone: true,
   nodeSize: () => BASE_SIZE,
   edgeCapacity: spotCapacities(CENTER_SPOT_KEYS),
-  centerSpotAt: (rx, ry) => spotAt(CENTER_SPOTS, rx, ry, CENTER_SPOT_R),
+  centerSpotAt: (rx, ry) => spotAt(CENTER_SPOTS, rx, ry, SPOT_DISC_R),
   pointAnchor: (edgeKey, index, count, n) => {
     const spot = CENTER_SPOTS[edgeKey]
     if (spot) return spotAnchor(spot, n)
@@ -719,7 +719,7 @@ const rhombusGeometry: FormGeometry = {
   hasCenterZone: true,
   nodeSize: () => BASE_SIZE,
   edgeCapacity: spotCapacities([...Object.keys(RHOMBUS_CORNERS), ...CENTER_SPOT_KEYS]),
-  centerSpotAt: (rx, ry) => spotAt(CENTER_SPOTS, rx, ry, CENTER_SPOT_R),
+  centerSpotAt: (rx, ry) => spotAt(CENTER_SPOTS, rx, ry, SPOT_DISC_R),
   pointAnchor: (edgeKey, index, count, n) => {
     const spot = RHOMBUS_SPOTS[edgeKey]
     if (spot) return spotAnchor(spot, n)
@@ -729,7 +729,7 @@ const rhombusGeometry: FormGeometry = {
     return { x: x * n, y: y * n, position: side.position }
   },
   edgeAt: (rx, ry) => {
-    const corner = spotAt(RHOMBUS_CORNERS, rx, ry)
+    const corner = spotAt(RHOMBUS_CORNERS, rx, ry, SPOT_DISC_R)
     if (corner) return corner
     let best: EdgeKey = 'top-right'
     let bestDist = Infinity
