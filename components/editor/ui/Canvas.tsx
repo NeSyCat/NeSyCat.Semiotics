@@ -720,8 +720,13 @@ function Canvas({ topRight }: CanvasContentProps) {
     const form = d.forms.find((f) => f.id === node.id)
     if (!form) return
     const geom = geometryFor(form.shape)
-    const { rx, ry } = formLocalPoint(event, node, form)
-    if (!geom.hasCenterZone || isInCenterZone(geom.body, rx, ry)) return
+    const { rx, ry, lx, ly, n } = formLocalPoint(event, node, form)
+    // A click ON an existing point — including a centre/identity point, which
+    // lives INSIDE the centre zone — is that point's own to handle (its onSelect
+    // fires): revert the form-select here so the point wins, exactly as a ring
+    // click does. Only a click on bare centre-zone space keeps the form.
+    const onPoint = nearestPointWithin(form, geom, lx, ly, n)
+    if (!onPoint && (!geom.hasCenterZone || isInCenterZone(geom.body, rx, ry))) return
     setNodes((nds) => (nds.some((n) => n.selected) ? nds.map((n) => (n.selected ? { ...n, selected: false } : n)) : nds))
   }, [formLocalPoint, setNodes])
 
@@ -776,6 +781,17 @@ function Canvas({ topRight }: CanvasContentProps) {
     const nearPoint = nearestPointWithin(form, geom, lx, ly, n)
     if (nearPoint) {
       useStore.getState().setHover({ kind: 'point', pointId: nearPoint })
+      return
+    }
+    // A boundary CORNER spot's disc straddles the body edge — and on a diamond
+    // or triangle it sits in the box-corner region that is NOT inside the body
+    // at all — so resolve corner spots BEFORE the "outside body → clear" check.
+    // Otherwise corners only activate when approached from strictly inside the
+    // body, and can't be hovered/added coming from the outside. (Sides resolve
+    // to a polyline region, so they fall through to the normal inside path.)
+    const spotKey = geom.edgeAt(clamp01(rx), clamp01(ry))
+    if (spotKey && geom.regionShape(spotKey).kind === 'spot') {
+      useStore.getState().setHover({ kind: 'edge', formId: node.id, edgeKey: spotKey, rx: clamp01(rx), ry: clamp01(ry) })
       return
     }
     if (!isInsideBody(geom.body, rx, ry)) {
