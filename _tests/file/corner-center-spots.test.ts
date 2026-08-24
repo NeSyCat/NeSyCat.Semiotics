@@ -46,22 +46,22 @@ describe('corner & centre spot slots', () => {
 
   it('edgeAt resolves corners near a vertex, but never the interior centres', () => {
     const g = geometryFor('square')
+    // ONE pipeline: edgeAt resolves EVERY spot (corner AND centre) within its
+    // disc, then falls back to the nearest side.
     expect(g.edgeAt(0.02, 0.02)).toBe('corner-tl')
     expect(g.edgeAt(0.98, 0.02)).toBe('corner-tr')
     expect(g.edgeAt(0.98, 0.98)).toBe('corner-br')
-    // an interior centre point resolves to the nearest SIDE via edgeAt (centres
-    // are reached through centerSpotAt inside the centre zone, not edgeAt).
-    expect(g.edgeAt(0.5, 0.25)).not.toBe('center-up')
-    expect(geometryFor('circle').edgeAt(0.5, 0.25)).toBe('up') // circle: nearest arc, not a centre
+    expect(g.edgeAt(0.5, 0.03)).toBe('top') // near an edge, no spot → the side
   })
 
-  it('centerSpotAt resolves the interior centres (nearest wins), else undefined', () => {
+  it('edgeAt resolves the interior centres too (nearest wins), else a side/arc', () => {
     const g = geometryFor('circle')
-    expect(g.centerSpotAt?.(0.5, 0.25)).toBe('center-up')
-    expect(g.centerSpotAt?.(0.5, 0.75)).toBe('center-down')
-    expect(g.centerSpotAt?.(0.5, 0.5)).toBe('center') // dead centre = the identity spot
-    expect(geometryFor('triangle').centerSpotAt?.(0.5, 0.5)).toBe('center') // triangle has only the identity centre
-    expect(geometryFor('empty').centerSpotAt).toBeUndefined()
+    expect(g.edgeAt(0.5, 0.25)).toBe('center-up')
+    expect(g.edgeAt(0.5, 0.75)).toBe('center-down')
+    expect(g.edgeAt(0.5, 0.5)).toBe('center') // dead centre = the identity spot
+    expect(g.edgeAt(0.5, 0.02)).toBe('up') // off every centre → the nearest arc
+    expect(geometryFor('triangle').edgeAt(0.5, 0.5)).toBe('center') // triangle centroid = its identity centre
+    expect(geometryFor('empty').edgeAt(0.9, 0.9)).toBe('self') // empty is always its one self-region
   })
 
   it('corner & centre spots each cap at one point (like peak)', () => {

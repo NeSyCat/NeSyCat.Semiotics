@@ -150,16 +150,12 @@ function resolveDropPoint(
   if (!targetForm) return null
   const geom = geometryFor(targetForm.shape)
   const { rx, ry } = nodeLocalFraction(position.x, position.y, dropTarget, targetForm)
-  // Dropped in the center zone — that's the whole-form-selection region, not
-  // point-creation territory, so this is a no-op, same as a center-zone
-  // double-click.
-  if (geom.hasCenterZone && isInCenterZone(geom.body, rx, ry)) {
-    // A drop landing on one of the interior centre spots attaches there; the
-    // rest of the centre zone is whole-form selection and rejects the drop.
-    const cs = geom.centerSpotAt?.(clamp01(rx), clamp01(ry))
-    return cs ? useStore.getState().addPoint(dropTarget.id, cs) || null : null
-  }
   const edgeKey = geom.edgeAt(clamp01(rx), clamp01(ry))
+  const onSpot = !!edgeKey && geom.regionShape(edgeKey).kind === 'spot'
+  // A drop on a spot (corner/centre/apex) attaches there even inside the centre
+  // zone; a bare centre-zone drop (a side there) is whole-form-selection
+  // territory and is rejected.
+  if (!onSpot && geom.hasCenterZone && isInCenterZone(geom.body, rx, ry)) return null
   if (!edgeKey) return null
   const index = insertionIndex(targetForm, edgeKey, clamp01(rx), clamp01(ry))
   return useStore.getState().addPoint(dropTarget.id, edgeKey, undefined, index) || null
@@ -739,14 +735,12 @@ function Canvas({ topRight }: CanvasContentProps) {
     if (!form) return
     const geom = geometryFor(form.shape)
     const { rx, ry } = formLocalPoint(event, node, form)
-    if (geom.hasCenterZone && isInCenterZone(geom.body, rx, ry)) {
-      // The centre zone is whole-form selection — EXCEPT the two interior
-      // centre spots (square/circle/rhombus), which are addressable slots.
-      const cs = geom.centerSpotAt?.(clamp01(rx), clamp01(ry))
-      if (cs) useStore.getState().addPoint(node.id, cs)
-      return
-    }
     const edgeKey = geom.edgeAt(clamp01(rx), clamp01(ry))
+    const onSpot = !!edgeKey && geom.regionShape(edgeKey).kind === 'spot'
+    // A spot (corner/centre/apex) is always addable, even inside the centre
+    // zone; a bare centre-zone double-click (a side there) is whole-form
+    // selection, a no-op.
+    if (!onSpot && geom.hasCenterZone && isInCenterZone(geom.body, rx, ry)) return
     if (!edgeKey) return
     const index = insertionIndex(form, edgeKey, clamp01(rx), clamp01(ry))
     useStore.getState().addPoint(node.id, edgeKey, undefined, index)
@@ -783,15 +777,15 @@ function Canvas({ topRight }: CanvasContentProps) {
       useStore.getState().setHover({ kind: 'point', pointId: nearPoint })
       return
     }
-    // A boundary CORNER spot's disc straddles the body edge — and on a diamond
-    // or triangle it sits in the box-corner region that is NOT inside the body
-    // at all — so resolve corner spots BEFORE the "outside body → clear" check.
-    // Otherwise corners only activate when approached from strictly inside the
-    // body, and can't be hovered/added coming from the outside. (Sides resolve
-    // to a polyline region, so they fall through to the normal inside path.)
-    const spotKey = geom.edgeAt(clamp01(rx), clamp01(ry))
-    if (spotKey && geom.regionShape(spotKey).kind === 'spot') {
-      useStore.getState().setHover({ kind: 'edge', formId: node.id, edgeKey: spotKey, rx: clamp01(rx), ry: clamp01(ry) })
+    // ONE pipeline: edgeAt resolves ANY spot (corner / centre / apex) within its
+    // own disc, or else the nearest side. A SPOT wins from any direction —
+    // resolved BEFORE the inside-body / centre-zone logic, so it activates
+    // exactly within its disc whether the cursor came from inside or outside the
+    // form. A SIDE only lives inside the body; the rest of the centre zone is
+    // whole-form selection.
+    const edgeKey = geom.edgeAt(clamp01(rx), clamp01(ry))
+    if (edgeKey && geom.regionShape(edgeKey).kind === 'spot') {
+      useStore.getState().setHover({ kind: 'edge', formId: node.id, edgeKey, rx: clamp01(rx), ry: clamp01(ry) })
       return
     }
     if (!isInsideBody(geom.body, rx, ry)) {
@@ -799,17 +793,9 @@ function Canvas({ topRight }: CanvasContentProps) {
       return
     }
     if (geom.hasCenterZone && isInCenterZone(geom.body, rx, ry)) {
-      // Over an interior centre spot → highlight that slot (so it reads as
-      // addable), else the whole-form centre highlight.
-      const cs = geom.centerSpotAt?.(clamp01(rx), clamp01(ry))
-      if (cs) {
-        useStore.getState().setHover({ kind: 'edge', formId: node.id, edgeKey: cs, rx: clamp01(rx), ry: clamp01(ry) })
-        return
-      }
       useStore.getState().setHover({ kind: 'center', formId: node.id })
       return
     }
-    const edgeKey = geom.edgeAt(clamp01(rx), clamp01(ry))
     if (!edgeKey) {
       useStore.getState().clearHover()
       return
