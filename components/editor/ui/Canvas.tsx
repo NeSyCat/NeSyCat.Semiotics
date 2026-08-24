@@ -153,7 +153,12 @@ function resolveDropPoint(
   // Dropped in the center zone — that's the whole-form-selection region, not
   // point-creation territory, so this is a no-op, same as a center-zone
   // double-click.
-  if (geom.hasCenterZone && isInCenterZone(geom.body, rx, ry)) return null
+  if (geom.hasCenterZone && isInCenterZone(geom.body, rx, ry)) {
+    // A drop landing on one of the interior centre spots attaches there; the
+    // rest of the centre zone is whole-form selection and rejects the drop.
+    const cs = geom.centerSpotAt?.(clamp01(rx), clamp01(ry))
+    return cs ? useStore.getState().addPoint(dropTarget.id, cs) || null : null
+  }
   const edgeKey = geom.edgeAt(clamp01(rx), clamp01(ry))
   if (!edgeKey) return null
   const index = insertionIndex(targetForm, edgeKey, clamp01(rx), clamp01(ry))
@@ -729,7 +734,13 @@ function Canvas({ topRight }: CanvasContentProps) {
     if (!form) return
     const geom = geometryFor(form.shape)
     const { rx, ry } = formLocalPoint(event, node, form)
-    if (geom.hasCenterZone && isInCenterZone(geom.body, rx, ry)) return
+    if (geom.hasCenterZone && isInCenterZone(geom.body, rx, ry)) {
+      // The centre zone is whole-form selection — EXCEPT the two interior
+      // centre spots (square/circle/rhombus), which are addressable slots.
+      const cs = geom.centerSpotAt?.(clamp01(rx), clamp01(ry))
+      if (cs) useStore.getState().addPoint(node.id, cs)
+      return
+    }
     const edgeKey = geom.edgeAt(clamp01(rx), clamp01(ry))
     if (!edgeKey) return
     const index = insertionIndex(form, edgeKey, clamp01(rx), clamp01(ry))
@@ -772,6 +783,13 @@ function Canvas({ topRight }: CanvasContentProps) {
       return
     }
     if (geom.hasCenterZone && isInCenterZone(geom.body, rx, ry)) {
+      // Over an interior centre spot → highlight that slot (so it reads as
+      // addable), else the whole-form centre highlight.
+      const cs = geom.centerSpotAt?.(clamp01(rx), clamp01(ry))
+      if (cs) {
+        useStore.getState().setHover({ kind: 'edge', formId: node.id, edgeKey: cs, rx: clamp01(rx), ry: clamp01(ry) })
+        return
+      }
       useStore.getState().setHover({ kind: 'center', formId: node.id })
       return
     }

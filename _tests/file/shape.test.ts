@@ -57,7 +57,7 @@ describe('unified Shape vocabulary', () => {
   it('a point with a valid shape survives a full round-trip', () => {
     const original: Diagram = {
       schemaVersion: 1,
-      forms: [{ id: 'RT', shape: 'circle', position: { x: 0, y: 0 }, edges: { up: ['RP'], right: [], down: [], left: [] } }],
+      forms: [{ id: 'RT', shape: 'circle', position: { x: 0, y: 0 }, edges: { up: ['RP'], right: [], down: [], left: [], 'center-up': [], 'center-down': [], 'center': [] } }],
       points: { RP: { id: 'RP', shape: 'triangle', formId: 'RT', edgeKey: 'up' } },
       lines: [],
     }

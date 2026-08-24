@@ -5,6 +5,7 @@ import theme from './theme'
 import { geometryFor, POINT_SIZE, type Anchor } from '../domain/forms'
 import { toRgbTriple } from '../domain/color'
 import { Tex } from './Tex'
+import { LabelMask } from './LabelMask'
 import { ShapeBody, tintFill } from './ShapeBody'
 import type { Point, Shape } from '../domain/types'
 
@@ -217,13 +218,7 @@ export function PointVisual({ pid, pt, anchor, labelSplay, hid, isSelected, isHo
               anchor, which is where left/top place the wrapper's top-left. */}
           <div style={{ position: 'absolute', left: anchor.x, top: anchor.y, transform: `rotate(${-formRotation}deg)`, transformOrigin: '0 0', zIndex: 0, pointerEvents: 'none' }}>
             <div className="point-label" aria-hidden="true" style={{ position: 'absolute', ...lblPos }}>
-              <span style={{ visibility: 'hidden' }}>
-                <Tex fontSize={POINT_NAME_SIZE} color={theme.text.ink}>{labelText}</Tex>
-              </span>
-              <span style={{
-                position: 'absolute', left: -2, right: -2, top: '15%', bottom: '15%',
-                background: theme.canvas.background, borderRadius: 5,
-              }} />
+              <LabelMask text={labelText} fontSize={POINT_NAME_SIZE} />
             </div>
           </div>
           <div style={{ position: 'absolute', left: anchor.x, top: anchor.y, transform: `rotate(${-formRotation}deg)`, transformOrigin: '0 0', zIndex: 4 }}>

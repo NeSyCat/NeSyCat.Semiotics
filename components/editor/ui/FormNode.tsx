@@ -8,6 +8,7 @@ import { encodeHandle, encodePhantomHandle, decodePhantomHandle } from '../domai
 import { toRgbTriple } from '../domain/color'
 import { useStore } from '../state/store'
 import { Tex } from './Tex'
+import { LabelMask } from './LabelMask'
 import { PointVisual } from './PointVisual'
 import { ShapeBody, tintFill, type GapPoint } from './ShapeBody'
 import type { EdgeKey, Form, Point } from '../domain/types'
@@ -134,6 +135,23 @@ function RingBandHitArea({ body, n, hasCenterZone, anchor }: {
     <svg width={1} height={1} style={{ position: 'absolute', left: 0, top: 0, overflow: 'visible', pointerEvents: 'none', zIndex: 1 }}>
       <path d={outer + inner} fill="transparent" fillRule="evenodd" stroke="none" pointerEvents="fill" style={{ cursor: 'crosshair' }} />
     </svg>
+  )
+}
+
+// The phantom handle's grabbable/droppable area for a SPOT slot (a corner,
+// centre, or the triangle apex): a POINT_SIZE disc centred on the spot — the
+// SAME circle the gray RegionOverlay draws for that spot — so a wire can be
+// pulled out from anywhere the hover indicator covers. RingBandHitArea is for
+// side edges and carves the centre zone out as a hole; interior centre spots
+// live INSIDE that hole, so they'd otherwise have only the 1px handle to grab —
+// this makes the drag region coincide exactly with the visible hover disc.
+function SpotHitArea() {
+  return (
+    <div style={{
+      position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%, -50%)',
+      width: POINT_SIZE, height: POINT_SIZE, borderRadius: '50%',
+      background: 'transparent', cursor: 'crosshair', zIndex: 1,
+    }} />
   )
 }
 
@@ -406,6 +424,12 @@ function FormNode({ id, data, selected }: NodeProps) {
         const count = pointIdsAt(form, phantomEdgeKey).length
         const anchor = geom.pointAnchor(phantomEdgeKey, phantomSlot, count + 1, n)
         const hid = encodePhantomHandle(phantomEdgeKey)
+        // A spot slot's grab area is the POINT_SIZE disc matching its hover
+        // indicator; a side edge's is the whole ring band.
+        const isSpot = geom.regionShape(phantomEdgeKey).kind === 'spot'
+        const hitArea = isSpot
+          ? <SpotHitArea />
+          : <RingBandHitArea body={geom.body} n={n} hasCenterZone={geom.hasCenterZone} anchor={anchor} />
         const dotStyle: React.CSSProperties = {
           position: 'absolute', top: anchor.y, left: anchor.x, transform: 'translate(-50%, -50%)',
           width: 1, height: 1, minWidth: 1, minHeight: 1, background: 'transparent', border: 'none', padding: 0, zIndex: 5,
@@ -413,27 +437,34 @@ function FormNode({ id, data, selected }: NodeProps) {
         return (
           <span key="phantom">
             <Handle type="target" position={anchor.position} id={hid} style={dotStyle}>
-              <RingBandHitArea body={geom.body} n={n} hasCenterZone={geom.hasCenterZone} anchor={anchor} />
+              {hitArea}
             </Handle>
             <Handle type="source" position={anchor.position} id={hid} style={dotStyle}>
-              <RingBandHitArea body={geom.body} n={n} hasCenterZone={geom.hasCenterZone} anchor={anchor} />
+              {hitArea}
             </Handle>
           </span>
         )
       })()}
       {/* center hover — shows that a plain click here selects the whole form */}
       {hoverCenter && <CenterOverlay body={geom.body} n={n} color={theme.node.regionHover} />}
-      {geom.bodyOpacity > 0 && geom.showName && (
-        <div style={{
+      {geom.bodyOpacity > 0 && geom.showName && (() => {
+        const nameText = form.name ?? form.id
+        // Counter-rotate so the name stays upright/readable — it's along for the
+        // ride positionally, but its own orientation shouldn't spin.
+        const place = (zIndex: number): React.CSSProperties => ({
           position: 'absolute', left: centroid[0] * n, top: centroid[1] * n,
-          // Counter-rotate so the name stays upright/readable — it's along
-          // for the ride positionally, but its own orientation shouldn't spin.
           transform: `translate(-50%, -50%) rotate(${-(form.rotation ?? 0)}deg)`,
-          pointerEvents: 'none', zIndex: 3,
-        }}>
-          <Tex fontSize={FORM_NAME_SIZE} color={theme.text.ink}>{form.name ?? form.id}</Tex>
-        </div>
-      )}
+          pointerEvents: 'none', zIndex,
+        })
+        return (
+          <>
+            {/* Wire mask BELOW the tints (zIndex 0), the SAME general rule as
+                point/line labels (see LabelMask) — a form name hides lines too. */}
+            <div style={place(0)}><LabelMask text={nameText} fontSize={FORM_NAME_SIZE} /></div>
+            <div style={place(3)}><Tex fontSize={FORM_NAME_SIZE} color={theme.text.ink}>{nameText}</Tex></div>
+          </>
+        )
+      })()}
       {pointVisuals}
     </div>
   )

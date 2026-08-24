@@ -1,0 +1,103 @@
+import { describe, expect, it } from 'vitest'
+import { geometryFor, BASE_SIZE } from '../../components/editor/domain/forms'
+import { restoreDiagram } from '../../components/editor/persist/io'
+import type { Diagram } from '../../components/editor/domain/types'
+
+// Every corner/vertex of every polygon form, plus two interior centre points on
+// square/circle/rhombus, are addressable single-slot attachment points — the
+// generalized triangle-`peak`. These lock that behaviour.
+describe('corner & centre spot slots', () => {
+  it('each shape declares its corner/centre spot keys + the identity centre (empty unchanged)', () => {
+    expect(geometryFor('square').edgeKeys).toEqual(['top', 'right', 'bottom', 'left', 'corner-tl', 'corner-tr', 'corner-br', 'corner-bl', 'center-up', 'center-down', 'center'])
+    expect(geometryFor('circle').edgeKeys).toEqual(['up', 'right', 'down', 'left', 'center-up', 'center-down', 'center'])
+    expect(geometryFor('rhombus').edgeKeys).toEqual(['top-right', 'bottom-right', 'bottom-left', 'top-left', 'corner-top', 'corner-right', 'corner-bottom', 'corner-left', 'center-up', 'center-down', 'center'])
+    expect(geometryFor('triangle').edgeKeys).toEqual(['a', 'b', 'c', 'peak', 'corner-base-top', 'corner-base-bottom', 'center'])
+    expect(geometryFor('circle').edgeKeys).not.toContain('corner-tl') // circle is smooth — no vertices
+    expect(geometryFor('triangle').edgeKeys).not.toContain('center-up') // triangle has the identity centre but no up/down
+    expect(geometryFor('triangle').edgeKeys).toContain('center')
+    expect(geometryFor('empty').edgeKeys).toEqual(['self'])
+  })
+
+  it('the identity centre anchors dead-centre with a null (directionless) normal', () => {
+    for (const shape of ['square', 'circle', 'rhombus', 'triangle'] as const) {
+      const g = geometryFor(shape); const n = BASE_SIZE
+      expect(g.pointAnchor('center', 0, 1, n)).toMatchObject({ x: n / 2, y: n / 2 })
+      expect(g.pointNormal('center', 0, 1)).toBeNull()
+      expect(g.regionShape('center').kind).toBe('spot')
+      expect(g.edgeCapacity?.['center']).toBe(1)
+    }
+  })
+
+  it('square corners anchor exactly at the box vertices', () => {
+    const g = geometryFor('square'); const n = BASE_SIZE
+    expect(g.pointAnchor('corner-tl', 0, 1, n)).toMatchObject({ x: 0, y: 0 })
+    expect(g.pointAnchor('corner-tr', 0, 1, n)).toMatchObject({ x: n, y: 0 })
+    expect(g.pointAnchor('corner-br', 0, 1, n)).toMatchObject({ x: n, y: n })
+    expect(g.pointAnchor('corner-bl', 0, 1, n)).toMatchObject({ x: 0, y: n })
+  })
+
+  it('centre spots anchor on the vertical midline — one up, one down of centre', () => {
+    for (const shape of ['square', 'circle', 'rhombus'] as const) {
+      const g = geometryFor(shape); const n = BASE_SIZE
+      expect(g.pointAnchor('center-up', 0, 1, n)).toMatchObject({ x: n / 2, y: 0.25 * n })
+      expect(g.pointAnchor('center-down', 0, 1, n)).toMatchObject({ x: n / 2, y: 0.75 * n })
+    }
+  })
+
+  it('edgeAt resolves corners near a vertex, but never the interior centres', () => {
+    const g = geometryFor('square')
+    expect(g.edgeAt(0.02, 0.02)).toBe('corner-tl')
+    expect(g.edgeAt(0.98, 0.02)).toBe('corner-tr')
+    expect(g.edgeAt(0.98, 0.98)).toBe('corner-br')
+    // an interior centre point resolves to the nearest SIDE via edgeAt (centres
+    // are reached through centerSpotAt inside the centre zone, not edgeAt).
+    expect(g.edgeAt(0.5, 0.25)).not.toBe('center-up')
+    expect(geometryFor('circle').edgeAt(0.5, 0.25)).toBe('up') // circle: nearest arc, not a centre
+  })
+
+  it('centerSpotAt resolves the interior centres (nearest wins), else undefined', () => {
+    const g = geometryFor('circle')
+    expect(g.centerSpotAt?.(0.5, 0.25)).toBe('center-up')
+    expect(g.centerSpotAt?.(0.5, 0.75)).toBe('center-down')
+    expect(g.centerSpotAt?.(0.5, 0.5)).toBe('center') // dead centre = the identity spot
+    expect(geometryFor('triangle').centerSpotAt?.(0.5, 0.5)).toBe('center') // triangle has only the identity centre
+    expect(geometryFor('empty').centerSpotAt).toBeUndefined()
+  })
+
+  it('corner & centre spots each cap at one point (like peak)', () => {
+    const g = geometryFor('square')
+    for (const k of ['corner-tl', 'corner-tr', 'corner-br', 'corner-bl', 'center-up', 'center-down']) {
+      expect(g.edgeCapacity?.[k]).toBe(1)
+    }
+    // sides stay uncapped
+    expect(g.edgeCapacity?.['top']).toBeUndefined()
+  })
+
+  it('corner & centre regions render as spots; sides stay stripes', () => {
+    const g = geometryFor('rhombus')
+    expect(g.regionShape('corner-top').kind).toBe('spot')
+    expect(g.regionShape('center-up').kind).toBe('spot')
+    expect(g.regionShape('top-right').kind).toBe('polyline')
+  })
+
+  it('a square with a corner point and a centre point round-trips byte-for-byte', () => {
+    const d: Diagram = {
+      schemaVersion: 1,
+      forms: [{
+        id: 'F', shape: 'square', position: { x: 0, y: 0 },
+        edges: { top: [], right: [], bottom: [], left: [], 'corner-tl': ['C'], 'corner-tr': [], 'corner-br': [], 'corner-bl': [], 'center-up': ['M'], 'center-down': [], 'center': [] },
+      }],
+      points: {
+        C: { id: 'C', shape: 'empty', name: 'i', formId: 'F', edgeKey: 'corner-tl' },
+        M: { id: 'M', shape: 'empty', name: '0', formId: 'F', edgeKey: 'center-up' },
+      },
+      lines: [],
+    }
+    const r = restoreDiagram(d)
+    const f = r.forms.find((x) => x.id === 'F')!
+    expect(f.edges['corner-tl']).toEqual(['C'])
+    expect(f.edges['center-up']).toEqual(['M'])
+    // the new keys must survive io's legacy-corner drop (CORNER_KEY_RE = /^v\d+$/)
+    expect(JSON.stringify(r)).toBe(JSON.stringify(d))
+  })
+})
