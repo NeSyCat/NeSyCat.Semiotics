@@ -401,31 +401,20 @@ const TRI_CENTROID: readonly [number, number] = [
   (TRI_APEX_X + TRI_BASE_X + TRI_BASE_X) / 3,
   (TRI_APEX_Y + TRI_BASE_Y_TOP + TRI_BASE_Y_BOT) / 3,
 ]
-// 'peak' is the triangle's apex vertex — a single point-attachment SLOT (at
-// most one point, like 'empty's middle point, but optional: the triangle
-// survives without it — see edgeCapacity/pointIsForm below) rather than an
-// ordinary side that fans out multiple points.
 const TRI_EDGES = ['a', 'b', 'c', 'peak', 'corner-base-top', 'corner-base-bottom', 'center'] as const
-// The triangle's two BASE vertices as spot slots (the apex is 'peak'). Same
-// peak recipe — each an optional, capacity-1 attachment at its vertex.
+// The triangle's THREE vertices as spot slots — ONE pathway, no special apex.
+// 'peak' is the apex (kept as a distinct key for backward compat + the exporter),
+// just another corner spot: same capacity-1 recipe, resolved by the shared spot
+// machinery below exactly like the two base vertices.
 const TRI_CORNERS: Record<string, Spot> = {
+  peak: { at: [TRI_APEX_X, TRI_APEX_Y], position: Position.Right },
   'corner-base-top': { at: [TRI_BASE_X, TRI_BASE_Y_TOP], position: Position.Top },
   'corner-base-bottom': { at: [TRI_BASE_X, TRI_BASE_Y_BOT], position: Position.Bottom },
 }
-// Base corners + the identity `center` (at the centroid, which for the
-// inscribed equilateral triangle IS [0.5, 0.5]) — for the position/region/
-// param methods. edgeAt still uses only TRI_CORNERS; `center` is interior.
+// The three vertices + the identity `center` (at the centroid, which for the
+// inscribed equilateral triangle IS [0.5, 0.5]) — for the position/region/param
+// methods. edgeAt uses only TRI_CORNERS (the vertices); `center` is interior.
 const TRI_SPOTS: Record<string, Spot> = { ...TRI_CORNERS, ...IDENTITY_SPOT }
-// Radius (form-fraction units) within which a cursor near the apex resolves
-// to the 'peak' slot, checked BEFORE side (a/b/c) attribution — same
-// magnitude as CORNER_R (the side-stripe inset), for the same "near a
-// vertex" feel. Left unchanged even though the triangle shrank (~13%
-// linearly, going from footprint-maximizing to inscribed-circumradius
-// sizing): PEAK_R is a hit-radius in the SAME [0,1]² fraction space as the
-// vertices, so it shrinks right along with the triangle in absolute
-// (post-nodeSize) terms — its proportion relative to the triangle's own
-// size is unchanged, so it doesn't read as disproportionate.
-const PEAK_R = CORNER_R
 
 // A point along slant 'a' (from the top-left base vertex) or 'b' (bottom-left),
 // running to the apex on the right.
@@ -444,14 +433,10 @@ const triangleGeometry: FormGeometry = {
   showName: true,
   hasCenterZone: true,
   nodeSize: () => BASE_SIZE,
-  edgeCapacity: { peak: 1, ...spotCapacities(Object.keys(TRI_SPOTS)) },
+  edgeCapacity: spotCapacities(Object.keys(TRI_SPOTS)),
   centerSpotAt: (rx, ry) => spotAt(IDENTITY_SPOT, rx, ry, SPOT_DISC_R),
   pointAnchor: (edgeKey, index, count, n) => {
-    // 'peak' has capacity 1 — always the apex itself, regardless of
-    // index/count (same "constant anchor" pattern as emptyGeometry's middle
-    // point). Facing Position.Right: the triangle points right, so its own
-    // label/handle should face further right, away from the body.
-    if (edgeKey === 'peak') return { x: TRI_APEX_X * n, y: TRI_APEX_Y * n, position: Position.Right }
+    // Every vertex (apex + base) and the centre are spots — one path.
     const spot = TRI_SPOTS[edgeKey]
     if (spot) return spotAnchor(spot, n)
     const t = (index + 1) / (count + 1)
@@ -460,13 +445,10 @@ const triangleGeometry: FormGeometry = {
     return { x: TRI_BASE_X * n, y: TRI_BASE_Y_TOP * n + t * (TRI_BASE_Y_BOT - TRI_BASE_Y_TOP) * n, position: Position.Left } // c = left vertical side
   },
   edgeAt: (rx, ry) => {
-    // The apex slot wins over side attribution within PEAK_R — checked
-    // first, since 'a' and 'b' both terminate exactly at the apex and would
-    // otherwise always claim a cursor there.
-    if (Math.hypot(rx - TRI_APEX_X, ry - TRI_APEX_Y) <= PEAK_R) return 'peak'
-    // Base-vertex spots win over side attribution the same way (both slants and
-    // 'c' terminate at these two vertices), checked before a/b/c.
-    const corner = spotAt(TRI_CORNERS, rx, ry, SPOT_DISC_R)
+    // Any vertex (apex or base) wins over side attribution within the generous
+    // corner radius — checked first, since the slants and 'c' terminate at the
+    // vertices and would otherwise claim a cursor there.
+    const corner = spotAt(TRI_CORNERS, rx, ry)
     if (corner) return corner
     const da = distToSeg(rx, ry, TRI_BASE_X, TRI_BASE_Y_TOP, TRI_APEX_X, 0.5) // a = top slant
     const db = distToSeg(rx, ry, TRI_BASE_X, TRI_BASE_Y_BOT, TRI_APEX_X, 0.5) // b = bottom slant
@@ -476,7 +458,6 @@ const triangleGeometry: FormGeometry = {
     return 'c'
   },
   regionShape: (edgeKey) => {
-    if (edgeKey === 'peak') return { kind: 'spot', at: [TRI_APEX_X, TRI_APEX_Y] }
     if (TRI_SPOTS[edgeKey]) return { kind: 'spot', at: TRI_SPOTS[edgeKey].at }
     if (edgeKey === 'a') return { kind: 'polyline', points: insetSegment([TRI_BASE_X, TRI_BASE_Y_TOP], [TRI_APEX_X, 0.5], CORNER_R) }
     if (edgeKey === 'b') return { kind: 'polyline', points: insetSegment([TRI_BASE_X, TRI_BASE_Y_BOT], [TRI_APEX_X, 0.5], CORNER_R) }
@@ -488,7 +469,7 @@ const triangleGeometry: FormGeometry = {
   // (capacity 1, like 'empty's self) — the constant 0 is the trivial (and
   // only) valid inverse.
   edgeParam: (edgeKey, _rx, ry) => {
-    if (edgeKey === 'peak' || TRI_SPOTS[edgeKey]) return 0
+    if (TRI_SPOTS[edgeKey]) return 0
     if (edgeKey === 'a') return clamp01((ry - TRI_BASE_Y_TOP) / (0.5 - TRI_BASE_Y_TOP))
     if (edgeKey === 'b') return clamp01((TRI_BASE_Y_BOT - ry) / (TRI_BASE_Y_BOT - 0.5))
     return clamp01((ry - TRI_BASE_Y_TOP) / (TRI_BASE_Y_BOT - TRI_BASE_Y_TOP)) // c
@@ -501,8 +482,8 @@ const triangleGeometry: FormGeometry = {
   // (a straight edge has one direction regardless of where along it a point
   // sits) — index/count unused, unlike circle's pointNormal below.
   pointNormal: (edgeKey) => {
-    if (edgeKey === 'peak') return normalizeVec(TRI_APEX_X - TRI_CENTROID[0], TRI_APEX_Y - TRI_CENTROID[1])
     if (edgeKey === 'center') return null
+    // Every vertex (apex + base) is radial from the centroid — one path.
     if (TRI_CORNERS[edgeKey]) return spotNormal(TRI_CORNERS[edgeKey], TRI_CENTROID)
     if (edgeKey === 'a') return outwardEdgeNormal([TRI_BASE_X, TRI_BASE_Y_TOP], [TRI_APEX_X, 0.5], TRI_CENTROID)
     if (edgeKey === 'b') return outwardEdgeNormal([TRI_BASE_X, TRI_BASE_Y_BOT], [TRI_APEX_X, 0.5], TRI_CENTROID)
@@ -546,7 +527,7 @@ const squareGeometry: FormGeometry = {
     }
   },
   edgeAt: (rx, ry) => {
-    const corner = spotAt(SQUARE_CORNERS, rx, ry, SPOT_DISC_R)
+    const corner = spotAt(SQUARE_CORNERS, rx, ry)
     if (corner) return corner
     const d = { top: ry, right: 1 - rx, bottom: 1 - ry, left: rx }
     return (Object.keys(d) as Array<keyof typeof d>).reduce((a, b) => (d[b] < d[a] ? b : a))
@@ -729,7 +710,7 @@ const rhombusGeometry: FormGeometry = {
     return { x: x * n, y: y * n, position: side.position }
   },
   edgeAt: (rx, ry) => {
-    const corner = spotAt(RHOMBUS_CORNERS, rx, ry, SPOT_DISC_R)
+    const corner = spotAt(RHOMBUS_CORNERS, rx, ry)
     if (corner) return corner
     let best: EdgeKey = 'top-right'
     let bestDist = Infinity
