@@ -380,7 +380,7 @@ describe('TikZ exporter', () => {
   // bezier/smoothstep cases below override it, since a level pair is now
   // (correctly, post wirepath.ts's angular straightness guard) collapsed to
   // a plain straight line, and exercising an actual curve/elbow needs the
-  // two endpoints off-axis from one another by more than ~4°.
+  // two endpoints off-axis from one another by more than STRAIGHT_ANGLE_DEG.
   function wireDiagram(edgeStyle?: EdgeStyle, targetY = 0): Diagram {
     const d = emptyDiagram()
     const f1 = bareSquare('WF1', { x: 0, y: 0 }, { edges: { top: [], right: ['WP1'], bottom: [], left: [] } })

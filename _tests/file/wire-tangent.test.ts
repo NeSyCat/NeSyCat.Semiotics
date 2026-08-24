@@ -248,7 +248,7 @@ describe('angular straightness guard combined with a REAL (non-cardinal) worldPo
   it('a near-axis chord still snaps straight even when sDir is a diagonal triangle-edge normal', () => {
     const sDir = worldPointNormal(bareForm('T', 'triangle', { edges: { a: ['P'], b: [], c: [], peak: [] } }), 'a', 0, 1)
     expect(sDir).not.toBeNull()
-    // mainDelta=300, crossDelta=15 -> well within the ~4° guard (see
+    // mainDelta=300, crossDelta=15 -> well within the STRAIGHT_ANGLE_DEG guard (see
     // wirepath.test.ts for the exact threshold math).
     const { d, c1 } = wirePath(0, 100, sDir, 300, 115, null, 'bezier')
     expect(d).toBe('M 0 100 L 300 115')
