@@ -7,7 +7,7 @@ import { snapCoord, snapPoint, snapCenterPosition, GRID_SIZE } from '../../compo
 import { diagramToTikzCore, diagramToTikz } from '../../components/editor/export/tikz'
 import { formBodyVerticesPx, pointPositionsPx, formCenterPx, rotateAbout } from '../../components/editor/ir/geometry-ir'
 import { geometryFor, bodyCentroid } from '../../components/editor/domain/forms'
-import { wirePath, dirFromCardinal, type EdgeStyle } from '../../components/editor/domain/wirepath'
+import { wirePath, dirFromCardinal, smoothstepElbowPoints, type EdgeStyle } from '../../components/editor/domain/wirepath'
 import type { Diagram, Form } from '../../components/editor/domain/types'
 
 function approx(a: number, b: number, tol = 1e-6): boolean {
@@ -147,7 +147,10 @@ describe('TikZ exporter', () => {
     const endCount = (tikz.match(/\\end\{tikzpicture\}/g) ?? []).length
     expect(beginCount === 1 && endCount === 1, `exactly one balanced begin/end tikzpicture pair (begin=${beginCount}, end=${endCount})`).toBe(true)
     expect(tikz, 'no NaN in output').not.toMatch(/NaN/)
-    expect(tikz, 'no undefined in output').not.toMatch(/undefined/)
+    // A literal JS `undefined` leaking into the output would show up as
+    // the bare word — excluding \@ifundefined (the wrapper's own legitimate
+    // LaTeX conditional, always spelled with 'if' immediately before it).
+    expect(tikz, 'no undefined in output').not.toMatch(/(?<!if)undefined/)
     expect(tikz.includes('% Exported from NeSyCat Semiotics'), 'header comment present').toBe(true)
     expect(tikz.includes('% https://semiotics.nesycat.org/editor#d=1.deadbeef'), 'quiver-style re-import link present').toBe(true)
   })
@@ -373,10 +376,15 @@ describe('TikZ exporter', () => {
   // Same two-square, one-line fixture as Test 4, parametrized by
   // Diagram.edgeStyle — the SAME two points (source faces 'right', target
   // faces 'left') for every style, so only the wire's drawn shape varies.
-  function wireDiagram(edgeStyle?: EdgeStyle): Diagram {
+  // `targetY` defaults to 0 (the two points then land perfectly level) — the
+  // bezier/smoothstep cases below override it, since a level pair is now
+  // (correctly, post wirepath.ts's angular straightness guard) collapsed to
+  // a plain straight line, and exercising an actual curve/elbow needs the
+  // two endpoints off-axis from one another by more than ~4°.
+  function wireDiagram(edgeStyle?: EdgeStyle, targetY = 0): Diagram {
     const d = emptyDiagram()
     const f1 = bareSquare('WF1', { x: 0, y: 0 }, { edges: { top: [], right: ['WP1'], bottom: [], left: [] } })
-    const f2 = bareSquare('WF2', { x: 300, y: 0 }, { edges: { top: [], right: [], bottom: [], left: ['WP2'] } })
+    const f2 = bareSquare('WF2', { x: 300, y: targetY }, { edges: { top: [], right: [], bottom: [], left: ['WP2'] } })
     d.forms.push(f1, f2)
     d.points['WP1'] = { id: 'WP1', shape: 'empty', formId: 'WF1', edgeKey: 'right' }
     d.points['WP2'] = { id: 'WP2', shape: 'empty', formId: 'WF2', edgeKey: 'left' }
@@ -401,7 +409,10 @@ describe('TikZ exporter', () => {
   })
 
   it("edgeStyle: 'bezier' emits '.. controls (c1) and (c2) ..' with wirePath's own control points", () => {
-    const d = wireDiagram('bezier')
+    // targetY=120: the two points' actual dx/dy (100/120, NOT the forms'
+    // own 300px x-offset — WF1's point sits at x=200, WF2's at x=300) is
+    // clearly past the STRAIGHT_ANGLE_DEG guard, so the curve actually renders.
+    const d = wireDiagram('bezier', 120)
     const positions = pointPositionsPx(d)
     const src = positions.get('WP1')!
     const tgt = positions.get('WP2')!
@@ -437,7 +448,8 @@ describe('TikZ exporter', () => {
   })
 
   it("edgeStyle: 'smoothstep' emits a rounded-corners polyline through wirePath's own elbow points", () => {
-    const d = wireDiagram('smoothstep')
+    // targetY=120, same reasoning as the bezier case above.
+    const d = wireDiagram('smoothstep', 120)
     const tikz = diagramToTikzCore(d)
     const drawLine = tikz.split('\n').find((l) => l.includes('rounded corners='))
     expect(drawLine, 'a rounded corners=... draw command is emitted for the smoothstep wire').toBeDefined()
@@ -504,5 +516,122 @@ describe('TikZ exporter', () => {
       expect(approx(c2x - fx, dc2.x, 1e-3) && approx(c2y - fy, dc2.y, 1e-3), 'emitted c2 matches wirePath (directed target end)').toBe(true)
       expect(approx(expected.c2.y, tgt.pos.y, 1e-6), "target control point's y is unchanged (offset is purely along x, its Dir)").toBe(true)
     }
+  })
+
+  // ── smoothstep ElbowPlacement: hyperedge branches diverge AT the source ──
+  it("edgeStyle 'smoothstep', a 2-target hyperedge: both branches' polylines share ONLY the source point — they diverge at the very next coordinate", () => {
+    const d = emptyDiagram()
+    const emptyForm: Form = { id: 'HYEMPTY', shape: 'empty', position: { x: 0, y: 0 }, edges: { self: ['HYSELF'] } }
+    const sq1 = bareSquare('HYSQ1', { x: 300, y: 0 }, { edges: { top: [], right: [], bottom: [], left: ['HYP1'] } })
+    const sq2 = bareSquare('HYSQ2', { x: 300, y: 300 }, { edges: { top: [], right: [], bottom: [], left: ['HYP2'] } })
+    d.forms.push(emptyForm, sq1, sq2)
+    d.points['HYSELF'] = { id: 'HYSELF', shape: 'empty', formId: 'HYEMPTY', edgeKey: 'self' }
+    d.points['HYP1'] = { id: 'HYP1', shape: 'empty', formId: 'HYSQ1', edgeKey: 'left' }
+    d.points['HYP2'] = { id: 'HYP2', shape: 'empty', formId: 'HYSQ2', edgeKey: 'left' }
+    d.lines.push({ id: 'HYL1', source: 'HYSELF', targets: ['HYP1', 'HYP2'] })
+    d.edgeStyle = 'smoothstep'
+
+    const tikz = diagramToTikzCore(d)
+    const drawLines = tikz.split('\n').filter((l) => l.includes('rounded corners='))
+    expect(drawLines.length, 'both branches emit a rounded-corners polyline').toBe(2)
+    const coordLists = drawLines.map((l) => [...l.matchAll(/\(([-\d.]+),([-\d.]+)\)/g)].map((m) => `${m[1]},${m[2]}`))
+    expect(coordLists[0].length, 'branch 1 has more than 2 points (it actually elbows)').toBeGreaterThan(2)
+    expect(coordLists[1].length, 'branch 2 has more than 2 points (it actually elbows)').toBeGreaterThan(2)
+    // Same first coordinate (the shared source point)...
+    expect(coordLists[0][0]).toBe(coordLists[1][0])
+    // ...but the SECOND coordinate already differs — the branches diverge
+    // immediately after the source, not after a shared run down to a
+    // coincident mid-line (the old 'mid' placement's "trunk" bug).
+    expect(coordLists[0][1]).not.toBe(coordLists[1][1])
+  })
+
+  it('a single-target line (not a hyperedge) keeps the centered "mid" elbow placement — regression', () => {
+    const d = emptyDiagram()
+    const emptyForm: Form = { id: 'SGEMPTY', shape: 'empty', position: { x: 0, y: 0 }, edges: { self: ['SGSELF'] } }
+    const sq = bareSquare('SGSQ', { x: 300, y: 100 }, { edges: { top: [], right: [], bottom: [], left: ['SGP'] } })
+    d.forms.push(emptyForm, sq)
+    d.points['SGSELF'] = { id: 'SGSELF', shape: 'empty', formId: 'SGEMPTY', edgeKey: 'self' }
+    d.points['SGP'] = { id: 'SGP', shape: 'empty', formId: 'SGSQ', edgeKey: 'left' }
+    d.lines.push({ id: 'SGL1', source: 'SGSELF', targets: ['SGP'] })
+    d.edgeStyle = 'smoothstep'
+
+    const positions = pointPositionsPx(d)
+    const src = positions.get('SGSELF')!
+    const tgt = positions.get('SGP')!
+    const tgtDir = dirFromCardinal(tgt.cardinal)
+    const expectedMid = smoothstepElbowPoints(src.pos.x, src.pos.y, null, tgt.pos.x, tgt.pos.y, tgtDir, 'mid')
+    const expectedSource = smoothstepElbowPoints(src.pos.x, src.pos.y, null, tgt.pos.x, tgt.pos.y, tgtDir, 'source')
+    expect(expectedMid, 'fixture sanity: mid/source genuinely differ here').not.toEqual(expectedSource)
+
+    const tikz = diagramToTikzCore(d)
+    const drawLine = tikz.split('\n').find((l) => l.includes('rounded corners='))
+    expect(drawLine, 'a rounded-corners polyline is emitted').toBeDefined()
+    const coords = [...(drawLine?.matchAll(/\(([-\d.]+),([-\d.]+)\)/g) ?? [])].map(([, x, y]) => ({ x: Number(x), y: Number(y) }))
+    expect(coords.length, 'point count matches the "mid" route').toBe(expectedMid.length)
+
+    // px->cm DELTAS off the first coordinate (same technique as the earlier
+    // bezier control-point test) — matches expectedMid's own deltas, NOT
+    // expectedSource's, confirming a single-target line still elbows centered.
+    const deltaCm = (rawDx: number, rawDy: number) => ({ x: rawDx / 100, y: -rawDy / 100 })
+    for (let i = 1; i < expectedMid.length; i++) {
+      const want = deltaCm(expectedMid[i].x - expectedMid[0].x, expectedMid[i].y - expectedMid[0].y)
+      const got = { x: coords[i].x - coords[0].x, y: coords[i].y - coords[0].y }
+      expect(approx(got.x, want.x, 1e-3) && approx(got.y, want.y, 1e-3), `point ${i} matches the mid-elbow route`).toBe(true)
+    }
+  })
+
+  // ── Self-contained auto-centering TikZ wrapper ──────────────────────
+  describe('nesycatfig auto-centering wrapper', () => {
+    const d = emptyDiagram()
+    d.forms.push(bareSquare('WSQ', { x: 0, y: 0 }))
+
+    function countOccurrences(haystack: string, needle: string): number {
+      return haystack.split(needle).length - 1
+    }
+
+    it('the header comment lines come first, then the guard-defined nesycatfig environment frames the tikzpicture', () => {
+      const tikz = diagramToTikzCore(d, 'd=1.wrap')
+      const lines = tikz.split('\n')
+      expect(lines[0]).toBe('% Exported from NeSyCat Semiotics')
+      expect(lines[1]).toBe('% https://semiotics.nesycat.org/editor#d=1.wrap')
+      // The guard block starts right after the header comments...
+      expect(lines[2]).toBe('\\makeatletter\\@ifundefined{nesycatfig}{%')
+      // ...and the picture itself is wrapped in \begin{nesycatfig}/\end{nesycatfig},
+      // which in turn wraps \begin{tikzpicture}/\end{tikzpicture} — nested in
+      // that exact order, not sibling to it.
+      const nesycatBegin = lines.indexOf('\\begin{nesycatfig}%')
+      const tikzBegin = lines.indexOf('\\begin{tikzpicture}')
+      const tikzEnd = lines.indexOf('\\end{tikzpicture}')
+      const nesycatEnd = lines.indexOf('\\end{nesycatfig}')
+      expect(nesycatBegin).toBeGreaterThanOrEqual(0)
+      expect(tikzBegin).toBeGreaterThan(nesycatBegin)
+      expect(tikzEnd).toBeGreaterThan(tikzBegin)
+      expect(nesycatEnd).toBeGreaterThan(tikzEnd)
+      // Nothing else follows the closing \end{nesycatfig} — it's the last line.
+      expect(nesycatEnd).toBe(lines.length - 1)
+    })
+
+    it('the guard block (\\makeatletter...\\makeatother, \\newenvironment{nesycatfig}, the \\@ifundefined{nesycatfig} guard itself) appears EXACTLY ONCE per export', () => {
+      const tikz = diagramToTikzCore(d)
+      expect(countOccurrences(tikz, '\\makeatletter'), '\\makeatletter').toBe(1)
+      expect(countOccurrences(tikz, '\\makeatother'), '\\makeatother').toBe(1)
+      expect(countOccurrences(tikz, '\\newenvironment{nesycatfig}'), '\\newenvironment{nesycatfig}').toBe(1)
+      expect(countOccurrences(tikz, '\\@ifundefined{nesycatfig}'), 'the guard check itself').toBe(1)
+      expect(countOccurrences(tikz, '\\newsavebox\\nesycatfigbox'), '\\newsavebox').toBe(1)
+    })
+
+    it('degrades gracefully when \\resizebox (graphicx) is absent — guarded by its OWN \\@ifundefined{resizebox} check, not assumed present', () => {
+      const tikz = diagramToTikzCore(d)
+      expect(tikz).toContain('\\@ifundefined{resizebox}{\\usebox{\\nesycatfigbox}}{%')
+      expect(tikz).toContain('\\ifdim\\wd\\nesycatfigbox>\\linewidth\\resizebox{\\linewidth}{!}{\\usebox{\\nesycatfigbox}}%')
+      expect(tikz).toContain('\\else\\usebox{\\nesycatfigbox}\\fi}%')
+    })
+
+    it('existing content assertions (color/coordinate/structural tests elsewhere in this file) still match the INNER tikzpicture unchanged', () => {
+      // Regression: the wrapper must not alter anything the pre-existing
+      // Test 1-8 suite already checks inside \begin{tikzpicture}...\end{tikzpicture}.
+      const tikz = diagramToTikzCore(d)
+      expect(tikz).toContain('\\draw[draw=black, line width=0.4pt] (0,2) -- (2,2) -- (2,0) -- (0,0) -- cycle;')
+    })
   })
 })

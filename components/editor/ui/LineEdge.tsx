@@ -11,7 +11,7 @@ import theme from './theme'
 import { useStore } from '../state/store'
 import { Tex } from './Tex'
 import { toRgbTriple } from '../domain/color'
-import { wirePath, dirFromCardinal } from '../domain/wirepath'
+import { wirePath, type Dir } from '../domain/wirepath'
 import type { Color } from '../domain/types'
 
 interface LineEdgeData {
@@ -21,40 +21,27 @@ interface LineEdgeData {
   // nor its canvas-colored mask when this is unset.
   label?: string
   color?: Color
-  // Radius (px, flow space) to pull each end of the drawn path back by, so it
-  // stops at the edge of a resident point's glyph instead of running through
-  // its center — 0 when that end's point renders no glyph (shape 'empty').
-  // Set by Canvas.tsx's builtEdges from POINT_SIZE/2 (domain/forms.ts), the
-  // SAME radius BodyView gaps a form's border by, so a wire and the border it
-  // crosses stop at the identical boundary. Approximation: computed along the
-  // STRAIGHT line between the raw endpoints even in 'smoothstep' mode, where
-  // the actual path may leave each endpoint in a different direction — close
-  // enough at the pull-back distances involved (~14px).
-  sourceGap?: number
-  targetGap?: number
-  // True when that end's point sits on an 'empty' form's 'self' edgeKey (its
-  // one middle point) — set by Canvas.tsx's builtEdges. That point's
-  // anchor.position is a fixed Position.Bottom picked purely for label
-  // placement (domain/forms.ts's emptyGeometry), not a meaningful outward
-  // wire direction, so it must NOT feed wirepath.ts's Dir the way every
-  // other point's Position does — it's a free end (Dir null), which leaves
-  // the wire straight toward the other endpoint instead of dipping down.
-  sourceFree?: boolean
-  targetFree?: boolean
-}
-
-// Pulls (sx,sy)/(tx,ty) toward each other along their own straight line by
-// gs/gt respectively — capped at half the total distance each, so two large
-// gaps on a very short wire can't cross past one another.
-function shrinkEndpoints(sx: number, sy: number, tx: number, ty: number, gs: number, gt: number) {
-  const dx = tx - sx
-  const dy = ty - sy
-  const len = Math.hypot(dx, dy) || 1
-  const ux = dx / len
-  const uy = dy / len
-  const s = Math.min(gs, len / 2)
-  const t = Math.min(gt, len / 2)
-  return { sx: sx + ux * s, sy: sy + uy * s, tx: tx - ux * t, ty: ty - uy * t }
+  // Each endpoint's TRUE outward wire-tangent — domain/forms.ts's
+  // worldPointNormal (the form's own per-shape edge/arc perpendicular,
+  // rotated by the form's own rotation), computed by Canvas.tsx's builtEdges
+  // (pointWorldNormal) and handed straight to wirePath below. null for a
+  // free end (a 'self'-edgeKey empty-form point — worldPointNormal itself
+  // already returns null there) — wirePath reads that as "leave straight
+  // toward the other endpoint" (bezier) / "no stub, turn exactly at this
+  // point" (smoothstep). NOT derived from sourcePosition/targetPosition
+  // (React Flow's own Position enum) any more — that's a coarse, STATIC
+  // per-edgeKey cardinal, wrong for a slanted triangle edge and blind to
+  // form.rotation entirely.
+  sourceDir?: Dir
+  targetDir?: Dir
+  // True for a hyperedge branch (line.targets.length > 1) — set by
+  // Canvas.tsx's builtEdges off the SAME line, shared by every one of its
+  // segments. Routes the smoothstep elbow at the shared source (wirepath.ts's
+  // ElbowPlacement 'source') instead of centered ('mid'), so every branch's
+  // cross-axis run starts from the same point rather than all landing on one
+  // coincident "trunk" that smears the split and hides the copy point.
+  // Mirrored in ir/geometry-ir.ts's buildLineCmds for export parity.
+  hyper?: boolean
 }
 
 function LineEdge({
@@ -63,8 +50,6 @@ function LineEdge({
   sourceY,
   targetX,
   targetY,
-  sourcePosition,
-  targetPosition,
   data,
   selected,
   markerEnd,
@@ -73,22 +58,19 @@ function LineEdge({
   const style = useStore((s) => s.diagram.edgeStyle ?? 'straight')
   const hovered = useStore((s) => s.hoveredEdgeId === id)
 
-  const { sx, sy, tx, ty } = (() => {
-    const shrunk = shrinkEndpoints(sourceX, sourceY, targetX, targetY, d.sourceGap ?? 0, d.targetGap ?? 0)
-    return { sx: shrunk.sx, sy: shrunk.sy, tx: shrunk.tx, ty: shrunk.ty }
-  })()
+  // The wire goes straight to the TRUE anchor — no endpoint pull-back.
+  // Where a point glyph or point name sits on top of it, the wire is merely
+  // HIDDEN underneath (PointVisual's opaque glyph fill / canvas-colored name
+  // mask; React Flow renders nodes above edges), never geometrically
+  // deformed to dodge them — matching export/geometry-ir.ts's buildLineCmds,
+  // which has always used the raw point positions with no gap of its own.
+  const sx = sourceX, sy = sourceY, tx = targetX, ty = targetY
 
-  // sourcePosition/targetPosition are React Flow's own Position enum
-  // ('top'|'right'|'bottom'|'left') — the SAME anchor.position FormNode.tsx
-  // set on the Handle these endpoints came from (domain/forms.ts's
-  // pointAnchor) — converted to wirepath.ts's outward Dir via the one
-  // shared conversion (dirFromCardinal) export/geometry-ir.ts also uses.
-  // A free end (sourceFree/targetFree — a 'self'-edgeKey empty-form point)
-  // overrides that to null regardless of its Position, per the SAME rule
-  // ir/geometry-ir.ts's buildLineCmds applies for export parity.
-  const sDir = d.sourceFree ? null : dirFromCardinal(sourcePosition)
-  const tDir = d.targetFree ? null : dirFromCardinal(targetPosition)
-  const { d: edgePath, mid } = wirePath(sx, sy, sDir, tx, ty, tDir, style)
+  // Canvas.tsx's builtEdges already resolved each endpoint's TRUE tangent
+  // (domain/forms.ts's worldPointNormal) — used AS-IS, no conversion needed.
+  const sDir: Dir = d.sourceDir ?? null
+  const tDir: Dir = d.targetDir ?? null
+  const { d: edgePath, mid } = wirePath(sx, sy, sDir, tx, ty, tDir, style, d.hyper ? 'source' : 'mid')
   const labelX = mid.x
   const labelY = mid.y
 

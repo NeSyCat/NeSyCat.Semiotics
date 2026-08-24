@@ -73,6 +73,18 @@ function PointGlyph({ shape, accent, isSelected, isHovered }: { shape: Shape; ac
   const body = geometryFor(shape).body
   return (
     <div style={wrapStyle}>
+      {/* Opaque canvas-colored base — BELOW the tint layer, not a
+          replacement for it. tintFill's own "idle+uncolored is transparent"
+          rule stays correct for a FORM's body (BodyView), which genuinely
+          means to show whatever's behind it; a point's glyph is different —
+          wires are drawn straight through their true anchors now (no
+          endpoint pull-back, see ui/LineEdge.tsx), so a glyph sitting on a
+          wire must be opaque to actually HIDE the wire underneath it,
+          exactly like export/geometry-ir.ts's buildPointCmds already
+          flattens every point glyph over an opaque white backing for the
+          same masking reason. 'empty'-shaped points render no glyph at all
+          (see the branch above) — nothing to mask there, and there never was. */}
+      <ShapeBody body={body} n={POINT_SIZE} fill={theme.canvas.background} strokeWidth={0} />
       <ShapeBody body={body} n={POINT_SIZE} fill={tintFill(accent, isSelected)} />
       {isHovered && <ShapeBody body={body} n={POINT_SIZE} fill={theme.node.regionHover} strokeWidth={0} />}
     </div>

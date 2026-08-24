@@ -22,7 +22,8 @@ import FormNode, { DRAG_HANDLE_CLASS } from './FormNode'
 import LineEdge from './LineEdge'
 import { useStore, initStore } from '../state/store'
 import { useAutosave, useLocalAutosave } from '../persist/save'
-import { geometryFor, pointIdsAt, isInsideBody, isInCenterZone, insertionIndex, bodyCentroid, BASE_SIZE, CENTER_SHRINK, POINT_SIZE, type FormGeometry } from '../domain/forms'
+import { geometryFor, pointIdsAt, isInsideBody, isInCenterZone, insertionIndex, bodyCentroid, worldPointNormal, BASE_SIZE, CENTER_SHRINK, type FormGeometry } from '../domain/forms'
+import type { Dir } from '../domain/wirepath'
 import { encodeHandle, decodeHandle, decodePhantomHandle } from '../domain/handles'
 import { GRID_SIZE, snapCenterPosition } from '../domain/grid'
 import ImportPanel from './ImportPanel'
@@ -170,6 +171,25 @@ function pointToHandle(d: Diagram, pointId: string): { nodeId: string; handleId:
   return { nodeId: form.id, handleId: encodeHandle(pt.edgeKey, idx) }
 }
 
+// point id -> its TRUE outward wire-tangent (domain/forms.ts's
+// worldPointNormal: the form's own per-shape edge/arc perpendicular,
+// rotated by the form's own rotation) — null for a free end ('empty'/
+// pointIsForm, e.g. a 'self'-edgeKey point; worldPointNormal itself already
+// returns null there, no separate check needed). builtEdges below is the
+// ONLY caller; ir/geometry-ir.ts's buildLineCmds calls the SAME
+// worldPointNormal (off its own already-resolved form/edgeKey/index/count),
+// so canvas and exports can never disagree on a point's tangent.
+function pointWorldNormal(d: Diagram, pointId: string): Dir {
+  const pt = d.points[pointId]
+  if (!pt) return null
+  const form = d.forms.find((f) => f.id === pt.formId)
+  if (!form) return null
+  const ids = pointIdsAt(form, pt.edgeKey)
+  const index = ids.indexOf(pointId)
+  if (index < 0) return null
+  return worldPointNormal(form, pt.edgeKey, index, ids.length)
+}
+
 // (nodeId, handleId) -> point id.
 function handleToPointId(d: Diagram, nodeId: string, handleId: string): string | undefined {
   const form = d.forms.find((f) => f.id === nodeId)
@@ -308,22 +328,20 @@ function Canvas({ topRight }: CanvasContentProps) {
 
   // ── Build RF edges from lines (one RF edge per target) ─────────────
   const builtEdges: Edge[] = useMemo(() => {
-    // A wire's drawn path stops short of a terminating point's own glyph
-    // (PointVisual's PointGlyph, POINT_SIZE across) rather than running
-    // through its center — 0 gap for a point that renders no glyph ('empty').
-    const glyphGap = (pid: string) => (diagram.points[pid]?.shape !== 'empty' ? POINT_SIZE / 2 : 0)
-    // A 'self'-edgeKey point IS an 'empty' form's one middle point (domain/
-    // forms.ts's emptyGeometry) — its anchor.position is a fixed Position.
-    // Bottom picked purely for label placement, not a meaningful outward
-    // wire direction, so LineEdge.tsx must treat that end as a free end
-    // (Dir null — wirePath leaves it straight toward the other endpoint)
-    // rather than the Position-derived Dir every other point gets. Mirrored
-    // exactly in ir/geometry-ir.ts's buildLineCmds for export parity.
-    const isFreeEnd = (pid: string) => diagram.points[pid]?.edgeKey === 'self'
     const out: Edge[] = []
     for (const line of diagram.lines) {
       const sp = pointToHandle(diagram, line.source)
       if (!sp) continue
+      // The source's true tangent is the SAME for every branch of this
+      // line (it's one point) — computed once outside the per-target loop.
+      const sourceDir = pointWorldNormal(diagram, line.source)
+      // A hyperedge (2+ targets) — LineEdge.tsx routes its smoothstep elbow
+      // AT the shared source instead of centered, so every branch's
+      // cross-axis run starts from the same point instead of all coinciding
+      // into one "trunk" that smears the split and hides the copy point.
+      // Mirrored in ir/geometry-ir.ts's buildLineCmds off the SAME
+      // line.targets.length check, for canvas/export parity.
+      const hyper = line.targets.length > 1
       line.targets.forEach((tid, i) => {
         const tp = pointToHandle(diagram, tid)
         if (!tp) return
@@ -346,8 +364,8 @@ function Canvas({ topRight }: CanvasContentProps) {
           // first) — matching the exports' per-branch labels.
           data: {
             label: line.name ?? line.id, color: line.color,
-            sourceGap: glyphGap(line.source), targetGap: glyphGap(tid),
-            sourceFree: isFreeEnd(line.source), targetFree: isFreeEnd(tid),
+            sourceDir, targetDir: pointWorldNormal(diagram, tid),
+            hyper,
           },
         })
       })

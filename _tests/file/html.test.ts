@@ -280,13 +280,18 @@ describe('HTML/SVG exporter', () => {
 
   // ── edgeStyle: straight / bezier / smoothstep ──────────────────────
   // Same two-square, one-line fixture as the tikz suite's wireDiagram —
-  // source faces 'right', target faces 'left'.
-  function wireDiagram(edgeStyle?: EdgeStyle): Diagram {
+  // source faces 'right', target faces 'left'. `targetY` defaults to 0 (the
+  // two points then land perfectly level, y=100 each) — the smoothstep test
+  // below overrides it, since a level pair is now (correctly, post wire-
+  // straightening-fix) collapsed to a plain straight line by wirepath.ts's
+  // own cross-axis straightness guard, and an actual elbow needs the two
+  // endpoints off-axis from one another.
+  function wireDiagram(edgeStyle?: EdgeStyle, targetY = 0): Diagram {
     const w: Diagram = {
       schemaVersion: 1,
       forms: [
         { id: 'EF1', shape: 'square', position: { x: 0, y: 0 }, edges: { top: [], right: ['EP1'], bottom: [], left: [] } },
-        { id: 'EF2', shape: 'square', position: { x: 300, y: 0 }, edges: { top: [], right: [], bottom: [], left: ['EP2'] } },
+        { id: 'EF2', shape: 'square', position: { x: 300, y: targetY }, edges: { top: [], right: [], bottom: [], left: ['EP2'] } },
       ],
       points: {
         EP1: { id: 'EP1', shape: 'empty', formId: 'EF1', edgeKey: 'right' },
@@ -320,7 +325,9 @@ describe('HTML/SVG exporter', () => {
   })
 
   it("edgeStyle: 'bezier' renders the wire as a cubic <path> matching wirePath's own `d`", () => {
-    const w = wireDiagram('bezier')
+    // targetY=120 (off-axis from the source's y=100) so the wire clears
+    // wirepath.ts's angular straightness guard and the curve actually renders.
+    const w = wireDiagram('bezier', 120)
     const wsvg = diagramToHtmlCore(w)
     const expectedD = expectedWireD(w, 'bezier')
     expect(expectedD).toMatch(/^M .+ C .+$/)
@@ -328,11 +335,22 @@ describe('HTML/SVG exporter', () => {
   })
 
   it("edgeStyle: 'smoothstep' renders the wire as a rounded-elbow <path> matching wirePath's own `d`", () => {
-    const w = wireDiagram('smoothstep')
+    // targetY=40 (off-axis from the source's y=100) so the wire actually
+    // bends — see wireDiagram's own comment.
+    const w = wireDiagram('smoothstep', 40)
     const wsvg = diagramToHtmlCore(w)
     const expectedD = expectedWireD(w, 'smoothstep')
     expect(expectedD).toMatch(/^M .+ A .+$/)
     expect(wsvg).toContain(`<path d="${expectedD}" fill="none"`)
+  })
+
+  it("edgeStyle: 'smoothstep' with near-level (but not exactly level) endpoints still snaps straight — the cross-axis straightness guard, not exact equality", () => {
+    // targetY=0.5 -> the two points land 0.5px apart on the cross axis
+    // (within wirepath.ts's STRAIGHT_MIN_PX=1 floor of the angular straightness guard) — still snaps straight.
+    const w = wireDiagram('smoothstep', 0.5)
+    const expectedD = expectedWireD(w, 'smoothstep')
+    expect(expectedD).toMatch(/^M .+ L .+$/)
+    expect(expectedD).not.toContain('A ')
   })
 
   it('a bezier curve that bulges past the endpoints stays inside the SVG viewBox (control points pad the bbox)', () => {

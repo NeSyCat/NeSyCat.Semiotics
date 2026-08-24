@@ -150,12 +150,35 @@ export function diagramToTikzCore(diagram: Diagram, fragment?: string): string {
     fragment ? `% ${SHARE_BASE}#${fragment}` : null,
   ].filter((l): l is string => l !== null)
 
+  // Self-contained auto-centering wrapper: a `nesycatfig` environment,
+  // GUARD-defined (\@ifundefined{nesycatfig}) so pasting several exports
+  // into the same document — or a document whose own preamble already
+  // defines it — only defines it once. It centers the figure and, when
+  // `graphicx`'s \resizebox is available (\@ifundefined{resizebox} probes
+  // for it — this file has NO \usepackage of its own, so it must degrade
+  // gracefully rather than assume graphicx is loaded), shrinks it to
+  // \linewidth only if it would otherwise overflow; without \resizebox it
+  // just centers at native size. NOT emitted when this string is used as
+  // TikZ SOURCE embedded some other way (e.g. re-imported via the share
+  // fragment) — this wrapper is purely a paste-into-LaTeX convenience
+  // layered around the SAME tikzpicture every other consumer (the share
+  // link decode, _tests/file/tikz.test.ts's own content assertions) reads.
   return [
     ...header,
+    '\\makeatletter\\@ifundefined{nesycatfig}{%',
+    '\\newsavebox\\nesycatfigbox',
+    '\\newenvironment{nesycatfig}{\\par\\begin{lrbox}{\\nesycatfigbox}}{\\end{lrbox}\\begin{center}%',
+    '\\@ifundefined{resizebox}{\\usebox{\\nesycatfigbox}}{%',
+    '\\ifdim\\wd\\nesycatfigbox>\\linewidth\\resizebox{\\linewidth}{!}{\\usebox{\\nesycatfigbox}}%',
+    '\\else\\usebox{\\nesycatfigbox}\\fi}%',
+    '\\end{center}}%',
+    '}{}\\makeatother',
+    '\\begin{nesycatfig}%',
     '\\begin{tikzpicture}',
     ...registry.definitions().map((l) => `  ${l}`),
     ...body.map((l) => `  ${l}`),
     '\\end{tikzpicture}',
+    '\\end{nesycatfig}',
   ].join('\n')
 }
 

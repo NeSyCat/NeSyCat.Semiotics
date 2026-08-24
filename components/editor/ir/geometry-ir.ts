@@ -19,8 +19,8 @@
 //   2. Backend-specific unit conversion (px -> TikZ cm, or raw px for SVG)
 //      happens downstream, in each backend module — not here.
 
-import { geometryFor, pointIdsAt, bodyCentroid, POINT_SIZE, type Body } from '../domain/forms'
-import { wirePath, dirFromCardinal, smoothstepElbowPoints, type Dir, type EdgeStyle, type Vec } from '../domain/wirepath'
+import { geometryFor, pointIdsAt, bodyCentroid, POINT_SIZE, worldPointNormal, type Body } from '../domain/forms'
+import { wirePath, smoothstepElbowPoints, isNearlyStraight, type Dir, type EdgeStyle, type ElbowPlacement, type Vec } from '../domain/wirepath'
 import type { Diagram, Form, Point, Shape, Color, EdgeKey } from '../domain/types'
 
 // Vec is domain/wirepath.ts's own {x,y} — re-exported here (not redefined)
@@ -395,16 +395,17 @@ function buildPointLabelCmd(pt: Point, px: PointPx): DrawCmd | null {
 // this used to do) left it UNDER later segments/lines drawn afterward, which
 // could then strike through its white backing. Collect-then-append is the
 // simplest fix that doesn't need per-label crossing detection.
-// A 'self'-edgeKey point IS an 'empty' form's one middle point (domain/
-// forms.ts's emptyGeometry) — its anchor.position is a fixed Position.Bottom
-// picked purely for label placement, not a meaningful outward wire
-// direction, so it's a free end (Dir null — wirePath leaves it straight
-// toward the other endpoint) rather than the cardinal-derived Dir every
-// other point gets. Mirrored exactly in ui/LineEdge.tsx's sourceFree/
-// targetFree (Canvas.tsx's builtEdges sets those with the SAME 'self' check)
-// for canvas/export parity.
+// The point's TRUE outward wire-tangent — domain/forms.ts's worldPointNormal
+// (the form's own per-shape edge/arc perpendicular, rotated by the form's
+// own rotation), NOT the coarse cardinal pointAnchor's `position` picks for
+// label placement (px.cardinal) — that's static per edgeKey and wrong for a
+// slanted triangle edge, and never accounted for form.rotation at all.
+// worldPointNormal itself returns null for a free end ('empty'/pointIsForm,
+// e.g. a 'self'-edgeKey point) — no separate check needed here. Mirrored
+// exactly in ui/Canvas.tsx's builtEdges (the SAME worldPointNormal call) for
+// canvas/export parity.
 function pointDir(px: PointPx): Dir {
-  return px.edgeKey === 'self' ? null : dirFromCardinal(px.cardinal)
+  return worldPointNormal(px.layout.form, px.edgeKey, px.siblingIndex, px.siblingCount)
 }
 
 function buildLineCmds(diagram: Diagram, positions: Map<string, PointPx>, cmds: DrawCmd[]) {
@@ -413,15 +414,28 @@ function buildLineCmds(diagram: Diagram, positions: Map<string, PointPx>, cmds: 
   for (const line of diagram.lines) {
     const src = positions.get(line.source)
     if (!src) continue
+    // A hyperedge (2+ targets) routes its smoothstep elbow AT the shared
+    // source instead of centered, so every branch's cross-axis run starts
+    // from the same point instead of all coinciding into one "trunk" that
+    // smears the split and hides the copy point. Mirrored in ui/Canvas.tsx's
+    // builtEdges (`hyper`) off the SAME line.targets.length check, for
+    // canvas/export parity.
+    const elbow: ElbowPlacement = line.targets.length > 1 ? 'source' : 'mid'
     line.targets.forEach((tid) => {
       const tgt = positions.get(tid)
       if (!tgt) return
       const fromDir = pointDir(src)
       const toDir = pointDir(tgt)
-      const wp = wirePath(src.pos.x, src.pos.y, fromDir, tgt.pos.x, tgt.pos.y, toDir, style)
+      const wp = wirePath(src.pos.x, src.pos.y, fromDir, tgt.pos.x, tgt.pos.y, toDir, style, elbow)
+      // Gated on the SAME angular straightness guard wirePath itself applies
+      // internally (isNearlyStraight) — otherwise a near-axis chord would
+      // still get a (degenerate but non-empty) elbowPoints list here even
+      // though wp.d/wp.mid already collapsed to a plain straight line,
+      // leaving TikZ's smoothstep branch drawing a multi-point polyline the
+      // canvas no longer shows.
       const elbowPoints =
-        style === 'smoothstep'
-          ? smoothstepElbowPoints(src.pos.x, src.pos.y, fromDir, tgt.pos.x, tgt.pos.y, toDir)
+        style === 'smoothstep' && !isNearlyStraight(src.pos.x, src.pos.y, tgt.pos.x, tgt.pos.y)
+          ? smoothstepElbowPoints(src.pos.x, src.pos.y, fromDir, tgt.pos.x, tgt.pos.y, toDir, elbow)
           : undefined
       cmds.push({
         kind: 'line', from: src.pos, to: tgt.pos, color: line.color ?? 'black', widthPt: LINE_STROKE_PT,

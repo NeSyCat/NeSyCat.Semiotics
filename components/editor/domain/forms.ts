@@ -1,5 +1,6 @@
 import { Position } from '@xyflow/react'
 import type { Form, Shape, EdgeKey } from './types'
+import type { Vec } from './wirepath'
 
 // ── Layout constants ─────────────────────────────────────────────────
 export const BASE_SIZE = 200
@@ -112,10 +113,73 @@ export interface FormGeometry {
   // source of truth for "where along this edge did the gesture happen" —
   // insertionIndex below is the only consumer.
   edgeParam: (edgeKey: EdgeKey, rx: number, ry: number) => number
+  // The point's TRUE outward unit normal in LOCAL (pre-rotation) node-space
+  // — perpendicular to its actual edge (triangle slants, square/rhombus
+  // sides), radial for a circle arc, or a vertex's own outward radial
+  // direction (triangle's 'peak'). null ONLY for 'empty' (pointIsForm — no
+  // meaningful direction, it's a free end). This is the geometry the wire
+  // TANGENT is drawn from (domain/wirepath.ts's Dir) — NOT the same thing as
+  // pointAnchor's `position` (a coarse Position enum picked mainly for LABEL
+  // placement, static per edgeKey, arbitrary for a slanted edge). Exported
+  // via worldPointNormal below, the ONE function that also applies the
+  // form's own rotation — never consumed directly by callers outside this file.
+  pointNormal: (edgeKey: EdgeKey, index: number, count: number) => Vec | null
 }
 
 function clamp01(v: number) {
   return Math.max(0, Math.min(1, v))
+}
+
+// ── Point outward normals (world-space wire tangent direction) ─────────
+// The shared low-level math a straight-edge shape's pointNormal builds on:
+// the unit vector perpendicular to segment a->b, picking whichever of the
+// two perpendiculars points AWAY from `centroid` (the body's own visual
+// centre — bodyCentroid). Circle/'peak' compute their own radial direction
+// directly instead (no shared "edge" to derive a perpendicular from).
+function outwardEdgeNormal(
+  a: readonly [number, number], b: readonly [number, number], centroid: readonly [number, number],
+): Vec {
+  const ex = b[0] - a[0]
+  const ey = b[1] - a[1]
+  const len = Math.hypot(ex, ey) || 1
+  const nx = ey / len
+  const ny = -ex / len
+  const midx = (a[0] + b[0]) / 2
+  const midy = (a[1] + b[1]) / 2
+  const dot = (midx - centroid[0]) * nx + (midy - centroid[1]) * ny
+  return dot >= 0 ? { x: nx, y: ny } : { x: -nx, y: -ny }
+}
+
+function normalizeVec(x: number, y: number): Vec {
+  const len = Math.hypot(x, y) || 1
+  return { x: x / len, y: y / len }
+}
+
+// Rotates a plain DIRECTION vector (not a position — no center/pivot needed,
+// unlike ir/geometry-ir.ts's rotateAbout) by `deg` — clockwise, screen/Y-down
+// space, the SAME convention as every other rotation in this codebase
+// (FormNode.tsx's CSS `rotate(deg)`, geometry-ir.ts's rotateAbout).
+function rotateVec(v: Vec, deg: number): Vec {
+  if (!deg) return v
+  const th = (deg * Math.PI) / 180
+  const cos = Math.cos(th)
+  const sin = Math.sin(th)
+  return { x: v.x * cos - v.y * sin, y: v.x * sin + v.y * cos }
+}
+
+// THE single function both ui/Canvas.tsx (builtEdges) and ir/geometry-ir.ts
+// (buildLineCmds) call to get a point's wire-tangent direction — a form's
+// own pointNormal (LOCAL, pre-rotation) rotated by that form's `rotation`.
+// Fixes both halves of "wrong tangent on triangles/rotated forms": a
+// triangle's slanted edges get their OWN true perpendicular (not a coarse
+// axis-aligned guess), and ANY form's points turn with it when rotated
+// (pointAnchor's `position` never did — it's a static per-edgeKey Position
+// picked for label placement, orthogonal to this). null only for a free end
+// ('empty'/pointIsForm — pointNormal itself returns null; rotating null is null).
+export function worldPointNormal(form: Form, edgeKey: EdgeKey, index: number, count: number): Vec | null {
+  const local = geometryFor(form.shape).pointNormal(edgeKey, index, count)
+  if (!local) return null
+  return rotateVec(local, form.rotation ?? 0)
 }
 
 // Where a NEW point's gesture (rx, ry) should land in an edge's existing
@@ -252,6 +316,15 @@ const TRI_APEX_Y = 0.5
 const TRI_BASE_X = 0.5 - TRI_R * Math.cos(Math.PI / 3) // = 0.25 (left, vertical base)
 const TRI_BASE_Y_TOP = 0.5 - SQRT3_4 // ≈ 0.067 (base's top vertex, side 'a')
 const TRI_BASE_Y_BOT = 0.5 + SQRT3_4 // ≈ 0.933 (base's bottom vertex, side 'b')
+// Centroid of the 3 vertices (apex, base-top, base-bottom) — used by
+// pointNormal below to pick which of a slant edge's two perpendiculars
+// points OUTWARD, and as 'peak's own outward (radial) direction. Precomputed
+// from the same constants bodyCentroid(triangleGeometry.body) would derive
+// at runtime, just without the self-reference.
+const TRI_CENTROID: readonly [number, number] = [
+  (TRI_APEX_X + TRI_BASE_X + TRI_BASE_X) / 3,
+  (TRI_APEX_Y + TRI_BASE_Y_TOP + TRI_BASE_Y_BOT) / 3,
+]
 // 'peak' is the triangle's apex vertex — a single point-attachment SLOT (at
 // most one point, like 'empty's middle point, but optional: the triangle
 // survives without it — see edgeCapacity/pointIsForm below) rather than an
@@ -326,6 +399,19 @@ const triangleGeometry: FormGeometry = {
     if (edgeKey === 'b') return clamp01((TRI_BASE_Y_BOT - ry) / (TRI_BASE_Y_BOT - 0.5))
     return clamp01((ry - TRI_BASE_Y_TOP) / (TRI_BASE_Y_BOT - TRI_BASE_Y_TOP)) // c
   },
+  // 'peak' (a vertex, not an edge): outward = radial, centroid through the
+  // apex. 'a'/'b'/'c' (slant/base edges): the TRUE perpendicular of that
+  // edge's own two vertices, picked outward via TRI_CENTROID — NOT the
+  // coarse Position.Top/Bottom/Left pointAnchor above uses (those are label-
+  // placement picks, arbitrary for a 60°/-60° slant). Constant per edgeKey
+  // (a straight edge has one direction regardless of where along it a point
+  // sits) — index/count unused, unlike circle's pointNormal below.
+  pointNormal: (edgeKey) => {
+    if (edgeKey === 'peak') return normalizeVec(TRI_APEX_X - TRI_CENTROID[0], TRI_APEX_Y - TRI_CENTROID[1])
+    if (edgeKey === 'a') return outwardEdgeNormal([TRI_BASE_X, TRI_BASE_Y_TOP], [TRI_APEX_X, 0.5], TRI_CENTROID)
+    if (edgeKey === 'b') return outwardEdgeNormal([TRI_BASE_X, TRI_BASE_Y_BOT], [TRI_APEX_X, 0.5], TRI_CENTROID)
+    return outwardEdgeNormal([TRI_BASE_X, TRI_BASE_Y_TOP], [TRI_BASE_X, TRI_BASE_Y_BOT], TRI_CENTROID) // c
+  },
 }
 
 // ── SQUARE (4 sides) ──────────────────────────────────────────────────
@@ -369,6 +455,19 @@ const squareGeometry: FormGeometry = {
       default: return clamp01(ry) // left/right
     }
   },
+  // Same 4 vertex pairs regionShape draws its hover stripes from (pre-inset
+  // — inset doesn't change a segment's direction), outward via
+  // outwardEdgeNormal — reduces to the plain axis-aligned unit vectors
+  // (0,-1)/(1,0)/(0,1)/(-1,0) for an unrotated square, matching the old
+  // static Position mapping exactly; worldPointNormal rotates it from there.
+  pointNormal: (edgeKey) => {
+    switch (edgeKey) {
+      case 'top': return outwardEdgeNormal([0, 0], [1, 0], [0.5, 0.5])
+      case 'right': return outwardEdgeNormal([1, 0], [1, 1], [0.5, 0.5])
+      case 'bottom': return outwardEdgeNormal([0, 1], [1, 1], [0.5, 0.5])
+      default: return outwardEdgeNormal([0, 0], [0, 1], [0.5, 0.5]) // left
+    }
+  },
 }
 
 // ── CIRCLE (4 cardinal arcs up/right/down/left; no vertices) ─────────
@@ -379,9 +478,17 @@ const ARC_START: Record<string, number> = {
   up: (3 * Math.PI) / 4, right: Math.PI / 4, down: -Math.PI / 4, left: -(3 * Math.PI) / 4,
 }
 const ARC_POSITION: Record<string, Position> = { up: Position.Top, right: Position.Right, down: Position.Bottom, left: Position.Left }
+// θ at ordering parameter t along `edgeKey`'s 90° arc — the ONE formula
+// arcPt (a point's absolute node-space position) and circleGeometry's
+// pointNormal (that SAME point's outward radial direction, which for a
+// circle is just (cosθ, −sinθ), no r needed) both derive from, so they can
+// never drift apart on which point is "at t" on which arc.
+function arcTheta(edgeKey: string, t: number): number {
+  return ARC_START[edgeKey] - t * (Math.PI / 2)
+}
 function arcPt(edgeKey: string, t: number, n: number): [number, number] {
   const r = n / 2
-  const theta = ARC_START[edgeKey] - t * (Math.PI / 2)
+  const theta = arcTheta(edgeKey, t)
   return [n / 2 + r * Math.cos(theta), n / 2 - r * Math.sin(theta)]
 }
 
@@ -434,6 +541,15 @@ const circleGeometry: FormGeometry = {
     const raw = ARC_START[edgeKey] - theta
     const norm = ((raw % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI)
     return clamp01(norm / (Math.PI / 2))
+  },
+  // Radial — the SAME arcTheta formula arcPt itself uses, so a point's
+  // outward normal always agrees with where arcPt actually placed it.
+  // Unlike the other shapes, this genuinely varies by index/count (each
+  // point along the arc faces its own direction, not one constant per edgeKey).
+  pointNormal: (edgeKey, index, count) => {
+    const t = (index + 1) / (count + 1)
+    const theta = arcTheta(edgeKey, t)
+    return { x: Math.cos(theta), y: -Math.sin(theta) }
   },
 }
 
@@ -494,6 +610,13 @@ const rhombusGeometry: FormGeometry = {
     const t = ((rx - a[0]) * dx + (ry - a[1]) * dy) / len2
     return clamp01(t)
   },
+  // Same RHOMBUS_SIDES vertex pairs regionShape's hover stripe uses, outward
+  // via outwardEdgeNormal — constant per edgeKey, like triangle/square (a
+  // straight side has one direction).
+  pointNormal: (edgeKey) => {
+    const side = RHOMBUS_SIDES[edgeKey]
+    return outwardEdgeNormal(side.a, side.b, [0.5, 0.5])
+  },
 }
 
 // ── EMPTY — an invisible carrier form (bodyOpacity 0, no name of its own).
@@ -528,6 +651,11 @@ const emptyGeometry: FormGeometry = {
   // No ordering exists — there's only ever one point — so the constant 0 is
   // the trivial (and only) valid inverse of pointAnchor's own constant.
   edgeParam: () => 0,
+  // The one middle point IS the form (pointIsForm) — a free end, no
+  // meaningful direction. worldPointNormal/wirePath read this null as "leave
+  // straight toward the other endpoint" (bezier) / "no stub, turn exactly at
+  // this point" (smoothstep).
+  pointNormal: () => null,
 }
 
 // ── Registry ─────────────────────────────────────────────────────────
