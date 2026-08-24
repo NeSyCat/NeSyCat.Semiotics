@@ -212,28 +212,108 @@ function elbowCorners(s1: Vec, t1: Vec, horizontal: boolean, elbow: ElbowPlaceme
   return [{ x: s1.x, y: midY }, { x: t1.x, y: midY }]
 }
 
+// ROOT CAUSE of the smoothstep "bump" defect: a fixed STEP_OFFSET stub on
+// BOTH ends could OVERSHOOT a short axial run — e.g. a 33px run gave s1.x=24,
+// t1.x=33-24=9, s1 past t1 — leaving the x-sequence 0 -> 24 -> 16.5(mid) ->
+// 9 -> 33: it backtracks TWICE before reaching the target. roundedPolylinePath
+// renders every such reversal as a small semicircular loop — exactly the
+// user's "bumps". Fixed at the source: each stub's length is `min(STEP_
+// OFFSET, axialRun/3)` (never more than a third of the run each end could
+// possibly need, so two stubs together can use at most 2/3 of the run,
+// leaving them properly ordered) — for a normal-length run (axialRun >=
+// 3*STEP_OFFSET) this is unchanged (still STEP_OFFSET). The corner itself is
+// ALSO clamped into the closed span between the two (now-ordered) stub ends,
+// as a second, independent guarantee. Together these two are the actual fix;
+// enforceMonotoneMainAxis (below) is the final, unconditional backstop.
+function computeStepGeometry(
+  sx: number, sy: number, sDir: Dir, tx: number, ty: number, tDir: Dir, elbow: ElbowPlacement,
+): { sv: Vec | null; tv: Vec | null; s1: Vec; t1: Vec; corner1: Vec; corner2: Vec; horizontal: boolean } {
+  const horizontal = elbowAxisHorizontal(sDir, sx, sy, tx, ty)
+  const axialRun = horizontal ? Math.abs(tx - sx) : Math.abs(ty - sy)
+  const o = Math.min(STEP_OFFSET, axialRun / 3)
+  const sv = stepStubUnit(sDir)
+  const tv = stepStubUnit(tDir)
+  const s1: Vec = sv ? { x: sx + sv.x * o, y: sy + sv.y * o } : { x: sx, y: sy }
+  const t1: Vec = tv ? { x: tx + tv.x * o, y: ty + tv.y * o } : { x: tx, y: ty }
+  const [rawCorner1, rawCorner2] = elbowCorners(s1, t1, horizontal, elbow)
+  // Clamp each corner's main-axis coordinate into the closed interval
+  // between the two (now-ordered) stub ends — defensive on top of the stub-
+  // length clamp above, so the turn point can never land outside the s1..t1
+  // span regardless of how elbowCorners computed it.
+  const clampToStubSpan = (c: Vec): Vec => {
+    const s1Main = horizontal ? s1.x : s1.y
+    const t1Main = horizontal ? t1.x : t1.y
+    const lo = Math.min(s1Main, t1Main)
+    const hi = Math.max(s1Main, t1Main)
+    return horizontal ? { x: clamp(c.x, lo, hi), y: c.y } : { x: c.x, y: clamp(c.y, lo, hi) }
+  }
+  return { sv, tv, s1, t1, corner1: clampToStubSpan(rawCorner1), corner2: clampToStubSpan(rawCorner2), horizontal }
+}
+
+// Final, unconditional backstop: walks the raw route and DROPS any point
+// that would move backward (relative to the LAST KEPT point) along the
+// route's own main axis — the direct fix for "bumps" (roundedPolylinePath
+// renders every such reversal as a small semicircular loop). The stub-
+// length clamp and corner clamp above already prevent the KNOWN causes;
+// this guarantees monotonicity regardless of what produced a violation.
+//
+// Operates ONLY on the INTERIOR span — `pts` here is [s1, corner1, corner2,
+// t1], never the true source/target — never the whole route. The stub
+// segments (source->s1, t1->target) are explicitly EXEMPT: a Dir that
+// points away from the other endpoint (e.g. a rotated form's true outward
+// normal happening to face the "wrong" way, or the adversarial case where
+// both endpoints face the same direction) legitimately makes its OWN stub
+// run backward relative to the overall route — that's correct geometry
+// respecting the point's true tangent, not a bug to filter out. Applying
+// monotonicity to the full route (source through target) used to let this
+// backward stub carry right through to the FINAL point, dropping the
+// route's own true target (or source) outright — see smoothstepElbowPoints'
+// own comment for why that can never happen now: source/target are
+// reattached verbatim, outside this function's reach entirely.
+//
+// `sign` is fixed once from pts[0]->pts[last] (s1->t1 — always the interior
+// span's own true direction, never overshot past by a corner: computeStepGeometry
+// already clamped both corners into the closed [s1,t1] span), so t1 itself
+// can never be the point that gets dropped, and pts[0] (s1) is always kept
+// trivially (the very first point considered). A point can only ever be
+// dropped for reversing, never for legitimately sitting exactly level with
+// the last kept point.
+function enforceMonotoneMainAxis(pts: Vec[], horizontal: boolean): Vec[] {
+  const coord = (p: Vec) => (horizontal ? p.x : p.y)
+  const sign = Math.sign(coord(pts[pts.length - 1]) - coord(pts[0]))
+  if (sign === 0) return pts // degenerate — s1 and t1 level on the main axis; no direction to enforce
+  const out: Vec[] = []
+  let last = -Infinity
+  for (const p of pts) {
+    const c = coord(p) * sign
+    if (c >= last - 1e-6) {
+      out.push(p)
+      last = c
+    }
+  }
+  return out
+}
+
 // The raw (pre-rounded) elbow route: S -> [S1] -> corner1 -> corner2 -> [T1]
-// -> T, deduped of consecutive coincident points. S1/T1 are the outward-
-// offset "leave/arrive" stubs (skipped when that endpoint's Dir is null);
-// corner1/corner2 are the ONE cross-axis segment's own endpoints, placed per
-// `elbow` (see elbowCorners). Exported so export/tikz.ts can draw the SAME
-// route as a native `--`-segment polyline (with `rounded corners=`) instead
-// of parsing the SVG `d` string this module also builds for the canvas/
-// HTML-SVG path.
+// -> T, deduped of consecutive coincident points, with the INTERIOR span
+// (s1 -> corner1 -> corner2 -> t1) made monotone along the main axis
+// (enforceMonotoneMainAxis — see its own comment for why the stub segments
+// S->s1/t1->T are deliberately exempt). S/T themselves are ALWAYS the first
+// and last points of the returned route, reattached verbatim after that
+// interior filtering — the route's own true source/target endpoint can
+// never be dropped, no matter which direction either stub runs. S1/T1 are
+// the outward-offset "leave/arrive" stubs (coincide with S/T — and vanish
+// via the dedupe below — when that endpoint's Dir is null); corner1/corner2
+// are the ONE cross-axis segment's own endpoints, placed per `elbow` (see
+// elbowCorners). Exported so export/tikz.ts can draw the SAME route as a
+// native `--`-segment polyline (with `rounded corners=`) instead of parsing
+// the SVG `d` string this module also builds for the canvas/HTML-SVG path.
 export function smoothstepElbowPoints(
   sx: number, sy: number, sDir: Dir, tx: number, ty: number, tDir: Dir, elbow: ElbowPlacement = 'mid',
 ): Vec[] {
-  const sv = stepStubUnit(sDir)
-  const tv = stepStubUnit(tDir)
-  const s1: Vec = sv ? { x: sx + sv.x * STEP_OFFSET, y: sy + sv.y * STEP_OFFSET } : { x: sx, y: sy }
-  const t1: Vec = tv ? { x: tx + tv.x * STEP_OFFSET, y: ty + tv.y * STEP_OFFSET } : { x: tx, y: ty }
-  const horizontal = elbowAxisHorizontal(sDir, sx, sy, tx, ty)
-  const [corner1, corner2] = elbowCorners(s1, t1, horizontal, elbow)
-  const raw: Vec[] = [{ x: sx, y: sy }]
-  if (sv) raw.push(s1)
-  raw.push(corner1, corner2)
-  if (tv) raw.push(t1)
-  raw.push({ x: tx, y: ty })
+  const { s1, t1, corner1, corner2, horizontal } = computeStepGeometry(sx, sy, sDir, tx, ty, tDir, elbow)
+  const interior = enforceMonotoneMainAxis([s1, corner1, corner2, t1], horizontal)
+  const raw: Vec[] = [{ x: sx, y: sy }, ...interior, { x: tx, y: ty }]
   const pts: Vec[] = []
   for (const p of raw) {
     const last = pts[pts.length - 1]
@@ -245,21 +325,61 @@ export function smoothstepElbowPoints(
 // The cross-axis segment's own midpoint — the label anchor for a smoothstep
 // wire (wherever that segment sits along the route, per `elbow`).
 // Independent of rounding (rounding only trims the polyline's corners
-// inward within each segment's own span).
+// inward within each segment's own span). Uses the SAME computeStepGeometry
+// as smoothstepElbowPoints, so the label anchor and the drawn route can
+// never disagree on where the corners are.
 function smoothstepMid(sx: number, sy: number, sDir: Dir, tx: number, ty: number, tDir: Dir, elbow: ElbowPlacement): Vec {
-  const sv = stepStubUnit(sDir)
-  const tv = stepStubUnit(tDir)
-  const s1: Vec = sv ? { x: sx + sv.x * STEP_OFFSET, y: sy + sv.y * STEP_OFFSET } : { x: sx, y: sy }
-  const t1: Vec = tv ? { x: tx + tv.x * STEP_OFFSET, y: ty + tv.y * STEP_OFFSET } : { x: tx, y: ty }
-  const horizontal = elbowAxisHorizontal(sDir, sx, sy, tx, ty)
-  const [corner1, corner2] = elbowCorners(s1, t1, horizontal, elbow)
+  const { corner1, corner2 } = computeStepGeometry(sx, sy, sDir, tx, ty, tDir, elbow)
   return { x: (corner1.x + corner2.x) / 2, y: (corner1.y + corner2.y) / 2 }
 }
+
+// Minimum radius (px) worth actually drawing as an arc — below this a
+// "rounded" corner is visually indistinguishable from a plain point, not
+// worth the SVG arc command's own overhead. A real, visually-meaningful
+// floor (see NEAR_COLLINEAR_DEG's comment for why this matters more than a
+// mere float-noise guard).
+const MIN_ARC_RADIUS = 0.75
+
+// DEGENERATE ROUNDED CORNERS ("curls"): the arc below always uses r (the
+// segment-clamped radius) as BOTH the tangent-DISTANCE from the corner and
+// the SVG arc's own RADIUS — a relationship that is only geometrically
+// consistent at exactly a 90° turn (this router's normal case, and the only
+// shape enforceMonotoneMainAxis's point-dropping can't disturb). When a
+// corner's two neighboring segments AREN'T perpendicular — which can only
+// happen when that safety net drops a point on a short/awkward run, leaving
+// two remaining points connected by a segment that isn't purely horizontal
+// or vertical — the SAME r used as both distance and radius stops being
+// consistent: as the turn angle approaches 0° (continuing nearly straight)
+// or 180° (nearly doubling back), the chord between the two tangent points
+// approaches the CIRCLE'S OWN DIAMETER (2r), forcing the arc to sweep close
+// to a full semicircle of that fixed radius (up to STEP_RADIUS=8px)
+// regardless of how subtly the path is actually turning — a small, near-
+// circular "curl" bulging off an otherwise straight-looking wire, with a
+// visible slit where its two ends (still not QUITE meeting) pass close by
+// each other. A corner within NEAR_COLLINEAR_DEG of either extreme skips
+// the arc outright (plain L) rather than draw a geometrically-inconsistent
+// one — large-arc-flag stays 0 (below) for every OTHER corner, so a normal
+// (near-90°) turn's arc is, by construction, never the reflex (>180°)
+// complement either.
+//
+// ASYMMETRY WITH TikZ: this function backs the canvas AND HTML/SVG export
+// (both consume wirePath's own `d` string) — but NOT the TikZ export, which
+// draws the SAME elbowPoints as a native `--`-segment polyline with PGF's
+// own `rounded corners=` option (export/tikz.ts) instead of pre-computed
+// SVG arcs. PGF/TikZ clamps its own corner radius internally per corner
+// (to that corner's own adjacent segment lengths) regardless of turn angle,
+// which is why the TikZ export never showed this "curl" defect in the
+// first place — only this SVG-arc path (canvas + HTML) needed the fix above.
+const NEAR_COLLINEAR_DEG = 3
 
 // Turns an ordered point list into an SVG path string, rounding every
 // interior corner with a quarter-circle arc of radius `min(STEP_RADIUS, half
 // of each adjacent segment)` — so a short stub/segment never overshoots into
-// its neighbour. Degenerate (near-zero) corners fall back to a plain `L`.
+// its neighbour, and the arc's own tangent points always land strictly
+// within their segments. A corner too small (< MIN_ARC_RADIUS) or too
+// near-collinear (< NEAR_COLLINEAR_DEG from continuing straight or from a
+// full reversal — see NEAR_COLLINEAR_DEG's own comment) falls back to a
+// plain `L` instead of a distorted/curling arc.
 function roundedPolylinePath(pts: Vec[]): string {
   if (pts.length < 2) return pts.length === 1 ? `M ${vfmt(pts[0])}` : ''
   if (pts.length === 2) return `M ${vfmt(pts[0])} L ${vfmt(pts[1])}`
@@ -271,7 +391,7 @@ function roundedPolylinePath(pts: Vec[]): string {
     const segIn = Math.hypot(corner.x - prev.x, corner.y - prev.y)
     const segOut = Math.hypot(next.x - corner.x, next.y - corner.y)
     const r = Math.min(STEP_RADIUS, segIn / 2, segOut / 2)
-    if (r < 1e-6) {
+    if (r < MIN_ARC_RADIUS) {
       d += ` L ${vfmt(corner)}`
       continue
     }
@@ -279,10 +399,22 @@ function roundedPolylinePath(pts: Vec[]): string {
     const inY = (corner.y - prev.y) / segIn
     const outX = (next.x - corner.x) / segOut
     const outY = (next.y - corner.y) / segOut
+    // The turn's own deviation from continuing straight (0°) or fully
+    // reversing (180°) — see NEAR_COLLINEAR_DEG's comment for why the arc
+    // below is only valid away from both extremes.
+    const dot = Math.max(-1, Math.min(1, inX * outX + inY * outY))
+    const turnDeg = (Math.acos(dot) * 180) / Math.PI
+    if (turnDeg < NEAR_COLLINEAR_DEG || turnDeg > 180 - NEAR_COLLINEAR_DEG) {
+      d += ` L ${vfmt(corner)}`
+      continue
+    }
     const a: Vec = { x: corner.x - inX * r, y: corner.y - inY * r }
     const b: Vec = { x: corner.x + outX * r, y: corner.y + outY * r }
-    // Axis-aligned 90° turns only: cross(in, out) is always ±1 here — its
-    // sign picks the arc's sweep direction (SVG's y-down sweep-flag=1 turn).
+    // Axis-aligned 90° turns (the normal case): cross(in, out) is exactly
+    // ±1 and this arc is exactly a quarter-circle — its sign picks the
+    // sweep direction (SVG's y-down sweep-flag=1 turn). large-arc-flag
+    // stays 0 (the minor arc) for every corner that reaches this point —
+    // by construction never the reflex (>180°) complement.
     const cross = inX * outY - inY * outX
     const sweep = cross > 0 ? 1 : 0
     d += ` L ${vfmt(a)} A ${fmt(r)} ${fmt(r)} 0 0 ${sweep} ${vfmt(b)}`

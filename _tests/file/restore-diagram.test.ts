@@ -78,3 +78,26 @@ describe('restoreDiagram: edgeStyle normalization', () => {
     expect(restoreDiagram(JSON.stringify(d)).edgeStyle).toBe('bezier')
   })
 })
+
+// Regression precondition for ui/Canvas.tsx's builtEdges lineLabel fix: a
+// line whose name is a literal empty string must survive restoreDiagram
+// as-is (persist/io.ts's canonLine does NOT collapse '' to undefined the
+// way state/store.ts's own renameLine does) — this is the reachable path
+// that let an empty-string line name into the app WITHOUT going through
+// the store's own safeguard (a raw JSON import, a share-link decode, or an
+// MCP create_diagram/update_diagram call). ui/Canvas.tsx (not importable
+// headless — see empty-form.test.ts's own comment) is where the actual
+// render-nothing fix lives; this only confirms the precondition is real.
+describe("restoreDiagram: line.name === '' round-trips as-is (NOT collapsed to undefined)", () => {
+  it("canonLine preserves an explicit '' line name — the SAME value ui/Canvas.tsx's lineLabel must then treat as 'render nothing', not fall back to the line's id", () => {
+    const raw = {
+      schemaVersion: 1,
+      forms: [],
+      points: {},
+      lines: [{ id: 'L1', name: '', source: 'a', targets: ['b'] }],
+    }
+    const out = restoreDiagram(raw)
+    expect(out.lines).toHaveLength(1)
+    expect(out.lines[0].name).toBe('')
+  })
+})

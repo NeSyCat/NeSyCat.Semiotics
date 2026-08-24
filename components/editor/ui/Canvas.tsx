@@ -175,10 +175,15 @@ function pointToHandle(d: Diagram, pointId: string): { nodeId: string; handleId:
 // worldPointNormal: the form's own per-shape edge/arc perpendicular,
 // rotated by the form's own rotation) — null for a free end ('empty'/
 // pointIsForm, e.g. a 'self'-edgeKey point; worldPointNormal itself already
-// returns null there, no separate check needed). builtEdges below is the
-// ONLY caller; ir/geometry-ir.ts's buildLineCmds calls the SAME
-// worldPointNormal (off its own already-resolved form/edgeKey/index/count),
-// so canvas and exports can never disagree on a point's tangent.
+// returns null there, no separate check needed). A point's outward normal
+// is GEOMETRY (its shape + its form's rotation), not a per-frame drag
+// position, so — unlike sourceX/sourceY/targetX/targetY, which LineEdge.tsx
+// takes from React Flow's own live per-frame coordinates, NOT from here —
+// this document-derived value is fine to only update on diagram mutation.
+// builtEdges below is the ONLY caller; ir/geometry-ir.ts's buildLineCmds
+// calls the SAME worldPointNormal (off its own already-resolved form/
+// edgeKey/index/count), so canvas and exports can never disagree on a
+// point's tangent.
 function pointWorldNormal(d: Diagram, pointId: string): Dir {
   const pt = d.points[pointId]
   if (!pt) return null
@@ -188,6 +193,19 @@ function pointWorldNormal(d: Diagram, pointId: string): Dir {
   const index = ids.indexOf(pointId)
   if (index < 0) return null
   return worldPointNormal(form, pt.edgeKey, index, ids.length)
+}
+
+// '' (an explicitly cleared line name that bypassed store's own renameLine
+// safeguard — e.g. a raw JSON import via persist/io.ts's canonLine, which
+// does not collapse '' to undefined the way the store does) must render
+// NEITHER text NOR mask, same as a blank POINT name (PointVisual's own
+// `labelText !== ''` guard) — NOT fall back to the line's id the way a
+// genuinely undefined name does. LineEdge.tsx's `d.label != null` check
+// already treats undefined as "render nothing"; this is what makes '' do
+// the same instead of leaking through as a literal empty-string label
+// (which IS != null, and would render an empty masked box on the wire).
+function lineLabel(name: string | undefined, id: string): string | undefined {
+  return name === '' ? undefined : (name ?? id)
 }
 
 // (nodeId, handleId) -> point id.
@@ -333,7 +351,7 @@ function Canvas({ topRight }: CanvasContentProps) {
       const sp = pointToHandle(diagram, line.source)
       if (!sp) continue
       // The source's true tangent is the SAME for every branch of this
-      // line (it's one point) — computed once outside the per-target loop.
+      // line (it's one point) — resolved once outside the per-target loop.
       const sourceDir = pointWorldNormal(diagram, line.source)
       // A hyperedge (2+ targets) — LineEdge.tsx routes its smoothstep elbow
       // AT the shared source instead of centered, so every branch's
@@ -342,6 +360,13 @@ function Canvas({ topRight }: CanvasContentProps) {
       // Mirrored in ir/geometry-ir.ts's buildLineCmds off the SAME
       // line.targets.length check, for canvas/export parity.
       const hyper = line.targets.length > 1
+      // Every branch of a hyperedge carries the line's name (user decision:
+      // a fork's branches each show the type, not just the first) —
+      // matching the exports' per-branch labels (ir/geometry-ir.ts's
+      // buildLineCmds). '' (explicitly cleared, only reachable via a raw
+      // import that bypassed the store's own renameLine safeguard) renders
+      // neither text nor mask — see lineLabel's own comment.
+      const label = lineLabel(line.name, line.id)
       line.targets.forEach((tid, i) => {
         const tp = pointToHandle(diagram, tid)
         if (!tp) return
@@ -353,17 +378,8 @@ function Canvas({ topRight }: CanvasContentProps) {
           targetHandle: tp.handleId,
           type: 'line',
           animated: true,
-          // Label ONLY the first target's segment (i === 0) — a hyperedge
-          // (one line, 2+ targets) used to get its name/id drawn on EVERY
-          // segment; now once per line, same rule export/tikz.ts and
-          // export/html.ts already followed (ir/geometry-ir.ts's
-          // buildLineCmds). Other segments get `label: undefined`, which
-          // LineEdge.tsx reads as "render neither the text nor its mask".
-          // Every branch of a hyperedge carries the line's name (user
-          // decision: a fork's branches each show the type, not just the
-          // first) — matching the exports' per-branch labels.
           data: {
-            label: line.name ?? line.id, color: line.color,
+            label, color: line.color,
             sourceDir, targetDir: pointWorldNormal(diagram, tid),
             hyper,
           },

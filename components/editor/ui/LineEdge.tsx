@@ -15,16 +15,18 @@ import { wirePath, type Dir } from '../domain/wirepath'
 import type { Color } from '../domain/types'
 
 interface LineEdgeData {
-  // Undefined on every segment past the first of a multi-target line — see
-  // Canvas.tsx's builtEdges: a hyperedge's name/id renders ONCE per line
-  // (first segment only), not per-segment. LineEdge renders neither the text
-  // nor its canvas-colored mask when this is unset.
+  // undefined -> renders neither text nor its canvas-colored mask (also the
+  // state every segment past the first of a multi-target line used to get,
+  // before every branch started carrying the name — see Canvas.tsx's
+  // builtEdges' own comment). '' is normalized to undefined by Canvas.tsx's
+  // lineLabel before it ever reaches here — this component only ever sees a
+  // real name, the id fallback, or undefined, never a literal empty string.
   label?: string
   color?: Color
   // Each endpoint's TRUE outward wire-tangent — domain/forms.ts's
   // worldPointNormal (the form's own per-shape edge/arc perpendicular,
   // rotated by the form's own rotation), computed by Canvas.tsx's builtEdges
-  // (pointWorldNormal) and handed straight to wirePath below. null for a
+  // (pointWireGeometry) and handed straight to wirePath below. null for a
   // free end (a 'self'-edgeKey empty-form point — worldPointNormal itself
   // already returns null there) — wirePath reads that as "leave straight
   // toward the other endpoint" (bezier) / "no stub, turn exactly at this
@@ -64,6 +66,14 @@ function LineEdge({
   // mask; React Flow renders nodes above edges), never geometrically
   // deformed to dodge them — matching export/geometry-ir.ts's buildLineCmds,
   // which has always used the raw point positions with no gap of its own.
+  // sourceX/sourceY/targetX/targetY are React Flow's own LIVE, per-frame
+  // handle coordinates — the primary geometry source (NOT Canvas.tsx's
+  // document-derived anchors, which only update on drag END: a diagram
+  // mutation, not a per-frame value — using those instead froze wires
+  // during a live drag until the drop). sourceDir/targetDir stay
+  // document-derived below; a point's outward NORMAL is geometry (its
+  // shape/rotation), not a per-frame drag position, so it doesn't need
+  // per-frame updates the way a moving endpoint's own coordinates do.
   const sx = sourceX, sy = sourceY, tx = targetX, ty = targetY
 
   // Canvas.tsx's builtEdges already resolved each endpoint's TRUE tangent
