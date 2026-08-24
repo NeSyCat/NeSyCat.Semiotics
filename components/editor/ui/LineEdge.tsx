@@ -5,14 +5,13 @@ import {
   BaseEdge,
   EdgeLabelRenderer,
   ViewportPortal,
-  getStraightPath,
-  getSmoothStepPath,
   type EdgeProps,
 } from '@xyflow/react'
 import theme from './theme'
 import { useStore } from '../state/store'
 import { Tex } from './Tex'
 import { toRgbTriple } from '../domain/color'
+import { wirePath, dirFromCardinal } from '../domain/wirepath'
 import type { Color } from '../domain/types'
 
 interface LineEdgeData {
@@ -33,6 +32,15 @@ interface LineEdgeData {
   // enough at the pull-back distances involved (~14px).
   sourceGap?: number
   targetGap?: number
+  // True when that end's point sits on an 'empty' form's 'self' edgeKey (its
+  // one middle point) — set by Canvas.tsx's builtEdges. That point's
+  // anchor.position is a fixed Position.Bottom picked purely for label
+  // placement (domain/forms.ts's emptyGeometry), not a meaningful outward
+  // wire direction, so it must NOT feed wirepath.ts's Dir the way every
+  // other point's Position does — it's a free end (Dir null), which leaves
+  // the wire straight toward the other endpoint instead of dipping down.
+  sourceFree?: boolean
+  targetFree?: boolean
 }
 
 // Pulls (sx,sy)/(tx,ty) toward each other along their own straight line by
@@ -62,7 +70,7 @@ function LineEdge({
   markerEnd,
 }: EdgeProps) {
   const d = data as unknown as LineEdgeData
-  const mode = useStore((s) => s.edgePath)
+  const style = useStore((s) => s.diagram.edgeStyle ?? 'straight')
   const hovered = useStore((s) => s.hoveredEdgeId === id)
 
   const { sx, sy, tx, ty } = (() => {
@@ -70,9 +78,19 @@ function LineEdge({
     return { sx: shrunk.sx, sy: shrunk.sy, tx: shrunk.tx, ty: shrunk.ty }
   })()
 
-  const [edgePath, labelX, labelY] = mode === 'smoothstep'
-    ? getSmoothStepPath({ sourceX: sx, sourceY: sy, sourcePosition, targetX: tx, targetY: ty, targetPosition })
-    : getStraightPath({ sourceX: sx, sourceY: sy, targetX: tx, targetY: ty })
+  // sourcePosition/targetPosition are React Flow's own Position enum
+  // ('top'|'right'|'bottom'|'left') — the SAME anchor.position FormNode.tsx
+  // set on the Handle these endpoints came from (domain/forms.ts's
+  // pointAnchor) — converted to wirepath.ts's outward Dir via the one
+  // shared conversion (dirFromCardinal) export/geometry-ir.ts also uses.
+  // A free end (sourceFree/targetFree — a 'self'-edgeKey empty-form point)
+  // overrides that to null regardless of its Position, per the SAME rule
+  // ir/geometry-ir.ts's buildLineCmds applies for export parity.
+  const sDir = d.sourceFree ? null : dirFromCardinal(sourcePosition)
+  const tDir = d.targetFree ? null : dirFromCardinal(targetPosition)
+  const { d: edgePath, mid } = wirePath(sx, sy, sDir, tx, ty, tDir, style)
+  const labelX = mid.x
+  const labelY = mid.y
 
   const lineColor = d.color ? `rgb(${toRgbTriple(d.color)})` : '#000000' // no colour → black
   const edgeStyle = useMemo(

@@ -1,5 +1,6 @@
 import type { Diagram, Form, Point, Line, Color, Shape } from '../domain/types'
 import { geometryFor, SHAPES } from '../domain/forms'
+import { EDGE_STYLES, type EdgeStyle } from '../domain/wirepath'
 import { pruneLines } from '../domain/mutations'
 
 // Single load-boundary normalizer. Persisted JSON arrives from Supabase
@@ -33,6 +34,17 @@ import { pruneLines } from '../domain/mutations'
 
 const FALLBACK_COLOR: Color = [52 / 255, 120 / 255, 246 / 255]
 const VALID_SHAPES = new Set<string>(SHAPES)
+// 'straight' is the implicit default (absent field), so it's never stored —
+// mirrors mutations.ts's rotation/scale/color idiom of clearing back to
+// undefined at the default value (see domain/mutations.ts's setEdgeStyle).
+const VALID_NON_DEFAULT_EDGE_STYLES = new Set<string>(EDGE_STYLES.filter((s) => s !== 'straight'))
+
+// Invalid/missing/legacy -> undefined (meaning 'straight') — same
+// drop-silently normalization idiom canonPoint uses for an unknown shape,
+// just collapsing to "absent" instead of a concrete fallback value.
+function canonEdgeStyle(raw: unknown): EdgeStyle | undefined {
+  return typeof raw === 'string' && VALID_NON_DEFAULT_EDGE_STYLES.has(raw) ? (raw as EdgeStyle) : undefined
+}
 
 function asColor(c: unknown): Color {
   if (Array.isArray(c) && c.length === 3) return [Number(c[0]), Number(c[1]), Number(c[2])]
@@ -221,8 +233,10 @@ export function restoreDiagram(raw: unknown): Diagram {
   const lines = pruneLines(rawLines, dropped.removedPointIds)
 
   const collapsed = collapseEmptyForms(forms, points, lines)
+  const edgeStyle = canonEdgeStyle(d.edgeStyle)
   return {
     schemaVersion: typeof d.schemaVersion === 'number' ? d.schemaVersion : 1,
     forms: collapsed.forms, points: collapsed.points, lines: collapsed.lines,
+    ...(edgeStyle !== undefined ? { edgeStyle } : {}),
   }
 }

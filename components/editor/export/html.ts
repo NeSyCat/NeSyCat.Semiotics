@@ -120,7 +120,10 @@ function emitCmd(cmd: DrawCmd): string {
       return `<polygon points="${pts}" fill="${colorRef(cmd.fillColor)}" stroke="black" stroke-width="1.5"/>`
     }
     case 'line':
-      return `<line x1="${round(cmd.from.x)}" y1="${round(cmd.from.y)}" x2="${round(cmd.to.x)}" y2="${round(cmd.to.y)}" stroke="${colorRef(cmd.color)}" stroke-width="1.5"/>`
+      // `d` is wirepath.ts's own SVG path string, already in this exact
+      // coordinate space (flow px, Y-down — SVG's own orientation, no flip
+      // needed) — straight/bezier/smoothstep all render through one <path>.
+      return `<path d="${cmd.d}" fill="none" stroke="${colorRef(cmd.color)}" stroke-width="1.5"/>`
     case 'label': {
       const anchor = cmd.anchor ? (ANCHOR_MAP[cmd.anchor] ?? 'middle') : 'middle'
       const text = latexToPlain(unwrapMath(cmd.text))

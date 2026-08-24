@@ -9,6 +9,8 @@
 //             form's edge, can be wired by lines, and contains NOTHING.
 // Lines connect points. No nesting, no recursion anywhere.
 
+import type { EdgeStyle } from './wirepath'
+
 export type Color = [number, number, number] // normalized RGB, each in [0,1]
 
 // ── Shapes — the ONE vocabulary shared by a Form's own shape and a Point's
@@ -65,4 +67,10 @@ export interface Diagram {
   forms: Form[] // top-level big shapes (React Flow nodes)
   points: Record<string, Point> // every point, flat (each sits on one form edge)
   lines: Line[] // connections (React Flow edges)
+  // How every wire is drawn (canvas + both exporters, via domain/wirepath.ts's
+  // wirePath) — undefined means 'straight', so a document saved before this
+  // field existed renders and exports EXACTLY as it always has. Set only via
+  // state/store.ts's setEdgeStyle (a normal document mutation, autosaved like
+  // any other field) and normalized on load by persist/io.ts's restoreDiagram.
+  edgeStyle?: EdgeStyle
 }

@@ -42,3 +42,39 @@ describe('restoreDiagram: string vs object input', () => {
     expect(restoreDiagram(undefined).forms).toHaveLength(0)
   })
 })
+
+// edgeStyle round trip — the wire-style ticket's persistence contract:
+// missing/invalid -> absent (meaning 'straight', old docs unaffected);
+// 'bezier'/'smoothstep' survive; an explicit 'straight' collapses back to
+// absent (same "clears to the default" idiom as rotation/scale/color).
+describe('restoreDiagram: edgeStyle normalization', () => {
+  it('a document with no edgeStyle field restores with edgeStyle absent', () => {
+    const out = restoreDiagram({ schemaVersion: 1, forms: [], points: {}, lines: [] })
+    expect(out.edgeStyle).toBeUndefined()
+  })
+
+  it("'bezier' round-trips as-is", () => {
+    const out = restoreDiagram({ schemaVersion: 1, forms: [], points: {}, lines: [], edgeStyle: 'bezier' })
+    expect(out.edgeStyle).toBe('bezier')
+  })
+
+  it("'smoothstep' round-trips as-is", () => {
+    const out = restoreDiagram({ schemaVersion: 1, forms: [], points: {}, lines: [], edgeStyle: 'smoothstep' })
+    expect(out.edgeStyle).toBe('smoothstep')
+  })
+
+  it("an explicit 'straight' normalizes to absent (the implicit default)", () => {
+    const out = restoreDiagram({ schemaVersion: 1, forms: [], points: {}, lines: [], edgeStyle: 'straight' })
+    expect(out.edgeStyle).toBeUndefined()
+  })
+
+  it('an invalid/unknown edgeStyle value drop-silently normalizes to absent', () => {
+    const out = restoreDiagram({ schemaVersion: 1, forms: [], points: {}, lines: [], edgeStyle: 'wiggly' })
+    expect(out.edgeStyle).toBeUndefined()
+  })
+
+  it('survives a JSON-string round trip (the MCP create/update_diagram path)', () => {
+    const d = { schemaVersion: 1, forms: [], points: {}, lines: [], edgeStyle: 'bezier' }
+    expect(restoreDiagram(JSON.stringify(d)).edgeStyle).toBe('bezier')
+  })
+})

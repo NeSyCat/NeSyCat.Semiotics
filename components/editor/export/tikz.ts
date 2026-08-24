@@ -20,6 +20,7 @@
 //   needed.
 
 import { buildDrawCmds, cmdVecs, SHARE_BASE, FORM_STROKE_PT, type DrawCmd, type Vec } from '../ir/geometry-ir'
+import { STEP_RADIUS } from '../domain/wirepath'
 import { encodeDiagramToFragment } from '../persist/share'
 import type { Diagram, Color } from '../domain/types'
 
@@ -99,7 +100,20 @@ function emitCmd(cmd: DrawCmd, registry: ColorRegistry, minX: number, maxY: numb
     }
     case 'line': {
       const color = tikzColorRef(cmd.color, registry)
-      return `\\draw[${color}, line width=${cmd.widthPt}pt] (${c(cmd.from)}) -- (${c(cmd.to)});`
+      const opts = `${color}, line width=${cmd.widthPt}pt`
+      if (cmd.style === 'bezier' && cmd.c1 && cmd.c2) {
+        return `\\draw[${opts}] (${c(cmd.from)}) .. controls (${c(cmd.c1)}) and (${c(cmd.c2)}) .. (${c(cmd.to)});`
+      }
+      if (cmd.style === 'smoothstep' && cmd.elbowPoints && cmd.elbowPoints.length > 2) {
+        // Native `--`-segment polyline through the SAME (pre-rounded) elbow
+        // points wirepath.ts's smoothstepElbowPoints computed for the canvas
+        // SVG path — `rounded corners=` is TikZ's own equivalent of the
+        // canvas path's quarter-circle arcs, visually equivalent without
+        // needing to hand-emit `arc` commands here.
+        const path = cmd.elbowPoints.map((p) => `(${c(p)})`).join(' -- ')
+        return `\\draw[${opts}, rounded corners=${lenCm(STEP_RADIUS)}] ${path};`
+      }
+      return `\\draw[${opts}] (${c(cmd.from)}) -- (${c(cmd.to)});`
     }
     case 'label': {
       // masked (line-name/point-name labels): a white-filled node so the

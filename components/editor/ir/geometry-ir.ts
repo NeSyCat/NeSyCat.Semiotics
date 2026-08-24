@@ -20,9 +20,13 @@
 //      happens downstream, in each backend module — not here.
 
 import { geometryFor, pointIdsAt, bodyCentroid, POINT_SIZE, type Body } from '../domain/forms'
+import { wirePath, dirFromCardinal, smoothstepElbowPoints, type Dir, type EdgeStyle, type Vec } from '../domain/wirepath'
 import type { Diagram, Form, Point, Shape, Color, EdgeKey } from '../domain/types'
 
-export interface Vec { x: number; y: number }
+// Vec is domain/wirepath.ts's own {x,y} — re-exported here (not redefined)
+// so every existing `import { ..., type Vec } from '../ir/geometry-ir'` call
+// site keeps working unchanged.
+export type { Vec }
 
 // ── px-space geometry (pure, synchronous — the testable core) ──────────
 
@@ -153,7 +157,32 @@ export type DrawCmd =
   // black (backends hardcode it, no field needed here).
   | { kind: 'pointCircle'; pos: Vec; radiusPx: number; fillColor: Color }
   | { kind: 'pointPolygon'; pts: Vec[]; fillColor: Color }
-  | { kind: 'line'; from: Vec; to: Vec; color: Color | 'black'; widthPt: number }
+  // Wire geometry is resolved ONCE here (via domain/wirepath.ts's wirePath —
+  // the same module ui/LineEdge.tsx draws from on canvas), so both export
+  // backends stay pure string generation, no curve math of their own:
+  //   - `d`: wirePath's SVG path string (flow px, Y-down) — export/html.ts's
+  //     SVG backend uses this AS-IS (same coordinate space, no y-flip).
+  //   - `c1`/`c2`: the bezier control points (style 'bezier' only) — export/
+  //     tikz.ts draws `.. controls (c1) and (c2) ..` from these.
+  //   - `elbowPoints`: the smoothstep route's raw (pre-rounded) corner
+  //     points (style 'smoothstep' only) — export/tikz.ts draws these as a
+  //     native `--`-segment polyline with `rounded corners=`.
+  //   - `mid`: the label anchor for this line's name (all styles) — replaces
+  //     the old naive (from+to)/2 average, which was wrong the moment a wire
+  //     stopped being a straight line.
+  | {
+      kind: 'line'
+      from: Vec
+      to: Vec
+      color: Color | 'black'
+      widthPt: number
+      style: EdgeStyle
+      d: string
+      c1?: Vec
+      c2?: Vec
+      elbowPoints?: Vec[]
+      mid: Vec
+    }
   // masked: true for LINE-name and POINT-name labels — canvas masks a
   // canvas-colored band behind those (LineEdge.tsx, PointVisual.tsx) so the
   // wire's dashes don't strike through the text; exports mirror that with an
@@ -366,7 +395,20 @@ function buildPointLabelCmd(pt: Point, px: PointPx): DrawCmd | null {
 // this used to do) left it UNDER later segments/lines drawn afterward, which
 // could then strike through its white backing. Collect-then-append is the
 // simplest fix that doesn't need per-label crossing detection.
+// A 'self'-edgeKey point IS an 'empty' form's one middle point (domain/
+// forms.ts's emptyGeometry) — its anchor.position is a fixed Position.Bottom
+// picked purely for label placement, not a meaningful outward wire
+// direction, so it's a free end (Dir null — wirePath leaves it straight
+// toward the other endpoint) rather than the cardinal-derived Dir every
+// other point gets. Mirrored exactly in ui/LineEdge.tsx's sourceFree/
+// targetFree (Canvas.tsx's builtEdges sets those with the SAME 'self' check)
+// for canvas/export parity.
+function pointDir(px: PointPx): Dir {
+  return px.edgeKey === 'self' ? null : dirFromCardinal(px.cardinal)
+}
+
 function buildLineCmds(diagram: Diagram, positions: Map<string, PointPx>, cmds: DrawCmd[]) {
+  const style: EdgeStyle = diagram.edgeStyle ?? 'straight'
   const labelCmds: DrawCmd[] = []
   for (const line of diagram.lines) {
     const src = positions.get(line.source)
@@ -374,13 +416,22 @@ function buildLineCmds(diagram: Diagram, positions: Map<string, PointPx>, cmds: 
     line.targets.forEach((tid) => {
       const tgt = positions.get(tid)
       if (!tgt) return
-      cmds.push({ kind: 'line', from: src.pos, to: tgt.pos, color: line.color ?? 'black', widthPt: LINE_STROKE_PT })
+      const fromDir = pointDir(src)
+      const toDir = pointDir(tgt)
+      const wp = wirePath(src.pos.x, src.pos.y, fromDir, tgt.pos.x, tgt.pos.y, toDir, style)
+      const elbowPoints =
+        style === 'smoothstep'
+          ? smoothstepElbowPoints(src.pos.x, src.pos.y, fromDir, tgt.pos.x, tgt.pos.y, toDir)
+          : undefined
+      cmds.push({
+        kind: 'line', from: src.pos, to: tgt.pos, color: line.color ?? 'black', widthPt: LINE_STROKE_PT,
+        style, d: wp.d, c1: wp.c1, c2: wp.c2, elbowPoints, mid: wp.mid,
+      })
       // EVERY branch of a hyperedge carries the line's name (user decision:
       // each branch of a fork shows the wire's type explicitly) — canvas's
       // builtEdges (ui/Canvas.tsx) renders the same per-branch labels.
       if (line.name) {
-        const mid = { x: (src.pos.x + tgt.pos.x) / 2, y: (src.pos.y + tgt.pos.y) / 2 }
-        labelCmds.push({ kind: 'label', at: mid, text: mathWrap(line.name), masked: true })
+        labelCmds.push({ kind: 'label', at: wp.mid, text: mathWrap(line.name), masked: true })
       }
     })
   }
@@ -406,7 +457,17 @@ export function cmdVecs(cmd: DrawCmd): Vec[] {
     case 'circle': return [cmd.center]
     case 'pointCircle': return [cmd.pos]
     case 'pointPolygon': return cmd.pts
-    case 'line': return [cmd.from, cmd.to]
+    case 'line': {
+      // A bezier curve stays within the convex hull of its endpoints + control
+      // points, so including c1/c2 guarantees the whole curve is covered; a
+      // smoothstep route's elbowPoints ARE its vertices (rounding only trims
+      // corners inward, never outward past them) — so both are safe upper bounds.
+      const vecs = [cmd.from, cmd.to]
+      if (cmd.c1) vecs.push(cmd.c1)
+      if (cmd.c2) vecs.push(cmd.c2)
+      if (cmd.elbowPoints) vecs.push(...cmd.elbowPoints)
+      return vecs
+    }
     case 'label': return [cmd.at]
   }
 }

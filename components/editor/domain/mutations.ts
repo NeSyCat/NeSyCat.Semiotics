@@ -1,6 +1,7 @@
 import type { Diagram, Form, Point, Line, Shape, EdgeKey, Color } from './types'
 import { newFormId, newPointId, newLineId } from './ids'
 import { geometryFor } from './forms'
+import type { EdgeStyle } from './wirepath'
 
 // All pure: take a Diagram, return a new Diagram (+ new id where relevant).
 // The store snapshots each result into history (one entry per call).
@@ -257,6 +258,16 @@ export function renameLines(d: Diagram, ids: string[], name: string): Diagram {
 export function setLinesColor(d: Diagram, ids: string[], color: Color | null): Diagram {
   const set = new Set(ids)
   return { ...d, lines: d.lines.map((l) => (set.has(l.id) ? { ...l, color: color ?? undefined } : l)) }
+}
+
+// ── Diagram-level settings ──────────────────────────────────────────
+// How every wire in this diagram is drawn (state/store.ts's setEdgeStyle is
+// the only caller) — 'straight' clears back to the undefined default, same
+// idiom as setFormsRotation/setFormsScale above (0/1 -> undefined).
+export function setEdgeStyle(d: Diagram, style: EdgeStyle): Diagram {
+  const next = style === 'straight' ? undefined : style
+  if (d.edgeStyle === next) return d
+  return { ...d, edgeStyle: next }
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────

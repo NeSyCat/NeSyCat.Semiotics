@@ -247,6 +247,11 @@ function Canvas({ topRight }: CanvasContentProps) {
   const togglePointsVisible = useStore((s) => s.togglePointsVisible)
   const gridEnabled = useStore((s) => s.gridEnabled)
   const toggleGridEnabled = useStore((s) => s.toggleGridEnabled)
+  // Read straight off the current document (no mirrored store field — see
+  // state/store.ts's comment on why) — `diagram` is already selected above,
+  // so this doesn't add its own subscription.
+  const edgeStyle = diagram.edgeStyle ?? 'straight'
+  const setEdgeStyle = useStore((s) => s.setEdgeStyle)
   const [importOpen, setImportOpen] = useState(false)
   const [exportOpen, setExportOpen] = useState(false)
   const { screenToFlowPosition, getNodes } = useReactFlow()
@@ -307,6 +312,14 @@ function Canvas({ topRight }: CanvasContentProps) {
     // (PointVisual's PointGlyph, POINT_SIZE across) rather than running
     // through its center — 0 gap for a point that renders no glyph ('empty').
     const glyphGap = (pid: string) => (diagram.points[pid]?.shape !== 'empty' ? POINT_SIZE / 2 : 0)
+    // A 'self'-edgeKey point IS an 'empty' form's one middle point (domain/
+    // forms.ts's emptyGeometry) — its anchor.position is a fixed Position.
+    // Bottom picked purely for label placement, not a meaningful outward
+    // wire direction, so LineEdge.tsx must treat that end as a free end
+    // (Dir null — wirePath leaves it straight toward the other endpoint)
+    // rather than the Position-derived Dir every other point gets. Mirrored
+    // exactly in ir/geometry-ir.ts's buildLineCmds for export parity.
+    const isFreeEnd = (pid: string) => diagram.points[pid]?.edgeKey === 'self'
     const out: Edge[] = []
     for (const line of diagram.lines) {
       const sp = pointToHandle(diagram, line.source)
@@ -331,7 +344,11 @@ function Canvas({ topRight }: CanvasContentProps) {
           // Every branch of a hyperedge carries the line's name (user
           // decision: a fork's branches each show the type, not just the
           // first) — matching the exports' per-branch labels.
-          data: { label: line.name ?? line.id, color: line.color, sourceGap: glyphGap(line.source), targetGap: glyphGap(tid) },
+          data: {
+            label: line.name ?? line.id, color: line.color,
+            sourceGap: glyphGap(line.source), targetGap: glyphGap(tid),
+            sourceFree: isFreeEnd(line.source), targetFree: isFreeEnd(tid),
+          },
         })
       })
     }
@@ -884,6 +901,8 @@ function Canvas({ topRight }: CanvasContentProps) {
         toggleGridEnabled={toggleGridEnabled}
         pointsVisible={pointsVisible}
         togglePointsVisible={togglePointsVisible}
+        edgeStyle={edgeStyle}
+        setEdgeStyle={setEdgeStyle}
         onImportClick={() => setImportOpen(true)}
         onExportClick={() => setExportOpen(true)}
         topRight={topRight}

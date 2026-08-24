@@ -7,6 +7,7 @@ import { snapCoord, snapPoint, snapCenterPosition, GRID_SIZE } from '../../compo
 import { diagramToTikzCore, diagramToTikz } from '../../components/editor/export/tikz'
 import { formBodyVerticesPx, pointPositionsPx, formCenterPx, rotateAbout } from '../../components/editor/ir/geometry-ir'
 import { geometryFor, bodyCentroid } from '../../components/editor/domain/forms'
+import { wirePath, dirFromCardinal, type EdgeStyle } from '../../components/editor/domain/wirepath'
 import type { Diagram, Form } from '../../components/editor/domain/types'
 
 function approx(a: number, b: number, tol = 1e-6): boolean {
@@ -365,6 +366,143 @@ describe('TikZ exporter', () => {
       const [, xs, ys] = m
       expect(approx(Number(xs), expectedXCm, 1e-3), `rotated triangle label x matches the rotated centroid (got ${xs}, want ${expectedXCm})`).toBe(true)
       expect(approx(Number(ys), expectedYCm, 1e-3), `rotated triangle label y matches the rotated centroid (got ${ys}, want ${expectedYCm})`).toBe(true)
+    }
+  })
+
+  // ── edgeStyle: straight / bezier / smoothstep ──────────────────────
+  // Same two-square, one-line fixture as Test 4, parametrized by
+  // Diagram.edgeStyle — the SAME two points (source faces 'right', target
+  // faces 'left') for every style, so only the wire's drawn shape varies.
+  function wireDiagram(edgeStyle?: EdgeStyle): Diagram {
+    const d = emptyDiagram()
+    const f1 = bareSquare('WF1', { x: 0, y: 0 }, { edges: { top: [], right: ['WP1'], bottom: [], left: [] } })
+    const f2 = bareSquare('WF2', { x: 300, y: 0 }, { edges: { top: [], right: [], bottom: [], left: ['WP2'] } })
+    d.forms.push(f1, f2)
+    d.points['WP1'] = { id: 'WP1', shape: 'empty', formId: 'WF1', edgeKey: 'right' }
+    d.points['WP2'] = { id: 'WP2', shape: 'empty', formId: 'WF2', edgeKey: 'left' }
+    d.lines.push({ id: 'WL1', source: 'WP1', targets: ['WP2'] })
+    if (edgeStyle) d.edgeStyle = edgeStyle
+    return d
+  }
+
+  it("edgeStyle absent (legacy/default doc) still emits a plain '--' straight draw", () => {
+    const d = wireDiagram() // no edgeStyle field at all
+    const tikz = diagramToTikzCore(d)
+    const drawLine = tikz.split('\n').find((l) => l.trim().startsWith('\\draw[') && !l.includes('cycle') && !l.includes('draw='))
+    expect(drawLine, 'a straight \\draw ... -- ... command is emitted').toMatch(/\\draw\[.*\] \([-\d.]+,[-\d.]+\) -- \([-\d.]+,[-\d.]+\);/)
+    expect(drawLine, 'no bezier controls or rounded corners leak into the default style').not.toMatch(/controls|rounded corners/)
+  })
+
+  it("edgeStyle: 'straight' explicitly set emits the same plain '--' draw", () => {
+    const d = wireDiagram('straight')
+    const tikz = diagramToTikzCore(d)
+    const drawLine = tikz.split('\n').find((l) => l.trim().startsWith('\\draw[') && !l.includes('cycle') && !l.includes('draw='))
+    expect(drawLine).toMatch(/-- \([-\d.]+,[-\d.]+\);/)
+  })
+
+  it("edgeStyle: 'bezier' emits '.. controls (c1) and (c2) ..' with wirePath's own control points", () => {
+    const d = wireDiagram('bezier')
+    const positions = pointPositionsPx(d)
+    const src = positions.get('WP1')!
+    const tgt = positions.get('WP2')!
+    const expected = wirePath(
+      src.pos.x, src.pos.y, dirFromCardinal(src.cardinal),
+      tgt.pos.x, tgt.pos.y, dirFromCardinal(tgt.cardinal),
+      'bezier',
+    )
+    expect(expected.c1, 'fixture sanity: bezier control points are computed').toBeDefined()
+    expect(expected.c2).toBeDefined()
+
+    const tikz = diagramToTikzCore(d)
+    const drawLine = tikz.split('\n').find((l) => l.includes('.. controls'))
+    expect(drawLine, 'a .. controls .. draw command is emitted for the bezier wire').toBeDefined()
+    const m = drawLine?.match(
+      /\(([-\d.]+),([-\d.]+)\) \.\. controls \(([-\d.]+),([-\d.]+)\) and \(([-\d.]+),([-\d.]+)\) \.\. \(([-\d.]+),([-\d.]+)\)/,
+    )
+    expect(!!m, 'the bezier draw command has 4 coordinate pairs (from, c1, c2, to)').toBe(true)
+    if (m && expected.c1 && expected.c2) {
+      const [, fx, fy, c1x, c1y, c2x, c2y, tx, ty] = m.map(Number) as unknown as number[]
+      // Checked as px->cm DELTAS off the emitted `from`, same technique as
+      // Test 4 above — sidesteps needing to replicate the exporter's own
+      // whole-diagram minX/maxY normalization (which the control points
+      // themselves also shift, per cmdVecs's bezier bounding-box inclusion).
+      const deltaCm = (rawDx: number, rawDy: number) => ({ x: rawDx / 100, y: -rawDy / 100 })
+      const dc1 = deltaCm(expected.c1.x - src.pos.x, expected.c1.y - src.pos.y)
+      const dc2 = deltaCm(expected.c2.x - src.pos.x, expected.c2.y - src.pos.y)
+      const dTo = deltaCm(tgt.pos.x - src.pos.x, tgt.pos.y - src.pos.y)
+      expect(approx(c1x - fx, dc1.x, 1e-3) && approx(c1y - fy, dc1.y, 1e-3), 'c1 offset from `from` matches wirePath').toBe(true)
+      expect(approx(c2x - fx, dc2.x, 1e-3) && approx(c2y - fy, dc2.y, 1e-3), 'c2 offset from `from` matches wirePath').toBe(true)
+      expect(approx(tx - fx, dTo.x, 1e-3) && approx(ty - fy, dTo.y, 1e-3), 'to offset from `from` matches the point positions').toBe(true)
+    }
+  })
+
+  it("edgeStyle: 'smoothstep' emits a rounded-corners polyline through wirePath's own elbow points", () => {
+    const d = wireDiagram('smoothstep')
+    const tikz = diagramToTikzCore(d)
+    const drawLine = tikz.split('\n').find((l) => l.includes('rounded corners='))
+    expect(drawLine, 'a rounded corners=... draw command is emitted for the smoothstep wire').toBeDefined()
+    // At least 2 segments (3+ coordinate pairs) — a straight '--' would only
+    // ever have exactly 2.
+    const coordCount = (drawLine?.match(/\([-\d.]+,[-\d.]+\)/g) ?? []).length
+    expect(coordCount, 'the smoothstep polyline has more than 2 points (it actually bends)').toBeGreaterThan(2)
+  })
+
+  // Regression: a free end (an 'empty' form's 'self' point — e.g. a copy-node
+  // fan-out) must leave straight toward the other endpoint (Dir null),
+  // NOT dip along its anchor's fixed Position.Bottom (ir/geometry-ir.ts's
+  // pointDir / ui/Canvas.tsx's isFreeEnd + ui/LineEdge.tsx's sourceFree).
+  it("edgeStyle: 'bezier' from a free end ('self' point) leaves straight toward the target; the directed end still offsets along its own Dir", () => {
+    const d = emptyDiagram()
+    const emptyForm: Form = { id: 'FEEMPTY', shape: 'empty', position: { x: 0, y: 0 }, edges: { self: ['FESELF'] } }
+    const sq = bareSquare('FESQ', { x: 300, y: 0 }, { edges: { top: [], right: [], bottom: [], left: ['FESQP'] } })
+    d.forms.push(emptyForm, sq)
+    d.points['FESELF'] = { id: 'FESELF', shape: 'empty', formId: 'FEEMPTY', edgeKey: 'self' }
+    d.points['FESQP'] = { id: 'FESQP', shape: 'empty', formId: 'FESQ', edgeKey: 'left' }
+    d.lines.push({ id: 'FEL1', source: 'FESELF', targets: ['FESQP'] })
+    d.edgeStyle = 'bezier'
+
+    const positions = pointPositionsPx(d)
+    const src = positions.get('FESELF')!
+    const tgt = positions.get('FESQP')!
+    expect(src.edgeKey, 'fixture sanity: the source point sits on the "self" edge key').toBe('self')
+    const expected = wirePath(src.pos.x, src.pos.y, null, tgt.pos.x, tgt.pos.y, dirFromCardinal(tgt.cardinal), 'bezier')
+    expect(expected.c1).toBeDefined()
+    expect(expected.c2).toBeDefined()
+
+    const tikz = diagramToTikzCore(d)
+    const drawLine = tikz.split('\n').find((l) => l.includes('.. controls'))
+    expect(drawLine, 'a .. controls .. draw command is emitted').toBeDefined()
+    const m = drawLine?.match(
+      /\(([-\d.]+),([-\d.]+)\) \.\. controls \(([-\d.]+),([-\d.]+)\) and \(([-\d.]+),([-\d.]+)\) \.\. \(([-\d.]+),([-\d.]+)\)/,
+    )
+    expect(!!m, 'the bezier draw command has 4 coordinate pairs').toBe(true)
+    if (m && expected.c1 && expected.c2) {
+      const [, fx, fy, c1x, c1y, c2x, c2y] = m.map(Number) as unknown as number[]
+      // Source-side control point (c1) lies on the CHORD from source to
+      // target (cross product ~0 with the from->to vector) — checked in raw
+      // px deltas via wirePath's own output, which is scale-invariant so the
+      // TikZ page's px->cm normalization/y-flip doesn't affect the result.
+      const chordDx = tgt.pos.x - src.pos.x
+      const chordDy = tgt.pos.y - src.pos.y
+      const c1Dx = expected.c1.x - src.pos.x
+      const c1Dy = expected.c1.y - src.pos.y
+      const cross = c1Dx * chordDy - c1Dy * chordDx
+      expect(approx(cross, 0, 1e-6), "wirePath's own c1 is collinear with the source->target chord (free end)").toBe(true)
+
+      // And the EMITTED c1 (TikZ output) matches wirePath's c1 exactly, as a
+      // px->cm delta off the emitted `from` — same technique as the earlier
+      // bezier test (sidesteps needing the page's own minX/maxY).
+      const deltaCm = (rawDx: number, rawDy: number) => ({ x: rawDx / 100, y: -rawDy / 100 })
+      const dc1 = deltaCm(c1Dx, c1Dy)
+      expect(approx(c1x - fx, dc1.x, 1e-3) && approx(c1y - fy, dc1.y, 1e-3), 'emitted c1 matches wirePath (free source end)').toBe(true)
+
+      // Target-side control point (c2) still offsets along its own Dir
+      // ('left', unit (-1,0)): y unchanged from the target's y, x moves —
+      // NOT collinear with the chord (unless the chord happens to be
+      // horizontal, which this fixture's diagonal placement avoids).
+      const dc2 = deltaCm(expected.c2.x - src.pos.x, expected.c2.y - src.pos.y)
+      expect(approx(c2x - fx, dc2.x, 1e-3) && approx(c2y - fy, dc2.y, 1e-3), 'emitted c2 matches wirePath (directed target end)').toBe(true)
+      expect(approx(expected.c2.y, tgt.pos.y, 1e-6), "target control point's y is unchanged (offset is purely along x, its Dir)").toBe(true)
     }
   })
 })

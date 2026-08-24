@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import type { Diagram, Shape, Color } from '../domain/types'
+import type { EdgeStyle } from '../domain/wirepath'
 import * as M from '../domain/mutations'
 
 const MAX_HISTORY = 100
@@ -7,8 +8,6 @@ const MAX_HISTORY = 100
 // Consecutive setCur calls sharing a non-null coalesce tag REPLACE the current
 // history entry instead of appending — so live renaming is a single undo step.
 let coalesceTag: string | null = null
-
-export type EdgePathMode = 'straight' | 'smoothstep'
 
 // A form's cursor territory splits into three zones, decided centrally in
 // Canvas.tsx (the only place with enough context — full diagram + geometry —
@@ -30,11 +29,18 @@ export type HoverTarget =
 interface State {
   diagram: Diagram
   selectedPoints: string[] // point ids
-  edgePath: EdgePathMode
   pointsVisible: boolean
   // Snap-to-grid ON/OFF (grid.ts's GRID_SIZE pitch) — transient UI state,
   // same shape as pointsVisible: NOT part of the Diagram schema (types.ts)
   // or the DB, no undo history entry. Default ON.
+  //
+  // Wire style (which curve `LineEdge.tsx`/the exporters draw) used to live
+  // here too, transient and un-persisted — it no longer does. It's now
+  // `diagram.edgeStyle` (domain/types.ts), read directly off the current
+  // document (no mirrored top-level field: undo/redo already swap `diagram`
+  // wholesale, so a separate cache would go stale on every undo/redo past an
+  // edgeStyle change) and written via setEdgeStyle below, a normal
+  // document mutation like any other M.* action.
   gridEnabled: boolean
   // Quiver-style hover highlight — transient UI state, not part of undo history.
   hover: HoverTarget
@@ -57,7 +63,7 @@ interface State {
   // via io.ts's restoreDiagram).
   loadDiagram: (d: Diagram) => void
 
-  toggleEdgePath: () => void
+  setEdgeStyle: (style: EdgeStyle) => void
   togglePointsVisible: () => void
   toggleGridEnabled: () => void
   setSelectedPoints: (ids: string[]) => void
@@ -120,7 +126,6 @@ export const useStore = create<State>((set, get) => {
   return {
     diagram: emptyDiagram,
     selectedPoints: [],
-    edgePath: 'straight',
     pointsVisible: false,
     gridEnabled: true,
     hover: null,
@@ -145,7 +150,7 @@ export const useStore = create<State>((set, get) => {
       set({ diagram: history[historyIndex + 1], historyIndex: historyIndex + 1 })
     },
 
-    toggleEdgePath: () => set({ edgePath: get().edgePath === 'straight' ? 'smoothstep' : 'straight' }),
+    setEdgeStyle: (style) => setCur(M.setEdgeStyle(get().diagram, style)),
     togglePointsVisible: () => set({ pointsVisible: !get().pointsVisible }),
     toggleGridEnabled: () => set({ gridEnabled: !get().gridEnabled }),
     setSelectedPoints: (ids) => {
@@ -238,6 +243,11 @@ export function initStore(initial: Diagram) {
     forms: initial.forms ?? [],
     points: initial.points ?? {},
     lines: initial.lines ?? [],
+    // Carried through as-is (undefined stays undefined = 'straight') — the
+    // caller (Canvas.tsx, via persist/io.ts's restoreDiagram) already
+    // normalized it; this is the "loading a diagram initializes the store
+    // value from the document" wiring for edgeStyle, same as every other field here.
+    ...(initial.edgeStyle !== undefined ? { edgeStyle: initial.edgeStyle } : {}),
   }
   coalesceTag = null
   _hydrating = true

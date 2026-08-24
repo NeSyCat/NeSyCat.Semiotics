@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest'
 import { diagramToHtmlCore, diagramToHtml } from '../../components/editor/export/html'
 import { pointPositionsPx, formCenterPx, rotateAbout } from '../../components/editor/ir/geometry-ir'
 import { geometryFor, bodyCentroid } from '../../components/editor/domain/forms'
+import { wirePath, dirFromCardinal, type EdgeStyle } from '../../components/editor/domain/wirepath'
 import type { Diagram, Form } from '../../components/editor/domain/types'
 
 function approx(a: number, b: number, tol = 1e-6): boolean {
@@ -185,8 +186,10 @@ describe('HTML/SVG exporter', () => {
     // The name renders on EVERY branch of the hyperedge (user decision:
     // each branch of a fork shows the wire's type) — one label per target.
     expect((wsvg.match(/>f<\/text>/g) ?? []).length, 'the wire name appears once per branch (2 targets)').toBe(2)
-    // Two <line> segments are still drawn (both targets get their own wire).
-    expect((wsvg.match(/<line /g) ?? []).length, 'both segments are drawn').toBe(2)
+    // Two wire segments are still drawn (both targets get their own wire) —
+    // <path>, not <line>, since export/html.ts now draws every wire style
+    // (including the default 'straight') through wirepath.ts's SVG path.
+    expect((wsvg.match(/<path d="M[^"]*"/g) ?? []).length, 'both segments are drawn').toBe(2)
   })
 
   it('form names emit WITHOUT a white backing rect (unmasked)', () => {
@@ -272,6 +275,99 @@ describe('HTML/SVG exporter', () => {
     if (m) {
       expect(Math.abs(Number(m[1]) - expectedCentroidPx.x) < 0.01, `rotated triangle label x matches the rotated centroid (got ${m[1]}, want ${expectedCentroidPx.x})`).toBe(true)
       expect(Math.abs(Number(m[2]) - expectedCentroidPx.y) < 0.01, `rotated triangle label y matches the rotated centroid (got ${m[2]}, want ${expectedCentroidPx.y})`).toBe(true)
+    }
+  })
+
+  // ── edgeStyle: straight / bezier / smoothstep ──────────────────────
+  // Same two-square, one-line fixture as the tikz suite's wireDiagram —
+  // source faces 'right', target faces 'left'.
+  function wireDiagram(edgeStyle?: EdgeStyle): Diagram {
+    const w: Diagram = {
+      schemaVersion: 1,
+      forms: [
+        { id: 'EF1', shape: 'square', position: { x: 0, y: 0 }, edges: { top: [], right: ['EP1'], bottom: [], left: [] } },
+        { id: 'EF2', shape: 'square', position: { x: 300, y: 0 }, edges: { top: [], right: [], bottom: [], left: ['EP2'] } },
+      ],
+      points: {
+        EP1: { id: 'EP1', shape: 'empty', formId: 'EF1', edgeKey: 'right' },
+        EP2: { id: 'EP2', shape: 'empty', formId: 'EF2', edgeKey: 'left' },
+      },
+      lines: [{ id: 'EL1', source: 'EP1', targets: ['EP2'] }],
+    }
+    if (edgeStyle) w.edgeStyle = edgeStyle
+    return w
+  }
+
+  // HTML/SVG coordinates are NOT normalized (unlike TikZ's px->cm + minX/
+  // maxY shift) — wirePath's own `d` string can be asserted verbatim.
+  function expectedWireD(w: Diagram, style: EdgeStyle): string {
+    const positions = pointPositionsPx(w)
+    const src = positions.get('EP1')!
+    const tgt = positions.get('EP2')!
+    return wirePath(
+      src.pos.x, src.pos.y, dirFromCardinal(src.cardinal),
+      tgt.pos.x, tgt.pos.y, dirFromCardinal(tgt.cardinal),
+      style,
+    ).d
+  }
+
+  it('edgeStyle absent (legacy/default doc) renders the wire as a straight <path> (M...L)', () => {
+    const w = wireDiagram() // no edgeStyle field at all
+    const wsvg = diagramToHtmlCore(w)
+    const expectedD = expectedWireD(w, 'straight')
+    expect(expectedD).toMatch(/^M .+ L .+$/)
+    expect(wsvg).toContain(`<path d="${expectedD}" fill="none"`)
+  })
+
+  it("edgeStyle: 'bezier' renders the wire as a cubic <path> matching wirePath's own `d`", () => {
+    const w = wireDiagram('bezier')
+    const wsvg = diagramToHtmlCore(w)
+    const expectedD = expectedWireD(w, 'bezier')
+    expect(expectedD).toMatch(/^M .+ C .+$/)
+    expect(wsvg).toContain(`<path d="${expectedD}" fill="none"`)
+  })
+
+  it("edgeStyle: 'smoothstep' renders the wire as a rounded-elbow <path> matching wirePath's own `d`", () => {
+    const w = wireDiagram('smoothstep')
+    const wsvg = diagramToHtmlCore(w)
+    const expectedD = expectedWireD(w, 'smoothstep')
+    expect(expectedD).toMatch(/^M .+ A .+$/)
+    expect(wsvg).toContain(`<path d="${expectedD}" fill="none"`)
+  })
+
+  it('a bezier curve that bulges past the endpoints stays inside the SVG viewBox (control points pad the bbox)', () => {
+    // A short, sharply-turning wire: control points can extend well past a
+    // straight bounding box of [from,to] alone — cmdVecs must include them.
+    const w: Diagram = {
+      schemaVersion: 1,
+      forms: [
+        { id: 'BF1', shape: 'square', position: { x: 0, y: 0 }, edges: { top: [], right: ['BP1'], bottom: [], left: [] } },
+        { id: 'BF2', shape: 'square', position: { x: 250, y: 0 }, edges: { top: ['BP2'], right: [], bottom: [], left: [] } },
+      ],
+      points: {
+        BP1: { id: 'BP1', shape: 'empty', formId: 'BF1', edgeKey: 'right' },
+        BP2: { id: 'BP2', shape: 'empty', formId: 'BF2', edgeKey: 'top' },
+      },
+      lines: [{ id: 'BL1', source: 'BP1', targets: ['BP2'] }],
+      edgeStyle: 'bezier',
+    }
+    const bsvg = diagramToHtmlCore(w)
+    const viewBoxM = bsvg.match(/viewBox="([-\d.]+) ([-\d.]+) ([-\d.]+) ([-\d.]+)"/)
+    expect(!!viewBoxM, 'viewBox is emitted').toBe(true)
+    if (viewBoxM) {
+      const [minX, minY, width, height] = viewBoxM.slice(1).map(Number)
+      const positions = pointPositionsPx(w)
+      const src = positions.get('BP1')!
+      const tgt = positions.get('BP2')!
+      const { c1, c2 } = wirePath(src.pos.x, src.pos.y, dirFromCardinal(src.cardinal), tgt.pos.x, tgt.pos.y, dirFromCardinal(tgt.cardinal), 'bezier')
+      expect(c1).toBeDefined()
+      expect(c2).toBeDefined()
+      if (c1 && c2) {
+        for (const p of [c1, c2]) {
+          expect(p.x >= minX && p.x <= minX + width, `control point x=${p.x} sits inside the viewBox [${minX}, ${minX + width}]`).toBe(true)
+          expect(p.y >= minY && p.y <= minY + height, `control point y=${p.y} sits inside the viewBox [${minY}, ${minY + height}]`).toBe(true)
+        }
+      }
     }
   })
 })

@@ -54,6 +54,17 @@ export function ToolbarSprite() {
         <symbol id="ic-check" viewBox="0 0 24 24" fill="none">
           <path d="M5 12.5l4.5 4.5L19 7" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
         </symbol>
+        {/* Wire-style menu icons (components/editor/ui/toolbars/WireStyleMenu.tsx)
+            — one glyph per domain/wirepath.ts EdgeStyle. */}
+        <symbol id="ic-wire-straight" viewBox="0 0 24 24" fill="none">
+          <path d="M5 19L19 5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+        </symbol>
+        <symbol id="ic-wire-bezier" viewBox="0 0 24 24" fill="none">
+          <path d="M4 19C14 19 10 5 20 5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+        </symbol>
+        <symbol id="ic-wire-step" viewBox="0 0 24 24" fill="none">
+          <path d="M5 19H11A3 3 0 0 0 14 16V5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+        </symbol>
         <symbol id="kind-empty" viewBox="0 0 24 24">
           <circle cx="12" cy="12" r="9.25" fill="none" stroke="currentColor" strokeWidth="1.4" strokeDasharray="2.4 2.6" />
         </symbol>

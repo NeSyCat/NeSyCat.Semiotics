@@ -2,16 +2,19 @@
 
 import type { ReactNode } from 'react'
 import { useEffect, useRef } from 'react'
+import { WireStyleMenu } from './WireStyleMenu'
+import type { EdgeStyle } from '../../domain/wirepath'
 
-// Top-right pill cluster: [grid + points-visibility] [import/export]
-// [topRight — the auth/share pill], in that left-to-right order (the
+// Top-right pill cluster: [grid + points-visibility + wire-style] [import/
+// export] [topRight — the auth/share pill], in that left-to-right order (the
 // cluster itself is right-anchored; import/export sits immediately LEFT of
 // the share pill, mirroring quiver's round-trip idiom).
 export function TopRightPills({
-  gridEnabled, toggleGridEnabled, pointsVisible, togglePointsVisible, onImportClick, onExportClick, topRight,
+  gridEnabled, toggleGridEnabled, pointsVisible, togglePointsVisible, edgeStyle, setEdgeStyle, onImportClick, onExportClick, topRight,
 }: {
   gridEnabled: boolean; toggleGridEnabled: () => void
   pointsVisible: boolean; togglePointsVisible: () => void
+  edgeStyle: EdgeStyle; setEdgeStyle: (style: EdgeStyle) => void
   onImportClick: () => void
   onExportClick: () => void
   topRight?: ReactNode
@@ -54,6 +57,7 @@ export function TopRightPills({
           >
             <svg aria-hidden="true"><use href={`#${pointsVisible ? 'ic-eye' : 'ic-eye-off'}`} /></svg>
           </button>
+          <WireStyleMenu edgeStyle={edgeStyle} setEdgeStyle={setEdgeStyle} />
         </div>
         {/* Round trip: Import (paste a share link OR TikZ this editor
             exported, opens a paste panel) on the left, Export (opens the
