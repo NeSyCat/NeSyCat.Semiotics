@@ -90,8 +90,11 @@ function nodeLocalFraction(
 
 // Radius (local/unrotated px) within which an existing point's own drag
 // handle takes priority over the form's region/center hover — see
-// nearestPointWithin below.
-const POINT_HOVER_RADIUS = 14
+// nearestPointWithin below. Also the click-to-select catch radius (onNodeClick):
+// a body click this close to a point selects it. INVISIBLE (not the drawn disc,
+// which stays POINT_SIZE) — just a forgiving hit target so clicks near a point
+// land ON it instead of the form.
+const POINT_HOVER_RADIUS = 18
 
 // The closest existing point on `form` to a local pixel (lx, ly), if within
 // POINT_HOVER_RADIUS — checked BEFORE any inside/outside or center-zone
@@ -754,12 +757,21 @@ function Canvas({ topRight }: CanvasContentProps) {
     if (!form) return
     const geom = geometryFor(form.shape)
     const { rx, ry, lx, ly, n } = formLocalPoint(event, node, form)
-    // A click ON an existing point — including a centre/identity point, which
-    // lives INSIDE the centre zone — is that point's own to handle (its onSelect
-    // fires): revert the form-select here so the point wins, exactly as a ring
-    // click does. Only a click on bare centre-zone space keeps the form.
+    // Clicking on/near a point SELECTS that point. The dot itself is a React
+    // Flow handle whose click React Flow consumes for connection-dragging, so
+    // the point's own onClick never fires — but a plain click on the node body
+    // next to the point DOES reach onNodeClick, and this is the reliable catch
+    // for EVERY point (corner, centre, apex, side), no per-kind special case.
     const onPoint = nearestPointWithin(form, geom, lx, ly, n)
-    if (!onPoint && (!geom.hasCenterZone || isInCenterZone(geom.body, rx, ry))) return
+    if (onPoint) {
+      setNodes((nds) => (nds.some((n) => n.selected) ? nds.map((n) => (n.selected ? { ...n, selected: false } : n)) : nds))
+      if (event.metaKey || event.ctrlKey) useStore.getState().toggleSelectedPoint(onPoint)
+      else useStore.getState().setSelectedPoints([onPoint])
+      return
+    }
+    // Not on a point: a bare centre-zone click keeps the form selected; a ring
+    // click reverts it.
+    if (!geom.hasCenterZone || isInCenterZone(geom.body, rx, ry)) return
     setNodes((nds) => (nds.some((n) => n.selected) ? nds.map((n) => (n.selected ? { ...n, selected: false } : n)) : nds))
   }, [formLocalPoint, setNodes])
 
