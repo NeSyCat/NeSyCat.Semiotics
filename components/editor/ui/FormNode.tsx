@@ -3,7 +3,7 @@
 import { memo, useEffect, useRef } from 'react'
 import { Handle, useConnection, useReactFlow, useUpdateNodeInternals, type NodeProps } from '@xyflow/react'
 import theme from './theme'
-import { geometryFor, pointIdsAt, insertionIndex, shrunkBodyPoints, bodyCentroid, CENTER_SHRINK, POINT_SIZE, type Body, type FormGeometry, type RegionShape } from '../domain/forms'
+import { geometryFor, pointIdsAt, insertionIndex, shrunkBodyPoints, bodyCentroid, CENTER_SHRINK, POINT_SIZE, SPOT_DIAMETER, type Body, type FormGeometry, type RegionShape } from '../domain/forms'
 import { encodeHandle, encodePhantomHandle, decodePhantomHandle } from '../domain/handles'
 import { toRgbTriple } from '../domain/color'
 import { useStore } from '../state/store'
@@ -85,7 +85,7 @@ function RegionOverlay({ shape, n, color }: { shape: RegionShape; n: number; col
     return (
       <div style={{
         position: 'absolute', left: x * n, top: y * n, transform: 'translate(-50%, -50%)',
-        width: POINT_SIZE, height: POINT_SIZE, borderRadius: '50%', background: color,
+        width: SPOT_DIAMETER, height: SPOT_DIAMETER, borderRadius: '50%', background: color,
         pointerEvents: 'none', zIndex: 1,
       }} />
     )
@@ -149,7 +149,7 @@ function SpotHitArea() {
   return (
     <div style={{
       position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%, -50%)',
-      width: POINT_SIZE, height: POINT_SIZE, borderRadius: '50%',
+      width: SPOT_DIAMETER, height: SPOT_DIAMETER, borderRadius: '50%',
       background: 'transparent', cursor: 'crosshair', zIndex: 1,
     }} />
   )

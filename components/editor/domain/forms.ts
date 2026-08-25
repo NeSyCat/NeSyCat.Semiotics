@@ -299,11 +299,14 @@ export interface Spot { at: readonly [number, number]; position: Position }
 // spot" feel across every shape.
 const SPOT_R = CORNER_R
 
-// THE hit radius for EVERY spot — corner, centre, and apex alike (one pipeline,
-// no exceptions): the drawn disc's own radius (POINT_SIZE/2). A spot activates,
-// hovers, and drags EXACTLY within its visible disc and nowhere else, so its
-// hover region coincides with its drag region coincides with its click target.
-const SPOT_DISC_R = POINT_SIZE / BASE_SIZE / 2
+// A GENEROUS, hittable disc for EVERY spot — corner, centre, and apex alike (one
+// pipeline, no exceptions). The SAME disc is its hover indicator, its drag
+// region, and its click/activation target, so all three coincide — AND it is
+// comfortably clickable. Deliberately BIGGER than the 26px point glyph: a spot
+// is an unmarked target you aim AT, and the old 26px disc was near-impossible to
+// hit precisely (worst at the apex, whose disc sits half outside the node box).
+export const SPOT_DIAMETER = 40
+const SPOT_DISC_R = SPOT_DIAMETER / BASE_SIZE / 2
 
 function spotAnchor(spot: Spot, n: number): Anchor {
   return { x: spot.at[0] * n, y: spot.at[1] * n, position: spot.position }

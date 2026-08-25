@@ -90,8 +90,10 @@ function nodeLocalFraction(
 
 // Radius (local/unrotated px) within which an existing point's own drag
 // handle takes priority over the form's region/center hover — see
-// nearestPointWithin below.
-const POINT_HOVER_RADIUS = 14
+// nearestPointWithin below. Matches the spot disc's radius (SPOT_DIAMETER/2) so
+// an EXISTING spot point is grabbable across its whole disc — never leaving a
+// ring where the empty-spot phantom would mount over a resident point instead.
+const POINT_HOVER_RADIUS = 20
 
 // The closest existing point on `form` to a local pixel (lx, ly), if within
 // POINT_HOVER_RADIUS — checked BEFORE any inside/outside or center-zone
