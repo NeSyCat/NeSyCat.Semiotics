@@ -114,6 +114,28 @@ function nearestPointWithin(form: Form, geom: FormGeometry, lx: number, ly: numb
   return best
 }
 
+// A click (no drag) on or beside an EXISTING point resolves to that point
+// purely from WHERE the press landed — never from which handle React Flow
+// happened to start the gesture on. That handle id is the fragile part (a
+// phantom spot handle shadowing a real point, an off-by-one edge index, a
+// press RF attributed to a neighbouring handle), but the pointer's LOCATION is
+// ground truth. So this is the ONE selection resolver every point kind shares,
+// used by both onConnectEnd (dot press → RF connection) and onNodeClick (body
+// press near a point). Returns null on an empty spot — nothing to select there;
+// point creation stays double-click / drag.
+function existingPointAtClient(
+  clientX: number, clientY: number, nodeId: string,
+  screenToFlowPosition: (p: { x: number; y: number }) => { x: number; y: number },
+  getNodes: () => Node[],
+): string | null {
+  const node = getNodes().find((nd) => nd.id === nodeId)
+  const form = useStore.getState().diagram.forms.find((f) => f.id === nodeId)
+  if (!node || !form) return null
+  const flow = screenToFlowPosition({ x: clientX, y: clientY })
+  const { lx, ly, n } = nodeLocalFraction(flow.x, flow.y, node, form)
+  return nearestPointWithin(form, geometryFor(form.shape), lx, ly, n)
+}
+
 // Resolves a screen drop position into a point id — an existing form under
 // the cursor gets a NEW point at its nearest edge/corner; empty canvas spins
 // up a fresh "empty" carrier (with its own point) to land on, so pulling a
@@ -711,10 +733,13 @@ function Canvas({ topRight }: CanvasContentProps) {
     const start = connectStartRef.current
     const moved = start ? Math.hypot(clientX - start.clientX, clientY - start.clientY) : Infinity
     if (moved < 5) {
-      // Only EXISTING points (real handles) select on a plain click; empty
-      // addable spots (phantom handles) stay double-click/drag to create.
-      if (hid.startsWith('phantom:')) return
-      const pid = resolvePointForHandle(connectionState.fromNode.id, hid, connectStartRef.current, screenToFlowPosition, getNodes)
+      // A plain click (no drag) selects the nearest EXISTING point to where the
+      // press LANDED — the same geometric resolver onNodeClick uses — never
+      // trusting `hid` (which may be a phantom spot shadowing a real point, or
+      // a neighbouring handle RF attributed the press to). Location is ground
+      // truth, so this selects corner/centre/apex/inside/side identically. An
+      // empty spot (no point there) stays a no-op; creation is double-click/drag.
+      const pid = existingPointAtClient(clientX, clientY, connectionState.fromNode.id, screenToFlowPosition, getNodes)
       if (!pid) return
       setNodes((nds) => (nds.some((n) => n.selected) ? nds.map((n) => (n.selected ? { ...n, selected: false } : n)) : nds))
       const multi = 'metaKey' in event && ((event as MouseEvent).metaKey || (event as MouseEvent).ctrlKey)
