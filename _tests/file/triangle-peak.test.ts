@@ -90,7 +90,7 @@ describe("triangle 'peak' slot", () => {
   it('io.ts — round-trip of a triangle with a peak point', () => {
     const original: Diagram = {
       schemaVersion: 1,
-      forms: [{ id: 'RT', shape: 'triangle', position: { x: 0, y: 0 }, edges: { a: [], b: [], c: [], peak: ['PK'], 'corner-base-top': [], 'corner-base-bottom': [], 'center': [] } }],
+      forms: [{ id: 'RT', shape: 'triangle', position: { x: 0, y: 0 }, edges: { a: [], b: [], c: [], peak: ['PK'], 'corner-base-top': [], 'corner-base-bottom': [], 'center-up': [], 'center': [] } }],
       points: { PK: { id: 'PK', shape: 'circle', name: 'top', formId: 'RT', edgeKey: 'peak' } },
       lines: [],
     }

@@ -11,9 +11,9 @@ describe('corner & centre spot slots', () => {
     expect(geometryFor('square').edgeKeys).toEqual(['top', 'right', 'bottom', 'left', 'corner-tl', 'corner-tr', 'corner-br', 'corner-bl', 'center-up', 'center-down', 'center'])
     expect(geometryFor('circle').edgeKeys).toEqual(['up', 'right', 'down', 'left', 'center-up', 'center-down', 'center'])
     expect(geometryFor('rhombus').edgeKeys).toEqual(['top-right', 'bottom-right', 'bottom-left', 'top-left', 'corner-top', 'corner-right', 'corner-bottom', 'corner-left', 'center-up', 'center-down', 'center'])
-    expect(geometryFor('triangle').edgeKeys).toEqual(['a', 'b', 'c', 'peak', 'corner-base-top', 'corner-base-bottom', 'center'])
+    expect(geometryFor('triangle').edgeKeys).toEqual(['a', 'b', 'c', 'peak', 'corner-base-top', 'corner-base-bottom', 'center-up', 'center'])
     expect(geometryFor('circle').edgeKeys).not.toContain('corner-tl') // circle is smooth — no vertices
-    expect(geometryFor('triangle').edgeKeys).not.toContain('center-up') // triangle has the identity centre but no up/down
+    expect(geometryFor('triangle').edgeKeys).toContain('center-up') // triangle's one interior spot: centroid→apex midpoint
     expect(geometryFor('triangle').edgeKeys).toContain('center')
     expect(geometryFor('empty').edgeKeys).toEqual(['self'])
   })
@@ -78,6 +78,13 @@ describe('corner & centre spot slots', () => {
     expect(g.regionShape('corner-top').kind).toBe('spot')
     expect(g.regionShape('center-up').kind).toBe('spot')
     expect(g.regionShape('top-right').kind).toBe('polyline')
+  })
+
+  it('triangle center-up anchors at the centroid→apex midpoint, one spot, capacity 1', () => {
+    const g = geometryFor('triangle'); const n = BASE_SIZE
+    expect(g.pointAnchor('center-up', 0, 1, n)).toMatchObject({ x: 0.75 * n, y: 0.5 * n })
+    expect(g.regionShape('center-up').kind).toBe('spot')
+    expect(g.edgeCapacity?.['center-up']).toBe(1)
   })
 
   it('a square with a corner point and a centre point round-trips byte-for-byte', () => {

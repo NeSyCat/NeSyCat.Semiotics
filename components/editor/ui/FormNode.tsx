@@ -1,7 +1,7 @@
 'use client'
 
 import { memo, useEffect, useRef } from 'react'
-import { Handle, useConnection, useReactFlow, useUpdateNodeInternals, type NodeProps } from '@xyflow/react'
+import { Handle, useConnection, useUpdateNodeInternals, type NodeProps } from '@xyflow/react'
 import theme from './theme'
 import { geometryFor, pointIdsAt, insertionIndex, shrunkBodyPoints, bodyCentroid, CENTER_SHRINK, POINT_SIZE, type Body, type FormGeometry, type RegionShape } from '../domain/forms'
 import { encodeHandle, encodePhantomHandle, decodePhantomHandle } from '../domain/handles'
@@ -31,7 +31,7 @@ const REGION_STRIPE_WIDTH = POINT_SIZE
 
 // Extra along-edge nudge for a point's label when it shares its edge with
 // other points — matches ir/geometry-ir.ts's own SPLAY_PX (kept in sync by
-// hand, same pattern as PointVisual.tsx's GAP/LABEL_GAP_PX pair).
+// hand, same pattern as PointVisual.tsx's GAP_H/GAP_V pair).
 const SPLAY_PX = 40
 
 // Fix for "two named points on the same edge collide" (e.g. a discriminated
@@ -251,8 +251,6 @@ function FormNode({ id, data, selected }: NodeProps) {
   useEffect(() => { updateNodeInternals(id) }, [id, form.rotation, form.scale, updateNodeInternals])
 
   const selectedPoints = useStore((s) => s.selectedPoints)
-  const setSelectedPoints = useStore((s) => s.setSelectedPoints)
-  const toggleSelectedPoint = useStore((s) => s.toggleSelectedPoint)
   // Cursor territory is resolved centrally in Canvas.tsx (point proximity >
   // center zone > edge/corner ring); each derived value below is scoped so a
   // hover change elsewhere doesn't re-render every FormNode/point — only the
@@ -272,7 +270,6 @@ function FormNode({ id, data, selected }: NodeProps) {
   const hoverRx = hover?.kind === 'edge' && hover.formId === id ? hover.rx : null
   const hoverRy = hover?.kind === 'edge' && hover.formId === id ? hover.ry : null
   const hoverCenter = hover?.kind === 'center' && hover.formId === id
-  const { setNodes } = useReactFlow()
 
   // The phantom handle (below) must stay mounted for the WHOLE lifetime of a
   // connection drag that started from it — hover clears the instant the
@@ -319,14 +316,14 @@ function FormNode({ id, data, selected }: NodeProps) {
   // line's origin even though the visible dot tracked the cursor.
   useEffect(() => { updateNodeInternals(id) }, [id, phantomEdgeKey, phantomSlot, updateNodeInternals])
 
-  // Select a point (from its glyph/grab handle OR its name): exclusive with form
-  // selection; Cmd/Ctrl+click accumulates, plain click single-selects.
-  const selectPoint = (e: React.MouseEvent, pid: string) => {
-    e.stopPropagation()
-    setNodes((nds) => (nds.some((nd) => nd.selected) ? nds.map((nd) => (nd.selected ? { ...nd, selected: false } : nd)) : nds))
-    if (e.metaKey || e.ctrlKey) toggleSelectedPoint(pid)
-    else setSelectedPoints([pid])
-  }
+  // Point SELECTION (from a click on its glyph/grab handle OR its name) is no
+  // longer handled here at all — it's resolved entirely by Canvas.tsx's
+  // capture-phase pipeline (pressRef/onClickCapture), which runs ahead of
+  // React Flow's own click-to-select for every point kind uniformly. There
+  // used to be a `selectPoint` handler here that stopped propagation from
+  // a bubble-phase onClick; that only ever protected LABEL clicks (this
+  // component's own listener ran before React Flow's), never the dot itself
+  // — the capture pipeline replaces it for both, so it's gone.
 
   const pointVisuals: React.ReactNode[] = []
   // Every RESIDENT point whose glyph actually renders something (shape !==
@@ -362,7 +359,6 @@ function FormNode({ id, data, selected }: NodeProps) {
           isSelected={isSel}
           isHovered={isHovered}
           formRotation={form.rotation ?? 0}
-          onSelect={selectPoint}
           suppressLabel={edgeKey === 'center'}
         />,
       )
@@ -433,6 +429,10 @@ function FormNode({ id, data, selected }: NodeProps) {
           : <RingBandHitArea body={geom.body} n={n} hasCenterZone={geom.hasCenterZone} anchor={anchor} />
         const dotStyle: React.CSSProperties = {
           position: 'absolute', top: anchor.y, left: anchor.x, transform: 'translate(-50%, -50%)',
+          // zIndex 5 — one BELOW a real point's own dotStyle (PointVisual.tsx,
+          // zIndex 6): a phantom is only a placeholder for where a point
+          // COULD go, so a real point sharing its spot must always win the
+          // stacking tie against it.
           width: 1, height: 1, minWidth: 1, minHeight: 1, background: 'transparent', border: 'none', padding: 0, zIndex: 5,
         }
         return (
@@ -459,9 +459,13 @@ function FormNode({ id, data, selected }: NodeProps) {
         })
         return (
           <>
-            {/* Wire mask BELOW the tints (zIndex 0), the SAME general rule as
-                point/line labels (see LabelMask) — a form name hides lines too. */}
-            <div style={place(0)}><LabelMask text={nameText} fontSize={FORM_NAME_SIZE} /></div>
+            {/* Wire mask at zIndex -1 — BELOW the body's own fill/selection
+                tint (BodyView, z auto) yet still above the wires (the whole
+                node stacks over the edges layer), the SAME general rule as
+                point labels (see PointVisual's mask wrapper): a selected/
+                tinted body sweeps across the name with no white "field"
+                punched out, while lines still hide under it. */}
+            <div style={place(-1)}><LabelMask text={nameText} fontSize={FORM_NAME_SIZE} /></div>
             <div style={place(3)}><Tex fontSize={FORM_NAME_SIZE} color={theme.text.ink}>{nameText}</Tex></div>
           </>
         )

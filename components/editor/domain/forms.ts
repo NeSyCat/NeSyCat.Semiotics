@@ -391,7 +391,7 @@ const TRI_CENTROID: readonly [number, number] = [
   (TRI_APEX_X + TRI_BASE_X + TRI_BASE_X) / 3,
   (TRI_APEX_Y + TRI_BASE_Y_TOP + TRI_BASE_Y_BOT) / 3,
 ]
-const TRI_EDGES = ['a', 'b', 'c', 'peak', 'corner-base-top', 'corner-base-bottom', 'center'] as const
+const TRI_EDGES = ['a', 'b', 'c', 'peak', 'corner-base-top', 'corner-base-bottom', 'center-up', 'center'] as const
 // The triangle's THREE vertices as spot slots — ONE pathway, no special apex.
 // 'peak' is the apex (kept as a distinct key for backward compat + the exporter),
 // just another corner spot: same capacity-1 recipe, resolved by the shared spot
@@ -401,10 +401,20 @@ const TRI_CORNERS: Record<string, Spot> = {
   'corner-base-top': { at: [TRI_BASE_X, TRI_BASE_Y_TOP], position: Position.Top },
   'corner-base-bottom': { at: [TRI_BASE_X, TRI_BASE_Y_BOT], position: Position.Bottom },
 }
-// The three vertices + the identity `center` (at the centroid, which for the
-// inscribed equilateral triangle IS [0.5, 0.5]) — for the position/region/param
-// methods. edgeAt uses only TRI_CORNERS (the vertices); `center` is interior.
-const TRI_SPOTS: Record<string, Spot> = { ...TRI_CORNERS, ...IDENTITY_SPOT }
+// The triangle's ONE interior point-spot: the midpoint between the centroid
+// (where the identity `center`/the form's name sits) and the apex. Position
+// matches 'peak' (Right) since it lies on the same centroid→apex ray — at the
+// usual -90°/270° rotation that puts the apex screen-up, this spot renders
+// directly ABOVE the name, "above the name" being the whole reason for the
+// key. Same spot machinery as every other slot, no special case.
+const TRI_CENTER_UP: Record<string, Spot> = {
+  'center-up': { at: [0.75, 0.5], position: Position.Right },
+}
+// The three vertices + the interior center-up + the identity `center` (at the
+// centroid, which for the inscribed equilateral triangle IS [0.5, 0.5]) — for
+// the position/region/param methods. edgeAt uses only TRI_CORNERS (the
+// vertices) plus TRI_CENTER_UP; `center` is interior/identity-only.
+const TRI_SPOTS: Record<string, Spot> = { ...TRI_CORNERS, ...TRI_CENTER_UP, ...IDENTITY_SPOT }
 
 // A point along slant 'a' (from the top-left base vertex) or 'b' (bottom-left),
 // running to the apex on the right.
@@ -472,8 +482,9 @@ const triangleGeometry: FormGeometry = {
   // sits) — index/count unused, unlike circle's pointNormal below.
   pointNormal: (edgeKey) => {
     if (edgeKey === 'center') return null
-    // Every vertex (apex + base) is radial from the centroid — one path.
-    if (TRI_CORNERS[edgeKey]) return spotNormal(TRI_CORNERS[edgeKey], TRI_CENTROID)
+    // Every vertex (apex + base) AND the interior center-up spot are radial
+    // from the centroid — one path.
+    if (TRI_SPOTS[edgeKey]) return spotNormal(TRI_SPOTS[edgeKey], TRI_CENTROID)
     if (edgeKey === 'a') return outwardEdgeNormal([TRI_BASE_X, TRI_BASE_Y_TOP], [TRI_APEX_X, 0.5], TRI_CENTROID)
     if (edgeKey === 'b') return outwardEdgeNormal([TRI_BASE_X, TRI_BASE_Y_BOT], [TRI_APEX_X, 0.5], TRI_CENTROID)
     return outwardEdgeNormal([TRI_BASE_X, TRI_BASE_Y_TOP], [TRI_BASE_X, TRI_BASE_Y_BOT], TRI_CENTROID) // c
