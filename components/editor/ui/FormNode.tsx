@@ -363,6 +363,7 @@ function FormNode({ id, data, selected }: NodeProps) {
           isHovered={isHovered}
           formRotation={form.rotation ?? 0}
           onSelect={selectPoint}
+          suppressLabel={edgeKey === 'center'}
         />,
       )
     })

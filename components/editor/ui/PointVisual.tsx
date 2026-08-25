@@ -98,7 +98,7 @@ function PointGlyph({ shape, accent, isSelected, isHovered }: { shape: Shape; ac
 // point. Props are exactly what that loop body reads per-point; the
 // geometry loop itself (edgeKeys × pointIdsAt) stays in FormNode since it's
 // shared setup, not per-point rendering.
-export function PointVisual({ pid, pt, anchor, labelSplay, hid, isSelected, isHovered, formRotation, onSelect }: {
+export function PointVisual({ pid, pt, anchor, labelSplay, hid, isSelected, isHovered, formRotation, onSelect, suppressLabel }: {
   pid: string
   pt: Point
   anchor: Anchor
@@ -113,6 +113,10 @@ export function PointVisual({ pid, pt, anchor, labelSplay, hid, isSelected, isHo
   isHovered: boolean
   formRotation: number
   onSelect: (e: React.MouseEvent, pid: string) => void
+  // The identity CENTRE point renders NO separate label of its own — it IS the
+  // form, and the form's own name (drawn dead-centre by FormNode) is its name.
+  // So we suppress the point's P-id/name label to avoid a second, separate name.
+  suppressLabel?: boolean
 }) {
   // Own color only — see PointGlyph's comment above for why this must NOT
   // fall back to the form's accent.
@@ -146,7 +150,7 @@ export function PointVisual({ pid, pt, anchor, labelSplay, hid, isSelected, isHo
   // as a default placeholder. A cleared name ('' — set via renamePoints) yields
   // an EMPTY label, in which case NOTHING is rendered (no text AND no mask), so
   // a blank point never leaves a stray band masking the wires under it.
-  const labelText = pt.name ?? pid
+  const labelText = suppressLabel ? '' : (pt.name ?? pid)
 
   // Handles are 1px AT the glyph centre, so a line anchors dead-centre on the
   // point (RF pins a handle to its position-edge — a large handle offsets the

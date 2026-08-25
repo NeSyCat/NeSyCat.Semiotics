@@ -458,6 +458,16 @@ function Canvas({ topRight }: CanvasContentProps) {
         return { value: diagram.points[midId]?.name ?? '', placeholder: midId, sig: 'points:' + midId, disabled: false }
       }
     }
+    // The identity CENTRE point has NO name of its own — it IS the form, so its
+    // name IS the form's name (one field, read/written on the form). Selecting it
+    // shows/edits form.name, never a separate point name.
+    if (selectionTarget.kind === 'points' && selectionTarget.ids.length === 1) {
+      const pt = diagram.points[selectionTarget.ids[0]]
+      if (pt?.edgeKey === 'center') {
+        const form = diagram.forms.find((f) => f.id === pt.formId)
+        if (form) return { value: form.name ?? '', placeholder: form.id, sig: 'forms:' + form.id, disabled: false }
+      }
+    }
     const id0 = selectionTarget.ids[0]
     const single = selectionTarget.ids.length === 1
     const name = selectionTarget.kind === 'points' ? diagram.points[id0]?.name
@@ -479,6 +489,14 @@ function Canvas({ topRight }: CanvasContentProps) {
         const midId = pointIdsAt(form, geometryFor(form.shape).edgeKeys[0])[0]
         if (midId) renamePoints([midId], value)
         return // no point yet -> the field is disabled, nothing to do
+      }
+    }
+    // Identity centre point → rename the FORM (its name is the form's name).
+    if (selectionTarget.kind === 'points' && selectionTarget.ids.length === 1) {
+      const pt = diagram.points[selectionTarget.ids[0]]
+      if (pt?.edgeKey === 'center') {
+        if (pt.formId) renameForms([pt.formId], value)
+        return
       }
     }
     if (selectionTarget.kind === 'points') renamePoints(selectionTarget.ids, value)
@@ -681,13 +699,32 @@ function Canvas({ topRight }: CanvasContentProps) {
   const onConnectEnd = useCallback((event: MouseEvent | TouchEvent, connectionState: any) => {
     window.removeEventListener('pointermove', onConnectPointerMove)
     if (connectionState.isValid || !connectionState.fromNode || !connectionState.fromHandle?.id) return
-    const fromPointId = resolvePointForHandle(connectionState.fromNode.id, connectionState.fromHandle.id, connectStartRef.current, screenToFlowPosition, getNodes)
-    if (!fromPointId) return
+    const hid = connectionState.fromHandle.id as string
     const { clientX, clientY } = 'changedTouches' in event ? (event as TouchEvent).changedTouches[0] : (event as MouseEvent)
+    // Click-vs-drag on a point's handle. React Flow consumes the pointer on a
+    // handle for connection-dragging, so a point's own onClick never fires —
+    // this is the ONE reliable place to catch "clicked a point (any point:
+    // corner, centre, apex, side) to select it". A near-zero move = a click.
+    const start = connectStartRef.current
+    const moved = start ? Math.hypot(clientX - start.clientX, clientY - start.clientY) : Infinity
+    if (moved < 5) {
+      // Only EXISTING points (real handles) select on a plain click; empty
+      // addable spots (phantom handles) stay double-click/drag to create.
+      if (hid.startsWith('phantom:')) return
+      const pid = resolvePointForHandle(connectionState.fromNode.id, hid, connectStartRef.current, screenToFlowPosition, getNodes)
+      if (!pid) return
+      setNodes((nds) => (nds.some((n) => n.selected) ? nds.map((n) => (n.selected ? { ...n, selected: false } : n)) : nds))
+      const multi = 'metaKey' in event && ((event as MouseEvent).metaKey || (event as MouseEvent).ctrlKey)
+      if (multi) useStore.getState().toggleSelectedPoint(pid)
+      else useStore.getState().setSelectedPoints([pid])
+      return
+    }
+    const fromPointId = resolvePointForHandle(connectionState.fromNode.id, hid, connectStartRef.current, screenToFlowPosition, getNodes)
+    if (!fromPointId) return
     const newPtId = resolveDropPoint(clientX, clientY, connectionState.fromNode.id, screenToFlowPosition, getNodes)
     if (!newPtId) return
     useStore.getState().addLine(fromPointId, newPtId)
-  }, [screenToFlowPosition, getNodes, onConnectPointerMove])
+  }, [screenToFlowPosition, getNodes, onConnectPointerMove, setNodes])
 
   // Shared by the double-click-to-add-point handler and the hover tracker: a
   // node-local point → normalized [0,1]² fraction PLUS the raw local pixel
