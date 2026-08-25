@@ -1,0 +1,81 @@
+# Playwright E2E suite over the /editor React Flow canvas. Runs the DEV
+# server (`next dev -p 3210`), not a production build — `npm run build`
+# shells out to scripts/vercel-prebuild.sh, which needs the private
+# `vendor/Admination.02-Design` git submodule fetched over an authenticated
+# rewrite; the dev server never touches that codepath, so this workflow
+# stays green even when the submodule isn't checked out. See
+# _tests/e2e/README.md for the full rationale (dedicated port, selection
+# oracle, known-red-on-baseline note).
+#
+# SECRET REQUIRED (optional): if the repo secret ADMINATION_DS_TOKEN is set,
+# checkout fetches the private submodule recursively (harmless even though
+# the dev server doesn't need it — keeps this workflow's checkout consistent
+# with a future switch to a production build). Without the secret, checkout
+# falls back to a plain (non-recursive) checkout and the run still passes.
+
+name: E2E
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (with private submodule, if the token is available)
+        if: ${{ secrets.ADMINATION_DS_TOKEN != '' }}
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          token: ${{ secrets.ADMINATION_DS_TOKEN }}
+
+      - name: Checkout (no submodule token available)
+        if: ${{ secrets.ADMINATION_DS_TOKEN == '' }}
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium firefox webkit
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+
+      - name: Install Playwright OS dependencies (cache hit)
+        run: npx playwright install-deps chromium firefox webkit
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+
+      - name: Run Playwright tests
+        run: npx playwright test
+        env:
+          CI: true
+
+      - name: Upload Playwright report
+        if: ${{ !cancelled() && failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 14
+
+      - name: Upload test results (traces/videos)
+        if: ${{ !cancelled() && failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: test-results/
+          retention-days: 14

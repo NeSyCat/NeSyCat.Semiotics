@@ -9,6 +9,9 @@
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:report": "playwright show-report",
     "p8:emit": "prisma contract emit --config prisma/prisma.config.ts",
     "p8:verify": "prisma db verify --config prisma/prisma.config.ts",
     "p8:update:dry": "prisma db update --dry-run --config prisma/prisma.config.ts",
@@ -35,6 +38,7 @@
     "zustand": "^5.0.12"
   },
   "devDependencies": {
+    "@playwright/test": "^1.62.1",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/pg": "8.23.1",
