@@ -22,7 +22,7 @@ import FormNode, { DRAG_HANDLE_CLASS } from './FormNode'
 import LineEdge from './LineEdge'
 import { useStore, initStore } from '../state/store'
 import { useAutosave, useLocalAutosave } from '../persist/save'
-import { geometryFor, pointIdsAt, isInsideBody, isInCenterZone, insertionIndex, bodyCentroid, worldPointNormal, BASE_SIZE, CENTER_SHRINK, type FormGeometry } from '../domain/forms'
+import { geometryFor, pointIdsAt, isInsideBody, isInCenterZone, insertionIndex, bodyCentroid, worldPointNormal, BASE_SIZE, CENTER_SHRINK, POINT_SIZE, type FormGeometry } from '../domain/forms'
 import type { Dir } from '../domain/wirepath'
 import { encodeHandle, decodeHandle, decodePhantomHandle } from '../domain/handles'
 import { GRID_SIZE, snapCenterPosition } from '../domain/grid'
@@ -92,10 +92,19 @@ function nodeLocalFraction(
 // handle takes priority over the form's region/center hover — see
 // nearestPointWithin below. Also the click-to-select catch radius used by
 // the capture-phase selection pipeline (see the pressRef/onClickCapture
-// useEffect further down): a body click this close to a point selects it.
-// INVISIBLE (not the drawn disc, which stays POINT_SIZE) — just a forgiving
-// hit target so clicks near a point land ON it instead of the form.
-const POINT_HOVER_RADIUS = 18
+// useEffect further down).
+//
+// EXACTLY the drawn disc's radius (POINT_SIZE/2) — THE general rule: a point
+// is activated, hovered, clickable, and draggable when the cursor is inside
+// its visible hover region, and ONLY then; a cursor just outside the disc
+// still belongs to whatever is underneath (the form's centre zone — whole-
+// form hover/drag — or an edge region). Everything a point reacts through
+// coincides on this one circle: this proximity radius (hover + click-
+// select), the grab pad (PointVisual REGION_CORNER_SIZE = POINT_SIZE), an
+// empty spot's hit disc (forms.ts SPOT_DISC_R = POINT_SIZE/BASE_SIZE/2),
+// and the drawn indicator itself. No invisible slack anywhere — one
+// mechanism, every point kind.
+const POINT_HOVER_RADIUS = POINT_SIZE / 2
 
 // The closest existing point on `form` to a local pixel (lx, ly), if within
 // POINT_HOVER_RADIUS — checked BEFORE any inside/outside or center-zone

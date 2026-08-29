@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { gotoFreshEditor, addShapeAt, nodeSpot, hoverIndicator } from './helpers/canvas'
+import { gotoFreshEditor, addShapeAt, addPointAt, handleCenter, getZoom, nodeSpot, hoverIndicator } from './helpers/canvas'
 
 // Point-creation region hover indicator (FormNode.tsx's RegionOverlay), from
 // both outside and inside the form. Existing-and-working behavior —
@@ -32,6 +32,38 @@ test.describe('hover indicator', () => {
 
     await expect(indicator).toHaveCount(1)
     await expect(indicator).toBeVisible()
+  })
+
+  test('an existing point activates EXACTLY within its visible disc — just outside it, the form (centre zone) hovers instead', async ({ page }) => {
+    // THE general activation rule (Canvas.tsx's POINT_HOVER_RADIUS =
+    // POINT_SIZE/2): a point is hovered/clickable/draggable only when the
+    // cursor is inside its drawn disc (radius 13 local px) — a cursor just
+    // outside it (here 16 local px below the anchor, a spot the old
+    // invisible 18px radius would have claimed for the point) belongs to
+    // whatever is underneath: for an interior point, the form's own centre
+    // zone, i.e. whole-form hover/drag.
+    //
+    // Observable: point hover tints the glyph via SVG fill (no overlay DIV),
+    // while centre-zone hover renders the CenterOverlay div hoverIndicator()
+    // matches — so the indicator count flips 1 (just outside) -> 0 (on the
+    // point) exactly at the disc edge.
+    const formId = await addShapeAt(page, 'square', { x: 400, y: 300 })
+    await addPointAt(page, formId, 0.5, 0.25) // interior centre-up point
+    const dot = await handleCenter(page, formId, 'center-up:0')
+    const zoom = await getZoom(page)
+
+    // clear any hover left over from creation
+    await page.mouse.move(60, 500)
+    await expect(hoverIndicator(page, formId)).toHaveCount(0)
+
+    // 16 local px below the anchor: outside the 13px disc, inside the centre
+    // zone -> whole-form hover (CenterOverlay), NOT point hover
+    await page.mouse.move(dot.x, dot.y + 16 * zoom)
+    await expect(hoverIndicator(page, formId)).toHaveCount(1)
+
+    // on the dot itself: point hover -> the overlay div disappears
+    await page.mouse.move(dot.x, dot.y)
+    await expect(hoverIndicator(page, formId)).toHaveCount(0)
   })
 
   test('the SAME corner spot shows a hover indicator, approached from INSIDE the form', async ({ page }) => {
