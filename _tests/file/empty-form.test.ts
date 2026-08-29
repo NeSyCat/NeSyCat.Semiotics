@@ -382,7 +382,10 @@ describe('per-branch rename is local (no propagation)', () => {
 
   it('clearing one name (empty string) clears ONLY that line — siblings keep theirs', () => {
     const d = renameLines(rig(), ['OUT1'], '')
-    expect(d.lines.find((l) => l.id === 'OUT1')?.name, 'OUT1 cleared').toBeUndefined()
+    // '' is KEPT, not collapsed to undefined — the same rule as renamePoints:
+    // undefined = "never named" (id shows as placeholder), '' = "name
+    // removed" (the wire renders with no label at all).
+    expect(d.lines.find((l) => l.id === 'OUT1')?.name, 'OUT1 cleared to blank').toBe('')
     expect(d.lines.find((l) => l.id === 'OUT2')?.name, 'OUT2 keeps its name').toBe('Nat')
     expect(d.lines.find((l) => l.id === 'IN1')?.name, 'IN1 keeps its name').toBe('Nat')
   })

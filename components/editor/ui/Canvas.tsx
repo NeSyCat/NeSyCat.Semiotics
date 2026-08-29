@@ -233,15 +233,15 @@ function pointWorldNormal(d: Diagram, pointId: string): Dir {
   return worldPointNormal(form, pt.edgeKey, index, ids.length)
 }
 
-// '' (an explicitly cleared line name that bypassed store's own renameLine
-// safeguard — e.g. a raw JSON import via persist/io.ts's canonLine, which
-// does not collapse '' to undefined the way the store does) must render
-// NEITHER text NOR mask, same as a blank POINT name (PointVisual's own
-// `labelText !== ''` guard) — NOT fall back to the line's id the way a
-// genuinely undefined name does. LineEdge.tsx's `d.label != null` check
-// already treats undefined as "render nothing"; this is what makes '' do
-// the same instead of leaking through as a literal empty-string label
-// (which IS != null, and would render an empty masked box on the wire).
+// A line's name has TWO distinct empty-ish states, the SAME rule points use
+// (renamePoints/renameLine both store '' verbatim): undefined = "never
+// named" → the id (L1, L2, …) renders as the default label; '' = "name
+// removed" (cleared via the name field, or a raw JSON import) → the wire
+// renders NEITHER text NOR mask, matching PointVisual's own
+// `labelText !== ''` guard. LineEdge.tsx's `d.label != null` check already
+// treats undefined as "render nothing"; this is what makes '' do the same
+// instead of leaking through as a literal empty-string label (which IS
+// != null, and would render an empty masked box on the wire).
 function lineLabel(name: string | undefined, id: string): string | undefined {
   return name === '' ? undefined : (name ?? id)
 }
