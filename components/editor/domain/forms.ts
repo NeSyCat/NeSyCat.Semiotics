@@ -408,7 +408,12 @@ const TRI_CORNERS: Record<string, Spot> = {
 // directly ABOVE the name, "above the name" being the whole reason for the
 // key. Same spot machinery as every other slot, no special case.
 const TRI_CENTER_UP: Record<string, Spot> = {
-  'center-up': { at: [0.75, 0.5], position: Position.Right },
+  // position Left — the label faces the CENTROID (the form's name), not the
+  // apex: at the usual apex-up rotation that means BELOW the point, in the
+  // open space between it and the name, instead of crowding the apex point's
+  // own label above. (Purely the spot's declared label direction — hover/
+  // click/drag/wire behavior all come from `at` and the shared machinery.)
+  'center-up': { at: [0.75, 0.5], position: Position.Left },
 }
 // The three vertices + the interior center-up + the identity `center` (at the
 // centroid, which for the inscribed equilateral triangle IS [0.5, 0.5]) — for
