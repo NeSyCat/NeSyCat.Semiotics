@@ -1,7 +1,6 @@
-import { createClient } from '@/lib/supabase/server'
+import { getAuthUser } from '@/lib/supabase/server'
 import { supabaseConfigured } from '@/lib/supabase/env'
-import { listDiagrams } from '@/lib/actions/diagrams'
-import { getMe } from '@/lib/actions/organizations'
+import { getCachedMe, getCachedListDiagrams } from '@/lib/actions/read-cache'
 import { resolveActiveOrg } from '@/lib/active-org'
 import { serverEditorHref } from '@/lib/editor-url.server'
 import EditorSidebar from '@/components/EditorSidebar'
@@ -12,9 +11,7 @@ export default async function EditorLayout({ children }: { children: React.React
   // No Supabase env (CI, fresh checkout) → nobody can be signed in; render
   // the anonymous shell instead of crashing on client creation.
   // See lib/supabase/env.ts.
-  const user = supabaseConfigured()
-    ? (await (await createClient()).auth.getUser()).data.user
-    : null
+  const user = supabaseConfigured() ? await getAuthUser() : null
   // Anonymous visitors get the same shell minus the sidebar — the editor
   // itself (AnonymousEditor, resolved by app/editor/page.tsx) runs auth-free,
   // keeping its data in localStorage / the URL fragment instead of the DB.
@@ -27,11 +24,11 @@ export default async function EditorLayout({ children }: { children: React.React
     )
   }
 
-  const me = await getMe()
+  const me = await getCachedMe()
   const org = await resolveActiveOrg(me)
   // getMe() always bootstraps at least one membership (see app/editor/page.tsx).
   if (!org) throw new Error('no organization membership')
-  const diagrams = await listDiagrams(org)
+  const diagrams = await getCachedListDiagrams(org)
 
   return (
     <div className="relative h-screen w-screen overflow-hidden">

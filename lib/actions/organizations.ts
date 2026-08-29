@@ -41,24 +41,30 @@ export async function getMe(): Promise<Me> {
   const { jwt, userId, email, userMetadata } = await session()
   const displayName = displayNameOf(email, userMetadata)
 
-  // ACCEPTANCE STEP: turn every open invitation addressed to this session's
-  // email into a real membership — an invite is accepted automatically on the
-  // invitee's next sign-in, there is no separate "accept" screen (see the
-  // design doc's DECIDED ADAPTATIONS).
-  //
-  // It runs in its OWN transaction, ahead of the read below, for one reason:
-  // signing in must never depend on the invitations subsystem. A failed
-  // statement aborts its whole Postgres transaction, so an invitations
-  // problem sharing the main transaction would take the editor down with it —
-  // catching the error in JS would not help, the transaction is already
-  // poisoned. Isolated like this, acceptance can fail (say, against a
-  // database where `invitations` isn't ready yet during a deploy), get logged,
-  // and be retried on the next page load, while sign-in carries on.
-  try {
-    await withRLS(jwt, async (tx) => {
+  return withRLS(jwt, async (tx) => {
+    // ACCEPTANCE STEP: turn every open invitation addressed to this session's
+    // email into a real membership — an invite is accepted automatically on the
+    // invitee's next sign-in, there is no separate "accept" screen (see the
+    // design doc's DECIDED ADAPTATIONS).
+    //
+    // Runs under its own SAVEPOINT inside this same withRLS transaction
+    // (merged with the read/bootstrap below to cut a whole extra
+    // transaction/round-trip off getMe). The savepoint preserves the
+    // original isolation guarantee: signing in must never depend on the
+    // invitations subsystem. A failed statement would otherwise abort the
+    // *whole* surrounding Postgres transaction — catching the error in JS
+    // alone would not help, the transaction is already poisoned. Rolling
+    // back to the savepoint instead undoes exactly the acceptance step's
+    // statements, so a failure here (say, against a database where
+    // `invitations` isn't ready yet during a deploy) gets logged and can be
+    // retried on the next page load, while the read/bootstrap below still
+    // runs in this same transaction as if acceptance had never been
+    // attempted.
+    try {
+      await tx.execute(tx.sql.raw`SAVEPOINT accept_invitations`.affectedCount().build())
       // Existing memberships are read first so acceptance can skip any org the
       // caller already belongs to: a duplicate membership insert would abort
-      // this transaction (two tabs opening at once is enough to hit it).
+      // this subtransaction (two tabs opening at once is enough to hit it).
       const existingMemberships = await tx.orm.public.memberships
         .where({ user_id: userId })
         .all()
@@ -90,12 +96,13 @@ export async function getMe(): Promise<Me> {
           .where({ organization_id: inv.organization_id, email: inv.email })
           .delete()
       }
-    })
-  } catch (err) {
-    console.error('getMe: accepting invitations failed, continuing sign-in:', err)
-  }
+    } catch (err) {
+      console.error('getMe: accepting invitations failed, continuing sign-in:', err)
+      await tx.execute(
+        tx.sql.raw`ROLLBACK TO SAVEPOINT accept_invitations`.affectedCount().build(),
+      )
+    }
 
-  const rows = await withRLS(jwt, async (tx) => {
     const myMemberships = await tx.orm.public.memberships.where({ user_id: userId }).all()
     if (myMemberships.length > 0) {
       // Restructured from a single memberships⋈organizations join (P8's ORM
@@ -104,7 +111,7 @@ export async function getMe(): Promise<Me> {
       const orgIds = myMemberships.map((m) => m.organization_id)
       const orgs = await tx.orm.public.organizations.where((o) => o.id.in(orgIds)).all()
       const orgById = new Map(orgs.map((org) => [org.id, org]))
-      return myMemberships
+      const rows = myMemberships
         .flatMap((m) => {
           const org = orgById.get(m.organization_id)
           return org
@@ -112,6 +119,7 @@ export async function getMe(): Promise<Me> {
             : []
         })
         .sort((a, b) => a.organizationName.localeCompare(b.organizationName))
+      return { userId, email, displayName, memberships: rows }
     }
 
     // BOOTSTRAP (first login, still zero memberships after acceptance above):
@@ -141,10 +149,13 @@ export async function getMe(): Promise<Me> {
       organization_id: organizationId,
       is_owner: true,
     })
-    return [{ organizationId, organizationName, isOwner: true }]
+    return {
+      userId,
+      email,
+      displayName,
+      memberships: [{ organizationId, organizationName, isOwner: true }],
+    }
   })
-
-  return { userId, email, displayName, memberships: rows }
 }
 
 export async function renameOrganization(id: string, name: string): Promise<ActionResult> {
