@@ -1,0 +1,5 @@
+# Everything this lane generates at setup/run time — local-stack credentials,
+# storageState (contains live session cookies), Playwright's own output.
+# Scoped here (not the root .gitignore, which this ticket's write set doesn't
+# touch) since it only needs to cover this directory's own generated output.
+.generated/

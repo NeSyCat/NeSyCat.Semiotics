@@ -5,6 +5,12 @@ Real-browser end-to-end specs over the React Flow diagram canvas at
 session needed, no DB, just localStorage). Config: `playwright.config.ts`
 (repo root). Specs/helpers: `_tests/e2e/`.
 
+> **Looking for the authenticated lane?** Sidebar CRUD, org bootstrap,
+> invitations, and Realtime sync as a real signed-in user, against a LOCAL
+> Supabase stack, live in `_tests/e2e-authed/` (`npm run test:e2e:authed`) —
+> see that directory's own README. This directory stays fully anonymous/
+> localStorage-only, on purpose (see "Realtime" below).
+
 ## Running
 
 ```sh
