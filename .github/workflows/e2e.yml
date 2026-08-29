@@ -1,17 +1,15 @@
 # Playwright E2E suite over the /editor React Flow canvas. Runs the DEV
-# server (`next dev -p 3210`), not a production build — `npm run build`
-# shells out to scripts/vercel-prebuild.sh, which needs the private
-# `vendor/Admination.02-Design` git submodule fetched over an authenticated
-# rewrite; the dev server never touches that codepath, so this workflow
-# stays green even when the submodule isn't checked out. See
-# _tests/e2e/README.md for the full rationale (dedicated port, selection
-# oracle, known-red-on-baseline note).
+# server (`next dev -p 3210`), not a production build (whose
+# vercel-prebuild.sh step this job doesn't need). See _tests/e2e/README.md
+# for the full rationale (dedicated port, selection oracle).
 #
-# SECRET REQUIRED (optional): if the repo secret ADMINATION_DS_TOKEN is set,
-# checkout fetches the private submodule recursively (harmless even though
-# the dev server doesn't need it — keeps this workflow's checkout consistent
-# with a future switch to a production build). Without the secret, checkout
-# falls back to a plain (non-recursive) checkout and the run still passes.
+# SECRET REQUIRED: ADMINATION_DS_TOKEN — the same fine-grained read-only PAT
+# for the private design-system repo that the Vercel project uses. The DEV
+# server needs it too: app/layout.tsx imports
+# `admination-design-system/components/index.css`, a file: dependency into
+# the private `vendor/Admination.02-Design` submodule — without the
+# submodule the app cannot compile AT ALL, dev or prod. The guard step below
+# fails fast with instructions instead of timing out.
 
 name: E2E
 
@@ -39,6 +37,13 @@ jobs:
       - name: Checkout (no submodule token available)
         if: ${{ env.ADMINATION_DS_TOKEN == '' }}
         uses: actions/checkout@v4
+
+      - name: Require the design-system submodule
+        run: |
+          if [ ! -e vendor/Admination.02-Design/0-foundations/admination-design-system/package.json ]; then
+            echo "::error::vendor/Admination.02-Design is missing (app/layout.tsx imports admination-design-system CSS, so the app cannot compile). Add the ADMINATION_DS_TOKEN repository secret — the same fine-grained read-only PAT the Vercel project uses (gh secret set ADMINATION_DS_TOKEN) — so checkout can fetch the private submodule."
+            exit 1
+          fi
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
