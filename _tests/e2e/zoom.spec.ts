@@ -15,7 +15,12 @@ test.describe('zoom / pan — dot-click selection', () => {
     await gotoFreshEditor(page)
   })
 
-  test('square corner dot selects its point after zooming OUT to ~0.5', async ({ page }) => {
+  test('square corner dot selects its point after zooming OUT to ~0.5', async ({ page, browserName }) => {
+    // Playwright's WebKit build does not reliably deliver synthetic
+    // ctrl-wheel gestures to d3-zoom (preventDefault fires, net scale stays
+    // 1) — an engine simulation gap, not an app bug; the pan case below
+    // covers view-transform correctness on WebKit. See README.md.
+    test.skip(browserName === 'webkit', 'WebKit: synthetic ctrl-wheel zoom not deliverable (see README)')
     const formId = await addShapeAt(page, 'square', { x: 400, y: 300 })
     const added = await addPointAt(page, formId, ...SQUARE_SPOTS['corner-tl'])
     expect(added.handleId).toBe('corner-tl:0')
@@ -29,7 +34,8 @@ test.describe('zoom / pan — dot-click selection', () => {
     await expectPointSelected(page, added.pointId!)
   })
 
-  test('triangle apex dot selects its point after zooming IN to ~2', async ({ page }) => {
+  test('triangle apex dot selects its point after zooming IN to ~2', async ({ page, browserName }) => {
+    test.skip(browserName === 'webkit', 'WebKit: synthetic ctrl-wheel zoom not deliverable (see README)')
     const formId = await addShapeAt(page, 'triangle', { x: 400, y: 300 })
     const added = await addPointAt(page, formId, ...TRIANGLE_SPOTS.peak)
     expect(added.handleId).toBe('peak:0')
