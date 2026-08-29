@@ -28,9 +28,17 @@ export async function listDiagrams(organizationId: string): Promise<DiagramRow[]
   )
 }
 
-export async function createDiagram(organizationId: string, title?: string): Promise<DiagramRow> {
+// Row creation WITHOUT revalidation — for callers already inside a RENDER
+// (app/editor/page.tsx's zero-diagrams bootstrap creates the first diagram
+// while rendering /editor): `revalidatePath` during render is illegal in
+// Next 16 ("used revalidatePath during render which is unsupported") and
+// 500s the page — the authed e2e lane's fresh seeded user caught this; a
+// brand-new account's very first /editor load was broken. A render-path
+// caller also doesn't NEED the revalidation: it redirects immediately, and
+// that navigation renders the layout fresh anyway.
+export async function createDiagramRow(organizationId: string, title?: string): Promise<DiagramRow> {
   const { jwt } = await session()
-  const row = await withRLS(jwt, (tx) =>
+  return withRLS(jwt, (tx) =>
     tx.orm.public.diagrams.create({
       organization_id: organizationId,
       title: title ?? 'Untitled',
@@ -41,6 +49,10 @@ export async function createDiagram(organizationId: string, title?: string): Pro
       data: emptyData as unknown as NewDiagram['data'],
     }),
   )
+}
+
+export async function createDiagram(organizationId: string, title?: string): Promise<DiagramRow> {
+  const row = await createDiagramRow(organizationId, title)
   // `layout` (not the default `page`) because the diagrams list is fetched
   // in app/editor/layout.tsx, not a page — a `page`-scoped revalidation
   // wouldn't invalidate that cached list at all. `/editor` is already the
@@ -48,6 +60,8 @@ export async function createDiagram(organizationId: string, title?: string): Pro
   // layout instance), so there is no tighter correct scope to narrow to;
   // the sidebar itself now applies this row optimistically and doesn't wait
   // on the invalidation — this only keeps the *next* real navigation fresh.
+  // ONLY legal from a server action / route handler — render-path callers
+  // must use createDiagramRow above.
   revalidatePath('/editor', 'layout')
   return row
 }

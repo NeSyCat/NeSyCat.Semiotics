@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import { getAuthUser } from '@/lib/supabase/server'
 import { supabaseConfigured } from '@/lib/supabase/env'
-import { createDiagram } from '@/lib/actions/diagrams'
+import { createDiagramRow } from '@/lib/actions/diagrams'
 import { getCachedMe, getCachedListDiagrams } from '@/lib/actions/read-cache'
 import { resolveActiveOrg } from '@/lib/active-org'
 import { serverCallbackUrl, serverEditorHref } from '@/lib/editor-url.server'
@@ -33,6 +33,9 @@ export default async function EditorIndex() {
   if (!org) throw new Error('no organization membership')
   const list = await getCachedListDiagrams(org)
   if (list.length > 0) redirect(await serverEditorHref(list[0].id))
-  const row = await createDiagram(org)
+  // createDiagramRow, NOT createDiagram: this runs during RENDER, where the
+  // action's revalidatePath is illegal (Next 16 throws) — and unnecessary,
+  // since the redirect below re-renders the layout fresh regardless.
+  const row = await createDiagramRow(org)
   redirect(await serverEditorHref(row.id))
 }
