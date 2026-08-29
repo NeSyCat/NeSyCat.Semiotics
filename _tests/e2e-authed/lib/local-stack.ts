@@ -80,7 +80,16 @@ export function getRunningStackInfo(): StackInfo | null {
 
 export function startStack(): StackInfo {
   console.log('[e2e-authed] `supabase start` — first run pulls Docker images, can take a few minutes…')
-  const r = run('supabase', ['start'], SUPABASE_DIR)
+  // `-x vector`: the `vector` container (Aptible/Timber log-shipping sidecar
+  // for Studio's log explorer) bind-mounts the host Docker socket, which
+  // fails outright under Colima ("mkdir .../docker.sock: operation not
+  // supported") — a Docker Desktop VM has no such restriction, and neither
+  // does CI's real Docker daemon (ubuntu-latest), so this exclusion is a
+  // no-op there. Nothing in this lane (auth/DB/Realtime) reads log output
+  // through `vector`, so excluding it everywhere is safe and keeps this
+  // script working across both host Docker setups instead of special-casing
+  // one of them.
+  const r = run('supabase', ['start', '-x', 'vector'], SUPABASE_DIR)
   if (r.status !== 0) {
     const output = `${r.stdout}\n${r.stderr}`
     if (/port is already allocated/i.test(output)) {

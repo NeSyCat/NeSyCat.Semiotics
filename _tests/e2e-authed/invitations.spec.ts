@@ -30,10 +30,18 @@ test('invite via the app UI; the invitee auto-accepts on first /editor load', as
     await expect(inviteRow).toBeVisible()
     await expect(inviteRow.locator('.org-settings-badge--pending')).toBeVisible()
 
-    // Invitee's OWN first /editor visit: getMe()'s acceptance step runs
-    // BEFORE the bootstrap-a-personal-org branch, so having a pending
-    // invitation means they join the inviter's org instead of getting a
-    // personal one of their own (lib/actions/organizations.ts).
+    // NOT actually the invitee's first-ever /editor visit: auth.setup.ts
+    // (the `authed-setup` project every authed spec depends on) already
+    // signed the invitee in and hit /editor once to capture storageState —
+    // BEFORE this invitation existed — which already bootstrapped them a
+    // personal org via getMe()'s bootstrap branch. So by the time THIS visit
+    // runs, the invitee already has one membership going in; getMe()'s
+    // acceptance step (which runs before the read/bootstrap branch, and
+    // skips bootstrapping a SECOND org once any membership exists) adds the
+    // inviter's org as a second one. Two rows, not one — asserting exactly
+    // one here doesn't distinguish "acceptance ran" from "it didn't" either
+    // way, which is why the owner-side re-check below (invitation gone,
+    // member row present) is what actually proves it.
     const inviteeContext = await browser.newContext({ storageState: INVITEE_STORAGE_STATE })
     const inviteePage = await inviteeContext.newPage()
     try {
@@ -41,12 +49,20 @@ test('invite via the app UI; the invitee auto-accepts on first /editor load', as
       await inviteePage.waitForURL(/\/editor\/[0-9a-f-]{36}/, { timeout: 20_000 })
 
       await inviteePage.getByRole('button', { name: 'Account' }).click()
-      // Exactly one org — the shared one. If acceptance had NOT run first,
-      // getMe() would instead have bootstrapped a fresh personal org, which
-      // would still show a count of 1 here, so this alone doesn't prove
-      // acceptance; the owner-side re-check below (invitation gone, member
-      // row present) is what actually distinguishes the two outcomes.
-      await expect(inviteePage.locator('.select-option--row')).toHaveCount(1)
+      // The invitee has their own bootstrapped personal org, PLUS the org
+      // just joined via acceptance — but an absolute row count is brittle:
+      // the local stack persists across runs, and every rerun of this spec
+      // (without fresh seeding) adds one more accepted membership. Assert
+      // the thing acceptance actually proves: the INVITER's org (the
+      // primary user's personal org, named by getMe's bootstrap) now shows
+      // in the invitee's org switcher, alongside at least their own.
+      const inviterOrgName = new RegExp(`'s Organization`)
+      await expect(
+        inviteePage.locator('.select-option--row').filter({ hasText: inviterOrgName }).first(),
+      ).toBeVisible()
+      await expect
+        .poll(async () => inviteePage.locator('.select-option--row').count())
+        .toBeGreaterThanOrEqual(2)
     } finally {
       await inviteeContext.close()
     }

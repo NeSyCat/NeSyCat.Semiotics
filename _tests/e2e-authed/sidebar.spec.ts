@@ -55,10 +55,20 @@ test.describe('sidebar', () => {
     try {
       const pageA = await contextA.newPage()
       const pageB = await contextB.newPage()
+      // Console relay + subscription wait, same rationale as realtime.spec.ts:
+      // the row-vanish assertion below rides the org channel's DELETE event.
+      pageB.on('console', (m) => console.log('[pageB console]', m.type(), m.text()))
 
       await gotoEditorLanding(pageA)
+      // Remember where A landed BEFORE creating the target — B will open
+      // this one, guaranteed distinct from the diagram being deleted.
+      const originalId = diagramIdFromUrl(pageA.url())
+      expect(originalId).not.toBeNull()
       await pageA.getByRole('button', { name: 'New diagram' }).click()
-      await pageA.waitForURL(/\/editor\/[0-9a-f-]{36}/, { timeout: 15_000 })
+      await pageA.waitForURL((url) => {
+        const id = diagramIdFromUrl(url.pathname)
+        return id !== null && id !== originalId
+      }, { timeout: 15_000 })
       const targetId = diagramIdFromUrl(pageA.url())
       expect(targetId).not.toBeNull()
 
@@ -69,12 +79,20 @@ test.describe('sidebar', () => {
       await inputA.press('Enter')
       await expect(pageA.locator(ROW, { hasText: targetTitle })).toBeVisible()
 
-      // B opens the same org's editor onto WHATEVER diagram it lands on
-      // (its own most-recently-updated one) — the diagram about to be
-      // deleted is visible in B's list but not the one B has open, i.e.
-      // "non-open" from B's point of view.
-      await gotoEditorLanding(pageB)
+      // B must be on a diagram OTHER than the one about to be deleted —
+      // but /editor redirects to the MOST-RECENTLY-UPDATED diagram, which is
+      // exactly the just-created target (this spec's original landing-page
+      // assumption broke itself). Navigate B explicitly to the diagram A
+      // originally landed on instead.
+      const bSubscribed = pageB.waitForEvent('console', {
+        predicate: (m) => m.text().includes('useDiagramsChannel: subscribed'),
+        timeout: 20_000,
+      })
+      await pageB.goto(`/editor/${originalId}`)
+      await pageB.waitForURL(new RegExp(`/editor/${originalId}`), { timeout: 20_000 })
       expect(diagramIdFromUrl(pageB.url())).not.toBe(targetId)
+      await bSubscribed
+      await pageB.waitForTimeout(750) // WAL-poller grace, see realtime.spec.ts
       await expect(pageB.locator(ROW, { hasText: targetTitle })).toBeVisible()
 
       // Delete from A, where it IS the open diagram → A navigates away

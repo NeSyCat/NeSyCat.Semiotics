@@ -127,7 +127,18 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 1 : undefined,
+  // The authed lane's specs all share ONE seeded primary user/org (see
+  // scripts/setup.ts) and mutate its diagram list directly (create/rename/
+  // delete) — cross-file/cross-test parallelism there isn't just slower, it's
+  // actively unsafe: one spec's row-count assertions can observe another
+  // spec's concurrently-created/deleted rows in the same org. CI already
+  // runs everything at workers:1; forcing that locally too (whenever
+  // E2E_AUTHED is set, regardless of CI) makes a local `npm run
+  // test:e2e:authed` match CI's real behavior instead of being flakier than
+  // it. The anonymous lane has no shared mutable state between tests (each
+  // gets its own localStorage-backed session), so it keeps the previous
+  // CI-only serialization.
+  workers: process.env.CI || authedEnabled ? 1 : undefined,
   reporter: [['html', { open: 'never' }]],
   timeout: 30_000,
   expect: {

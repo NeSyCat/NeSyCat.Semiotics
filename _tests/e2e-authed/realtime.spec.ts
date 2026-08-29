@@ -19,6 +19,10 @@ test.describe('realtime (same user, two browser contexts)', () => {
     try {
       const pageA = await contextA.newPage()
       const pageB = await contextB.newPage()
+      // Relay B's browser console into the test output — realtime failures
+      // are otherwise invisible (a channel that never delivers logs nothing
+      // in the DOM); the hooks log subscribe status via console.debug/error.
+      pageB.on('console', (m) => console.log('[pageB console]', m.type(), m.text()))
 
       await pageA.goto('/editor')
       await pageA.waitForURL(/\/editor\/[0-9a-f-]{36}/, { timeout: 20_000 })
@@ -52,16 +56,45 @@ test.describe('realtime (same user, two browser contexts)', () => {
       const pageA = await contextA.newPage()
       await pageA.goto('/editor')
       await pageA.waitForURL(/\/editor\/[0-9a-f-]{36}/, { timeout: 20_000 })
+      // A is ALREADY on /editor/<uuid> here, so a plain pattern waitForURL
+      // after the click resolves instantly against the OLD url and captures
+      // the WRONG diagram id (B then subscribes to a diagram A never edits —
+      // this exact race shipped as the spec's original flakiness). Wait for
+      // a DIFFERENT uuid instead.
+      const beforeCreateId = diagramIdFromUrl(pageA.url())
       await pageA.getByRole('button', { name: 'New diagram' }).click()
-      await pageA.waitForURL(/\/editor\/[0-9a-f-]{36}/, { timeout: 15_000 })
+      await pageA.waitForURL((url) => {
+        const id = diagramIdFromUrl(url.pathname)
+        return id !== null && id !== beforeCreateId
+      }, { timeout: 15_000 })
       const diagramId = diagramIdFromUrl(pageA.url())
       expect(diagramId).not.toBeNull()
 
       const pageB = await contextB.newPage()
+      // Same console relay as the sidebar spec above — realtime failures are
+      // invisible in the DOM; the hooks + persist layer log what they did.
+      pageB.on('console', (m) => console.log('[pageB console]', m.type(), m.text()))
+      // postgres_changes has NO replay: an event fired before B's channel
+      // finishes registering is gone forever. Arm the wait BEFORE navigating,
+      // then hold A's edit until B's content channel reports subscribed
+      // (the hook's own console.debug is the observable signal).
+      const bSubscribed = pageB.waitForEvent('console', {
+        predicate: (m) => m.text().includes('useDiagramContentChannel: subscribed'),
+        timeout: 20_000,
+      })
       await gotoEditorDiagram(pageB, diagramId!)
       await expect(pageB.locator('.react-flow__node')).toHaveCount(0)
+      await bSubscribed
+      // Client-side SUBSCRIBED can precede the server's WAL poller picking up
+      // the new subscription row by a beat — a short grace keeps this exact
+      // once-per-test race out of the assertion below.
+      await pageB.waitForTimeout(750)
 
-      await addShapeAt(pageA, 'square', { x: 300, y: 300 })
+      // Assert the ADD landed in A first (fail at the cause, not downstream):
+      // in authed mode the sidebar overlays part of the canvas, so the anon
+      // helper's default position can silently click a UI panel instead.
+      await addShapeAt(pageA, 'square', { x: 640, y: 420 })
+      await expect(pageA.locator('.react-flow__node')).toHaveCount(1)
 
       // B never reloads — this is lib/realtime/use-diagram-content-channel.ts
       // hydrating the canvas store in place from a postgres_changes UPDATE
