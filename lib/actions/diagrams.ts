@@ -41,6 +41,13 @@ export async function createDiagram(organizationId: string, title?: string): Pro
       data: emptyData as unknown as NewDiagram['data'],
     }),
   )
+  // `layout` (not the default `page`) because the diagrams list is fetched
+  // in app/editor/layout.tsx, not a page — a `page`-scoped revalidation
+  // wouldn't invalidate that cached list at all. `/editor` is already the
+  // narrowest path that owns it (every /editor/* route shares this one
+  // layout instance), so there is no tighter correct scope to narrow to;
+  // the sidebar itself now applies this row optimistically and doesn't wait
+  // on the invalidation — this only keeps the *next* real navigation fresh.
   revalidatePath('/editor', 'layout')
   return row
 }
@@ -62,6 +69,10 @@ export async function saveDiagram(id: string, data: Diagram): Promise<void> {
 export async function deleteDiagram(id: string): Promise<void> {
   const { jwt } = await session()
   await withRLS(jwt, (tx) => tx.orm.public.diagrams.where({ id }).delete())
+  // Same scope reasoning as createDiagram above: `/editor`+`layout` is
+  // already the minimal path/type pair that owns the diagrams list. The
+  // sidebar removes the row optimistically on click, so this call is purely
+  // for the next real navigation's freshness, not for this request's UI.
   revalidatePath('/editor', 'layout')
 }
 
@@ -71,5 +82,9 @@ export async function renameDiagram(id: string, title: string): Promise<void> {
   await withRLS(jwt, (tx) =>
     tx.orm.public.diagrams.where({ id }).update({ title: trimmed, updated_at: new Date() }),
   )
+  // Same scope reasoning as createDiagram above. The renamed row is shown
+  // optimistically by DiagramItem the instant it commits (no router.refresh()
+  // on success), so this revalidation only matters for the next real
+  // navigation, not this one.
   revalidatePath('/editor', 'layout')
 }

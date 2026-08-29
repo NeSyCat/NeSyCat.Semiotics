@@ -39,6 +39,11 @@ export default function EditorSidebar({
   const [optimisticId, setOptimisticId] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
   const [optimisticNew, setOptimisticNew] = useState<Diagram | null>(null)
+  // Optimistic delete: ids hidden from the list immediately on click, before
+  // the server confirms. Rolled back (removed from this set) if the action
+  // throws. `diagrams` itself is the server-fetched prop — never mutated.
+  const [removedIds, setRemovedIds] = useState<Set<string>>(new Set())
+  const [deleteError, setDeleteError] = useState<string | null>(null)
 
   const [query, setQuery] = useState('')
   const searchInputRef = useRef<HTMLInputElement>(null)
@@ -63,6 +68,17 @@ export default function EditorSidebar({
     if (diagrams.some((d) => d.id === optimisticNew.id)) setOptimisticNew(null)
   }, [diagrams, optimisticNew])
 
+  // Once the server-fetched prop actually stops containing a deleted id
+  // (i.e. a real navigation picked up the fresh list), drop it from the
+  // optimistic removal set — nothing left for it to hide.
+  useEffect(() => {
+    setRemovedIds((prev) => {
+      if (prev.size === 0) return prev
+      const stillPresent = [...prev].filter((id) => diagrams.some((d) => d.id === id))
+      return stillPresent.length === prev.size ? prev : new Set(stillPresent)
+    })
+  }, [diagrams])
+
   const activePathId = pathname.match(UUID_IN_PATH)?.[1] ?? null
   const selectedId = optimisticId ?? activePathId
 
@@ -74,6 +90,7 @@ export default function EditorSidebar({
 
   const onCreate = () => {
     if (creating) return
+    setDeleteError(null)
     setCreating(true)
     startNavTransition(async () => {
       try {
@@ -98,22 +115,38 @@ export default function EditorSidebar({
   // Toolbar delete: delete the currently selected diagram
   const handleDelete = () => {
     if (!selectedId) return
-    const d = [...diagrams, ...(optimisticNew ? [optimisticNew] : [])].find((x) => x.id === selectedId)
+    const id = selectedId
+    const d = [...diagrams, ...(optimisticNew ? [optimisticNew] : [])].find((x) => x.id === id)
     if (!confirm(`Delete "${d?.title || 'Untitled'}"? This can't be undone.`)) return
+    const onThis = pathname.includes(id)
+    setDeleteError(null)
+    // Optimistic: the row is gone from the list the instant the confirm
+    // dialog closes, before the server has even been asked.
+    setRemovedIds((prev) => new Set(prev).add(id))
     startNavTransition(async () => {
-      await deleteDiagram(selectedId)
-      const onThis = pathname.includes(selectedId)
-      if (onThis) {
-        router.push(clientEditorHref())
-      } else {
-        router.refresh()
+      try {
+        await deleteDiagram(id)
+        // Same special case as before: deleting the diagram you're currently
+        // on navigates away; otherwise the optimistic removal above already
+        // reflects the delete, and deleteDiagram's own revalidatePath keeps
+        // the next real navigation fresh — no router.refresh() needed here.
+        if (onThis) router.push(clientEditorHref())
+      } catch (err) {
+        console.error('deleteDiagram failed', err)
+        setRemovedIds((prev) => {
+          const next = new Set(prev)
+          next.delete(id)
+          return next
+        })
+        setDeleteError(`Couldn't delete "${d?.title || 'Untitled'}" — please try again.`)
       }
     })
   }
 
-  const renderedDiagrams = optimisticNew
+  const renderedDiagrams = (optimisticNew
     ? [optimisticNew, ...diagrams.filter((d) => d.id !== optimisticNew.id)]
     : diagrams
+  ).filter((d) => !removedIds.has(d.id))
 
   const q = query.trim().toLowerCase()
   const filteredDiagrams = q
@@ -225,6 +258,14 @@ export default function EditorSidebar({
 
           {/* Diagram list */}
           <div className="flex-1 overflow-auto pt-3">
+            {deleteError && (
+              <p
+                className="t-small px-4 pb-2"
+                style={{ color: 'var(--color-destructive)' }}
+              >
+                {deleteError}
+              </p>
+            )}
             {filteredDiagrams.length === 0 ? (
               <div className="t-small px-4 py-4" style={{ color: 'var(--color-muted-foreground)' }}>
                 {creating ? 'Creating…' : q ? 'No matches.' : 'No diagrams yet.'}

@@ -1,6 +1,5 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
 import { useEffect, useRef, useState, useTransition } from 'react'
 import { renameDiagram } from '@/lib/actions/diagrams'
 import type { Diagram } from '@/lib/db'
@@ -24,9 +23,11 @@ export default function DiagramItem({
   triggerEdit: boolean
   onDoneEditing: () => void
 }) {
-  const router = useRouter()
   const [editing, setEditing] = useState(false)
   const [title, setTitle] = useState(d.title || 'Untitled')
+  // Set only when a commit's server round trip fails; cleared as soon as
+  // editing starts again so a stale hint doesn't linger under a fresh edit.
+  const [renameError, setRenameError] = useState<string | null>(null)
   const [, startRowTransition] = useTransition()
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -44,14 +45,28 @@ export default function DiagramItem({
     }
   }, [editing])
 
+  useEffect(() => { if (editing) setRenameError(null) }, [editing])
+
   const commit = () => {
+    const previous = d.title || 'Untitled'
     const next = title.trim() || 'Untitled'
     setEditing(false)
     onDoneEditing()
-    if (next === d.title) return
+    if (next === previous) return
+    // Optimistic: the trimmed title is already showing (title state tracked
+    // every keystroke) — commit it and fire the action in a transition with
+    // NO router.refresh() on success. The action's own revalidatePath keeps
+    // the next real navigation fresh; only a failure needs a reaction here,
+    // so revert the text and surface an inline hint.
+    setTitle(next)
     startRowTransition(async () => {
-      await renameDiagram(d.id, next)
-      router.refresh()
+      try {
+        await renameDiagram(d.id, next)
+      } catch (err) {
+        console.error('renameDiagram failed', err)
+        setTitle(previous)
+        setRenameError("Couldn't rename — please try again.")
+      }
     })
   }
 
@@ -118,6 +133,14 @@ export default function DiagramItem({
           </div>
         )}
       </div>
+      {renameError && (
+        <p
+          className="t-small truncate"
+          style={{ color: 'var(--color-destructive)', margin: '2px 10px 0', fontSize: 11 }}
+        >
+          {renameError}
+        </p>
+      )}
     </div>
   )
 }
