@@ -41,7 +41,28 @@ export async function getMe(): Promise<Me> {
   const { jwt, userId, email, userMetadata } = await session()
   const displayName = displayNameOf(email, userMetadata)
 
+  // Fast path: everything in ONE transaction (acceptance under a savepoint —
+  // see below). If that whole transaction dies at the CONNECTION level (the
+  // one case the savepoint cannot save: e.g. the socket drops mid-acceptance,
+  // taking the ROLLBACK TO SAVEPOINT down with it), retry ONCE on a fresh
+  // transaction WITHOUT the acceptance step — restoring the old
+  // two-transaction behavior's guarantee that sign-in never depends on the
+  // invitations subsystem, without paying its extra round trip on every
+  // normal load. Acceptance simply happens on the next page load instead.
+  try {
+    return await getMeInTx(jwt, userId, email, displayName, true)
+  } catch (err) {
+    console.error('getMe: transaction failed, retrying once without invitation acceptance:', err)
+    return getMeInTx(jwt, userId, email, displayName, false)
+  }
+}
+
+function getMeInTx(
+  jwt: string | null, userId: string, email: string, displayName: string,
+  acceptInvitations: boolean,
+): Promise<Me> {
   return withRLS(jwt, async (tx) => {
+    if (!acceptInvitations) return readOrBootstrap(tx, userId, email, displayName)
     // ACCEPTANCE STEP: turn every open invitation addressed to this session's
     // email into a real membership — an invite is accepted automatically on the
     // invitee's next sign-in, there is no separate "accept" screen (see the
@@ -103,6 +124,14 @@ export async function getMe(): Promise<Me> {
       )
     }
 
+    return readOrBootstrap(tx, userId, email, displayName)
+  })
+}
+
+// The read/bootstrap half of getMe — always runs, with or without the
+// acceptance step ahead of it (see getMe's retry-without-acceptance path).
+async function readOrBootstrap(tx: Tx, userId: string, email: string, displayName: string): Promise<Me> {
+  {
     const myMemberships = await tx.orm.public.memberships.where({ user_id: userId }).all()
     if (myMemberships.length > 0) {
       // Restructured from a single memberships⋈organizations join (P8's ORM
@@ -155,7 +184,7 @@ export async function getMe(): Promise<Me> {
       displayName,
       memberships: [{ organizationId, organizationName, isOwner: true }],
     }
-  })
+  }
 }
 
 export async function renameOrganization(id: string, name: string): Promise<ActionResult> {
