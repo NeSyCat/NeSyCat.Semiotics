@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { supabaseConfigured } from '@/lib/supabase/env'
 import { createDiagram, listDiagrams } from '@/lib/actions/diagrams'
 import { getMe } from '@/lib/actions/organizations'
 import { resolveActiveOrg } from '@/lib/active-org'
@@ -8,8 +9,12 @@ import AnonymousEditor from '@/components/editor/AnonymousEditor'
 import AuthSharePill from '@/components/AuthSharePill'
 
 export default async function EditorIndex() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  // No Supabase env (CI, fresh checkout) → there can be no user; go straight
+  // to the anonymous sandbox instead of crashing on client creation.
+  // See lib/supabase/env.ts.
+  const user = supabaseConfigured()
+    ? (await (await createClient()).auth.getUser()).data.user
+    : null
   // Anonymous: render the auth-free editor directly — never run
   // session-throwing actions (listDiagrams/createDiagram) without a user.
   if (!user) {

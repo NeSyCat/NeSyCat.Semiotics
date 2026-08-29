@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import { COOKIE_DOMAIN, isNesycatHost } from '@/lib/editor-url'
+import { supabaseConfigured } from '@/lib/supabase/env'
 
 function makeResponse(request: NextRequest, rewriteTo: URL | null) {
   return rewriteTo
@@ -9,6 +10,10 @@ function makeResponse(request: NextRequest, rewriteTo: URL | null) {
 }
 
 export async function updateSession(request: NextRequest, rewriteTo: URL | null = null) {
+  // No Supabase env (CI, fresh checkout) → skip session refresh entirely:
+  // every visitor is anonymous, requests must not 500. See lib/supabase/env.ts.
+  if (!supabaseConfigured()) return makeResponse(request, rewriteTo)
+
   const host = request.headers.get('host') ?? ''
   const shareCookieDomain = process.env.NODE_ENV === 'production' && isNesycatHost(host)
 
