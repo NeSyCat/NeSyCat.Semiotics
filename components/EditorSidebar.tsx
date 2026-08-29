@@ -217,6 +217,18 @@ export default function EditorSidebar({
     // Optimistic: the row is gone from the list the instant the confirm
     // dialog closes, before the server has even been asked.
     setRemovedIds((prev) => new Set(prev).add(id))
+    // Also purge the id from the optimistic/remote INSERT layers: deleting a
+    // just-created row (create → delete before the server prop ever carried
+    // it) would otherwise leave optimisticNew/remoteInserted holding it
+    // forever — removedIds gets cleaned on the next prop refresh, and the
+    // orphaned insert-layer entry would resurface the deleted row as a ghost.
+    setOptimisticNew((prev) => (prev?.id === id ? null : prev))
+    setRemoteInserted((prev) => {
+      if (!prev.has(id)) return prev
+      const next = new Map(prev)
+      next.delete(id)
+      return next
+    })
     startNavTransition(async () => {
       try {
         await deleteDiagram(id)

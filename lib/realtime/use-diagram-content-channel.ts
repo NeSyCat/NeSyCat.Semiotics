@@ -18,7 +18,7 @@ import type { DiagramChangeRow } from './use-diagrams-channel'
 // use-diagrams-channel.ts): diagramId null, or Supabase env absent
 // (anonymous/env-less mode). Never throws into React.
 //
-// Requires prisma/sql/03-realtime-publication.sql to be applied.
+// Requires prisma/sql/03-realtime.sql to be applied.
 export function useDiagramContentChannel(diagramId: string | null, onUpdate: (row: DiagramChangeRow) => void) {
   const onUpdateRef = useRef(onUpdate)
   onUpdateRef.current = onUpdate
@@ -27,8 +27,10 @@ export function useDiagramContentChannel(diagramId: string | null, onUpdate: (ro
     if (!diagramId || !supabaseConfigured()) return
 
     let channel: RealtimeChannel | null = null
+    let client: ReturnType<typeof createClient> | null = null
     try {
       const supabase = createClient()
+      client = supabase
       channel = supabase
         .channel(`diagram-content-${diagramId}`)
         .on(
@@ -56,9 +58,14 @@ export function useDiagramContentChannel(diagramId: string | null, onUpdate: (ro
     return () => {
       if (!channel) return
       try {
-        channel.unsubscribe()
+        // removeChannel (not bare unsubscribe): createBrowserClient is a
+        // singleton, so an unsubscribed-but-not-removed channel object would
+        // accumulate on it across every org/diagram switch — a slow leak in
+        // long sessions.
+        if (client) client.removeChannel(channel)
+        else channel.unsubscribe()
       } catch (err) {
-        console.error('useDiagramContentChannel: unsubscribe failed', err)
+        console.error('useDiagramContentChannel: channel cleanup failed', err)
       }
     }
   }, [diagramId])

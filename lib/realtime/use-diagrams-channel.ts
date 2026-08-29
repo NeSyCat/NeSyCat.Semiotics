@@ -40,7 +40,7 @@ export interface DiagramsChannelCallbacks {
 // Never throws into React: subscribe/unsubscribe failures are caught and
 // logged, and the effect always returns a (possibly no-op) cleanup.
 //
-// Requires prisma/sql/03-realtime-publication.sql to be applied — until
+// Requires prisma/sql/03-realtime.sql to be applied — until
 // then postgres_changes emits nothing and this hook is a silent no-op at
 // the Postgres level (the .subscribe() call itself still succeeds).
 export function useDiagramsChannel(organizationId: string | null, callbacks: DiagramsChannelCallbacks) {
@@ -53,8 +53,10 @@ export function useDiagramsChannel(organizationId: string | null, callbacks: Dia
     if (!organizationId || !supabaseConfigured()) return
 
     let channel: RealtimeChannel | null = null
+    let client: ReturnType<typeof createClient> | null = null
     try {
       const supabase = createClient()
+      client = supabase
       channel = supabase
         .channel(`diagrams-org-${organizationId}`)
         .on(
@@ -92,9 +94,14 @@ export function useDiagramsChannel(organizationId: string | null, callbacks: Dia
     return () => {
       if (!channel) return
       try {
-        channel.unsubscribe()
+        // removeChannel (not bare unsubscribe): createBrowserClient is a
+        // singleton, so an unsubscribed-but-not-removed channel object would
+        // accumulate on it across every org/diagram switch — a slow leak in
+        // long sessions.
+        if (client) client.removeChannel(channel)
+        else channel.unsubscribe()
       } catch (err) {
-        console.error('useDiagramsChannel: unsubscribe failed', err)
+        console.error('useDiagramsChannel: channel cleanup failed', err)
       }
     }
   }, [organizationId])

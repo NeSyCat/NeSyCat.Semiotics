@@ -37,7 +37,12 @@ export default function DiagramItem({
   const [, startRowTransition] = useTransition()
   const inputRef = useRef<HTMLInputElement>(null)
 
-  useEffect(() => { setTitle(d.title || 'Untitled') }, [d.title])
+  // Sync from the server prop (fresh navigation, or a REMOTE rename arriving
+  // over the realtime channel) — but never while THIS row is being edited:
+  // clobbering the half-typed input with another member's concurrent rename
+  // would throw away the user's in-progress text. Their commit then wins
+  // last-write-wins, same as any concurrent edit.
+  useEffect(() => { if (!editing) setTitle(d.title || 'Untitled') }, [d.title, editing])
 
   // Toolbar rename button sets triggerEdit → activate inline editing
   useEffect(() => {
