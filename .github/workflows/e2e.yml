@@ -23,16 +23,21 @@ on:
 jobs:
   e2e:
     runs-on: ubuntu-latest
+    # The `secrets` context is NOT allowed in a step-level `if` (the workflow
+    # doesn't even parse — every push shows a 0s failure run). Hoist the
+    # secret into job env and gate the steps on `env`, which IS allowed.
+    env:
+      ADMINATION_DS_TOKEN: ${{ secrets.ADMINATION_DS_TOKEN }}
     steps:
       - name: Checkout (with private submodule, if the token is available)
-        if: ${{ secrets.ADMINATION_DS_TOKEN != '' }}
+        if: ${{ env.ADMINATION_DS_TOKEN != '' }}
         uses: actions/checkout@v4
         with:
           submodules: recursive
           token: ${{ secrets.ADMINATION_DS_TOKEN }}
 
       - name: Checkout (no submodule token available)
-        if: ${{ secrets.ADMINATION_DS_TOKEN == '' }}
+        if: ${{ env.ADMINATION_DS_TOKEN == '' }}
         uses: actions/checkout@v4
 
       - name: Set up Node.js
