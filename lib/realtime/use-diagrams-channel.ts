@@ -4,6 +4,7 @@ import { useEffect, useRef } from 'react'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/client'
 import { supabaseConfigured } from '@/lib/supabase/env'
+import { ensureRealtimeAuth } from './ensure-auth'
 
 // The shape postgres_changes hands back for a public.diagrams row. Matches
 // the contract (prisma/contract.prisma `model diagrams`) field-for-field;
@@ -54,44 +55,85 @@ export function useDiagramsChannel(organizationId: string | null, callbacks: Dia
 
     let channel: RealtimeChannel | null = null
     let client: ReturnType<typeof createClient> | null = null
+    let cancelled = false
+    ;(async () => {
     try {
       const supabase = createClient()
       client = supabase
+      // MUST run before subscribe — the socket is otherwise anonymous and
+      // RLS drops every event. See lib/realtime/ensure-auth.ts.
+      await ensureRealtimeAuth(supabase)
+      if (cancelled) return // unmounted/org changed while awaiting
       channel = supabase
         .channel(`diagrams-org-${organizationId}`)
         .on(
           'postgres_changes',
           {
-            event: '*',
+            event: 'INSERT',
             schema: 'public',
             table: 'diagrams',
             filter: `organization_id=eq.${organizationId}`,
           },
           (payload) => {
             try {
-              if (payload.eventType === 'INSERT') {
-                callbacksRef.current.onInsert?.(payload.new as DiagramChangeRow)
-              } else if (payload.eventType === 'UPDATE') {
-                callbacksRef.current.onUpdate?.(payload.new as DiagramChangeRow)
-              } else if (payload.eventType === 'DELETE') {
-                // Default replica identity: DELETE's `old` carries only the
-                // primary key (id) — sufficient for list removal, nothing
-                // else is readable off it.
-                const old = payload.old as Partial<DiagramChangeRow>
-                if (old.id) callbacksRef.current.onDelete?.(old.id)
-              }
+              callbacksRef.current.onInsert?.(payload.new as DiagramChangeRow)
             } catch (err) {
-              console.error('useDiagramsChannel: callback failed', err)
+              console.error('useDiagramsChannel: onInsert failed', err)
             }
           },
         )
-        .subscribe()
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'diagrams',
+            filter: `organization_id=eq.${organizationId}`,
+          },
+          (payload) => {
+            try {
+              callbacksRef.current.onUpdate?.(payload.new as DiagramChangeRow)
+            } catch (err) {
+              console.error('useDiagramsChannel: onUpdate failed', err)
+            }
+          },
+        )
+        // DELETE deliberately has NO organization filter — it structurally
+        // CANNOT have one: under the table's default replica identity a
+        // DELETE's `old` record carries ONLY the primary key, so a filter on
+        // organization_id never matches and the server silently drops every
+        // delete (found empirically: renames arrived, deletes never did).
+        // Listening unfiltered and matching ids client-side is the standard
+        // workaround; all that reaches a non-member from a foreign delete is
+        // an opaque row uuid (RLS cannot evaluate DELETEs either way), and
+        // the sidebar ignores ids it doesn't have.
+        .on(
+          'postgres_changes',
+          { event: 'DELETE', schema: 'public', table: 'diagrams' },
+          (payload) => {
+            try {
+              const old = payload.old as Partial<DiagramChangeRow>
+              if (old.id) callbacksRef.current.onDelete?.(old.id)
+            } catch (err) {
+              console.error('useDiagramsChannel: onDelete failed', err)
+            }
+          },
+        )
+        // Status callback so a failing subscription is VISIBLE: without it a
+        // channel that errors or times out just silently never delivers —
+        // the exact failure mode that hid the socket-auth bug.
+        .subscribe((status, err) => {
+          if (status === 'SUBSCRIBED') console.debug('useDiagramsChannel: subscribed')
+          else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') console.error('useDiagramsChannel: channel ' + status, err)
+        })
     } catch (err) {
       console.error('useDiagramsChannel: subscribe failed', err)
       channel = null
     }
+    })()
 
     return () => {
+      cancelled = true
       if (!channel) return
       try {
         // removeChannel (not bare unsubscribe): createBrowserClient is a

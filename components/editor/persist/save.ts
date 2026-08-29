@@ -135,18 +135,30 @@ function applyRemoteDiagramUpdate(
 
   let incoming: Diagram
   try {
-    incoming = restoreDiagram(row.data)
+    // Realtime jsonb normally arrives decoded, but log the shape so a
+    // string/mangled payload (which restoreDiagram would silently normalize
+    // to an empty diagram) is visible instead of masquerading as a skip.
+    console.debug('applyRemoteDiagramUpdate: incoming data type', typeof row.data,
+      typeof row.data === 'string' ? (row.data as string).slice(0, 80) : JSON.stringify(row.data)?.slice(0, 80))
+    incoming = restoreDiagram(typeof row.data === 'string' ? JSON.parse(row.data) : row.data)
   } catch (err) {
     console.error('applyRemoteDiagramUpdate: restoreDiagram failed', err)
     return
   }
 
   const incomingJson = JSON.stringify(incoming)
-  if (incomingJson === JSON.stringify(useStore.getState().diagram)) return // no actual change
-  if (incomingJson === lastSavedJsonRef.current) return // echo of our own save
+  if (incomingJson === JSON.stringify(useStore.getState().diagram)) {
+    console.debug('applyRemoteDiagramUpdate: identical to current state, skipped')
+    return
+  }
+  if (incomingJson === lastSavedJsonRef.current) {
+    console.debug('applyRemoteDiagramUpdate: own-save echo, skipped')
+    return
+  }
 
   lastSavedJsonRef.current = incomingJson
   useStore.setState({ diagram: incoming })
+  console.debug('applyRemoteDiagramUpdate: remote snapshot applied')
 }
 
 // Quiver-style URL sync: every debounced edit rewrites the fragment via
