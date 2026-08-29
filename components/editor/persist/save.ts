@@ -1,10 +1,12 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, type MutableRefObject } from 'react'
 import { useStore, isHydrating } from '../state/store'
 import { saveDiagram } from '@/lib/actions/diagrams'
 import { restoreDiagram } from './io'
 import { encodeJsonToFragment } from './share'
+import { useDiagramContentChannel } from '@/lib/realtime/use-diagram-content-channel'
+import type { DiagramChangeRow } from '@/lib/realtime/use-diagrams-channel'
 import type { Diagram } from '../domain/types'
 
 const DEBOUNCE_MS = 300
@@ -18,10 +20,20 @@ export const LOCAL_DRAFT_KEY = 'nesycat.editor.draft'
 // back to the old key), and flushes on unload. `sink` receives the
 // already-computed JSON string (so callers never double-stringify) plus the
 // snapshot it was computed from.
-function useDebouncedDiagramSink(key: string | null, sink: (json: string, snapshot: Diagram) => void) {
+// `externalLastSavedJsonRef`, when passed, is used in place of the ref this
+// hook would otherwise create internally, so a caller (useAutosave, for the
+// write-loop guard below) can both read it (skip re-saving an incoming
+// remote echo) and write it (mark a remote snapshot as already-saved so the
+// next debounced flush dedupes it away instead of echoing it back to the DB).
+function useDebouncedDiagramSink(
+  key: string | null,
+  sink: (json: string, snapshot: Diagram) => void,
+  externalLastSavedJsonRef?: MutableRefObject<string | null>,
+) {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const pendingRef = useRef<Diagram | null>(null)
-  const lastSavedJsonRef = useRef<string | null>(null)
+  const ownLastSavedJsonRef = useRef<string | null>(null)
+  const lastSavedJsonRef = externalLastSavedJsonRef ?? ownLastSavedJsonRef
 
   useEffect(() => {
     if (!key) return
@@ -64,13 +76,77 @@ function useDebouncedDiagramSink(key: string | null, sink: (json: string, snapsh
 }
 
 // Autosave: debounced, deduped writes to the DB via the saveDiagram server
-// action. Signature and behavior unchanged from before the sink extraction.
+// action, plus live content sync for this diagram: an UPDATE from another
+// client (another tab, another member, or the MCP server — which writes
+// diagrams directly and today is invisible to an already-open editor)
+// hydrates the store in place instead of leaving the canvas stale.
+//
+// Write-loop guard: applyRemoteDiagramUpdate below shares `lastSavedJsonRef`
+// with the debounced sink above. When a remote row is applied, it stamps
+// `lastSavedJsonRef.current` with the incoming JSON *before* touching the
+// store. Setting `diagram` still runs through the same zustand subscription
+// the sink uses (state.diagram !== prev.diagram), which schedules a normal
+// debounced flush — but when that flush's `JSON.stringify(snapshot)` is
+// compared against `lastSavedJsonRef.current`, they're now equal (both are
+// the just-applied remote JSON), so the existing dedupe skips the write.
+// The remote echo never round-trips back to the DB as a duplicate save, and
+// no new machinery was needed for it — the guard rides the sink's existing
+// "skip a write when it matches what we last saved" rule.
 export function useAutosave(diagramId: string | null) {
-  useDebouncedDiagramSink(diagramId, (_json, snapshot) => {
-    saveDiagram(diagramId as string, snapshot).catch((err) => {
-      console.error('saveDiagram failed', err)
-    })
+  const lastSavedJsonRef = useRef<string | null>(null)
+
+  useDebouncedDiagramSink(
+    diagramId,
+    (_json, snapshot) => {
+      saveDiagram(diagramId as string, snapshot).catch((err) => {
+        console.error('saveDiagram failed', err)
+      })
+    },
+    lastSavedJsonRef,
+  )
+
+  useDiagramContentChannel(diagramId, (row) => {
+    applyRemoteDiagramUpdate(diagramId, row, lastSavedJsonRef)
   })
+}
+
+// Applies an incoming realtime UPDATE row to the store, iff it is a genuine
+// change from ANOTHER client — i.e. it differs both from what's currently
+// on screen (nothing to do) and from the last JSON this tab itself saved
+// (that's just this save's own echo arriving back over the wire).
+//
+// Hydrates via a direct `useStore.setState({ diagram })` rather than
+// `initStore` or any of the mutation helpers in state/store.ts: none of the
+// store's undoable mutators (`setCur`) run, so `history`/`historyIndex` are
+// left untouched — no undo entry is created for a remote change, matching
+// the ticket's requirement, without the larger reset (history, selection,
+// coalesce tag) `initStore` performs for a fresh document load. Trade-off:
+// `history[historyIndex]` no longer matches `diagram` after this call, so an
+// immediate Undo jumps back to this tab's last local edit rather than "one
+// step before the remote change" — acceptable since the alternative
+// (initStore's full reset) would discard this tab's own undo stack instead.
+function applyRemoteDiagramUpdate(
+  diagramId: string | null,
+  row: DiagramChangeRow,
+  lastSavedJsonRef: MutableRefObject<string | null>,
+) {
+  if (!diagramId || row.id !== diagramId) return
+  if (isHydrating()) return // a fresh initStore (e.g. cross-diagram nav) is in flight
+
+  let incoming: Diagram
+  try {
+    incoming = restoreDiagram(row.data)
+  } catch (err) {
+    console.error('applyRemoteDiagramUpdate: restoreDiagram failed', err)
+    return
+  }
+
+  const incomingJson = JSON.stringify(incoming)
+  if (incomingJson === JSON.stringify(useStore.getState().diagram)) return // no actual change
+  if (incomingJson === lastSavedJsonRef.current) return // echo of our own save
+
+  lastSavedJsonRef.current = incomingJson
+  useStore.setState({ diagram: incoming })
 }
 
 // Quiver-style URL sync: every debounced edit rewrites the fragment via

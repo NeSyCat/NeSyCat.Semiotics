@@ -8,6 +8,7 @@ import {
 } from '@/lib/actions/diagrams'
 import { clientEditorHref } from '@/lib/editor-url'
 import type { Diagram } from '@/lib/db'
+import { useDiagramsChannel, type DiagramChangeRow } from '@/lib/realtime/use-diagrams-channel'
 import {
   SearchIcon,
   PlusIcon,
@@ -45,11 +46,104 @@ export default function EditorSidebar({
   const [removedIds, setRemovedIds] = useState<Set<string>>(new Set())
   const [deleteError, setDeleteError] = useState<string | null>(null)
 
+  // Live sync (lib/realtime/use-diagrams-channel.ts): rows INSERTed by
+  // another client in this org that the server-fetched `diagrams` prop
+  // doesn't have yet, and title/updated_at UPDATE patches layered on top of
+  // whichever row (server or remote-inserted) they target.
+  const [remoteInserted, setRemoteInserted] = useState<Map<string, Diagram>>(new Map())
+  const [remotePatches, setRemotePatches] = useState<Map<string, { title: string; updated_at: string }>>(new Map())
+  // Ids with a rename commit currently in flight from THIS tab (DiagramItem,
+  // via onRenamePendingChange) — an incoming UPDATE patch is held back for
+  // these so a remote echo of an older title can't clobber the optimistic
+  // value already showing while our own renameDiagram call is still pending.
+  const [pendingRenameIds, setPendingRenameIds] = useState<Set<string>>(new Set())
+
   const [query, setQuery] = useState('')
   const searchInputRef = useRef<HTMLInputElement>(null)
 
   // Which diagram is being inline-renamed (triggered from toolbar)
   const [editingId, setEditingId] = useState<string | null>(null)
+
+  useDiagramsChannel(activeOrgId, {
+    onInsert: (row) => {
+      // Our own create already arrives via optimisticNew (set synchronously
+      // in onCreate) and, eventually, the server-fetched `diagrams` prop —
+      // skip both so a self-created diagram never double-renders.
+      if (diagrams.some((existing) => existing.id === row.id)) return
+      if (optimisticNew?.id === row.id) return
+      setRemoteInserted((prev) => {
+        if (prev.has(row.id)) return prev
+        const next = new Map(prev)
+        next.set(row.id, row as unknown as Diagram)
+        return next
+      })
+    },
+    onUpdate: (row: DiagramChangeRow) => {
+      setRemotePatches((prev) => {
+        const next = new Map(prev)
+        next.set(row.id, { title: row.title, updated_at: row.updated_at })
+        return next
+      })
+    },
+    onDelete: (id) => {
+      setRemovedIds((prev) => (prev.has(id) ? prev : new Set(prev).add(id)))
+      setRemoteInserted((prev) => {
+        if (!prev.has(id)) return prev
+        const next = new Map(prev)
+        next.delete(id)
+        return next
+      })
+      setRemotePatches((prev) => {
+        if (!prev.has(id)) return prev
+        const next = new Map(prev)
+        next.delete(id)
+        return next
+      })
+    },
+  })
+
+  // A remote-inserted row drops out once the server-fetched prop actually
+  // contains it (a real navigation/revalidation picked up the fresh list) —
+  // same "server prop wins once it catches up" pattern as optimisticNew.
+  useEffect(() => {
+    setRemoteInserted((prev) => {
+      if (prev.size === 0) return prev
+      let changed = false
+      const next = new Map(prev)
+      for (const id of prev.keys()) {
+        if (diagrams.some((d) => d.id === id)) {
+          next.delete(id)
+          changed = true
+        }
+      }
+      return changed ? next : prev
+    })
+  }, [diagrams])
+
+  // Once the server prop's own title matches a patch, the patch has served
+  // its purpose (bridged the gap until revalidation) — drop it so a later,
+  // unrelated server refresh can't ever re-apply a now-stale title.
+  useEffect(() => {
+    setRemotePatches((prev) => {
+      if (prev.size === 0) return prev
+      let changed = false
+      const next = new Map(prev)
+      for (const [id, patch] of prev) {
+        const base = diagrams.find((d) => d.id === id)
+        if (base && base.title === patch.title) {
+          next.delete(id)
+          changed = true
+        }
+      }
+      return changed ? next : prev
+    })
+  }, [diagrams])
+
+  // Org switch: the previous org's remote-only state no longer applies.
+  useEffect(() => {
+    setRemoteInserted(new Map())
+    setRemotePatches(new Map())
+  }, [activeOrgId])
 
   // Expose sidebar width for canvas overlay controls
   useEffect(() => {
@@ -143,10 +237,31 @@ export default function EditorSidebar({
     })
   }
 
-  const renderedDiagrams = (optimisticNew
+  const baseDiagrams = optimisticNew
     ? [optimisticNew, ...diagrams.filter((d) => d.id !== optimisticNew.id)]
     : diagrams
-  ).filter((d) => !removedIds.has(d.id))
+
+  // Remote INSERTs prepended like optimisticNew above — a brand-new row's
+  // updated_at is the most recent, matching listDiagrams' updated_at-desc
+  // order (lib/actions/diagrams.ts).
+  const withRemoteInserts =
+    remoteInserted.size === 0
+      ? baseDiagrams
+      : [...[...remoteInserted.values()].filter((d) => !baseDiagrams.some((b) => b.id === d.id)), ...baseDiagrams]
+
+  // Remote UPDATE patches applied in place (no reordering — an in-place
+  // title/timestamp patch shouldn't jump the row to the top while someone
+  // is scanning the list), skipped for rows with a same-tab rename in flight.
+  const withRemotePatches =
+    remotePatches.size === 0
+      ? withRemoteInserts
+      : withRemoteInserts.map((d) => {
+          const patch = remotePatches.get(d.id)
+          if (!patch || pendingRenameIds.has(d.id)) return d
+          return { ...d, title: patch.title, updated_at: patch.updated_at as unknown as Diagram['updated_at'] }
+        })
+
+  const renderedDiagrams = withRemotePatches.filter((d) => !removedIds.has(d.id))
 
   const q = query.trim().toLowerCase()
   const filteredDiagrams = q
@@ -280,6 +395,16 @@ export default function EditorSidebar({
                   onSelect={() => goTo(d.id)}
                   triggerEdit={editingId === d.id}
                   onDoneEditing={() => setEditingId(null)}
+                  onRenamePendingChange={(isPending) => {
+                    setPendingRenameIds((prev) => {
+                      const has = prev.has(d.id)
+                      if (isPending === has) return prev
+                      const next = new Set(prev)
+                      if (isPending) next.add(d.id)
+                      else next.delete(d.id)
+                      return next
+                    })
+                  }}
                 />
               ))
             )}

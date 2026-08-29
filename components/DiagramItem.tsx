@@ -15,6 +15,7 @@ export default function DiagramItem({
   onSelect,
   triggerEdit,
   onDoneEditing,
+  onRenamePendingChange,
 }: {
   d: Diagram
   active: boolean
@@ -22,6 +23,11 @@ export default function DiagramItem({
   onSelect: () => void
   triggerEdit: boolean
   onDoneEditing: () => void
+  // Reports true right before the rename server action fires and false once
+  // it settles (success or failure) — lets EditorSidebar hold back a remote
+  // realtime title patch for this row while our own optimistic rename is
+  // still in flight. Optional so existing/other callers are unaffected.
+  onRenamePendingChange?: (pending: boolean) => void
 }) {
   const [editing, setEditing] = useState(false)
   const [title, setTitle] = useState(d.title || 'Untitled')
@@ -59,6 +65,7 @@ export default function DiagramItem({
     // the next real navigation fresh; only a failure needs a reaction here,
     // so revert the text and surface an inline hint.
     setTitle(next)
+    onRenamePendingChange?.(true)
     startRowTransition(async () => {
       try {
         await renameDiagram(d.id, next)
@@ -66,6 +73,8 @@ export default function DiagramItem({
         console.error('renameDiagram failed', err)
         setTitle(previous)
         setRenameError("Couldn't rename — please try again.")
+      } finally {
+        onRenamePendingChange?.(false)
       }
     })
   }

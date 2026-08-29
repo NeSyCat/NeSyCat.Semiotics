@@ -173,6 +173,37 @@ you're debugging a red run or extending these specs:
   dot-click still resolve correctly after the view transform changes"
   concern IS covered on WebKit, just not via the zoom path specifically.
 
+## Realtime
+
+The editor has Supabase Realtime (`postgres_changes`) wiring for live sync:
+a sidebar that reflects INSERT/UPDATE/DELETE on `public.diagrams` from
+other clients within the same organization
+(`lib/realtime/use-diagrams-channel.ts`, wired in `EditorSidebar.tsx`), and
+content sync for the currently-open diagram so an external write (another
+tab, another member, or the MCP server) hydrates the canvas in place
+(`lib/realtime/use-diagram-content-channel.ts`, wired inside `useAutosave` —
+`components/editor/persist/save.ts`).
+
+Two things worth knowing if you're debugging this area:
+
+- **The publication SQL must be applied for any event to flow.**
+  `prisma/sql/03-realtime.sql` adds `public.diagrams` to the
+  `supabase_realtime` publication; a DB that hasn't had it applied emits no
+  `postgres_changes` events at all for this table (the subscribe calls
+  themselves still succeed — they just never fire). Like the rest of
+  `prisma/sql/`, it's hand-applied via `psql`, not run by this test suite.
+- **This suite does not exercise Realtime.** Every spec here runs against
+  the unauthenticated `AnonymousEditor` (see the top of this file) — no
+  Supabase session, no organization, `diagramId` is always `null`. That is
+  exactly the condition under which every realtime hook in `lib/realtime/`
+  no-ops (checked via `lib/supabase/env.ts`'s `supabaseConfigured()`), so a
+  green run here is evidence the realtime code is inert with no env/session,
+  not evidence that live sync itself works. There is no authenticated,
+  two-client E2E coverage for the INSERT/UPDATE/DELETE sidebar sync, the
+  content-sync hydration, or the autosave write-loop guard — that needs a
+  real Supabase project (the publication SQL applied, two authenticated
+  sessions in the same org) and is presently verified manually.
+
 ## CI secret requirement
 
 `.github/workflows/e2e.yml` checks out `submodules: recursive` using
