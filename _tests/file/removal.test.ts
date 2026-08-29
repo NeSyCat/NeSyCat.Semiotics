@@ -168,8 +168,8 @@ describe('corner points and point-shape form removal', () => {
     const raw: Diagram = {
       schemaVersion: 1,
       forms: [
-        { id: 'RT1', shape: 'square', position: { x: 10, y: 20 }, edges: { top: ['RP1'], right: [], bottom: [], left: [] } },
-        { id: 'RT2', shape: 'circle', position: { x: 300, y: 20 }, edges: { up: [], right: [], down: [], left: ['RP2'] } },
+        { id: 'RT1', shape: 'square', position: { x: 10, y: 20 }, edges: { top: ['RP1'], right: [], bottom: [], left: [], 'corner-tl': [], 'corner-tr': [], 'corner-br': [], 'corner-bl': [], 'center-up': [], 'center-down': [], 'center': [] } },
+        { id: 'RT2', shape: 'circle', position: { x: 300, y: 20 }, edges: { up: [], right: [], down: [], left: ['RP2'], 'center-up': [], 'center-down': [], 'center': [] } },
       ],
       points: {
         RP1: { id: 'RP1', shape: 'circle', name: 'x', formId: 'RT1', edgeKey: 'top' },

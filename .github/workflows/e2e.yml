@@ -1,0 +1,181 @@
+# Playwright E2E suite over the /editor React Flow canvas. Runs the DEV
+# server (`next dev -p 3210`), not a production build (whose
+# vercel-prebuild.sh step this job doesn't need). See _tests/e2e/README.md
+# for the full rationale (dedicated port, selection oracle).
+#
+# SECRET REQUIRED: ADMINATION_DS_TOKEN — the same fine-grained read-only PAT
+# for the private design-system repo that the Vercel project uses. The DEV
+# server needs it too: app/layout.tsx imports
+# `admination-design-system/components/index.css`, a file: dependency into
+# the private `vendor/Admination.02-Design` submodule — without the
+# submodule the app cannot compile AT ALL, dev or prod. The guard step below
+# fails fast with instructions instead of timing out.
+#
+# Two independent jobs: `e2e` (this file's original, anonymous/localStorage
+# lane, untouched) and `e2e-authed` (_tests/e2e-authed — a local Supabase
+# stack, real auth/DB/Realtime, chromium only). See that job's own comments.
+
+name: E2E
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    # The `secrets` context is NOT allowed in a step-level `if` (the workflow
+    # doesn't even parse — every push shows a 0s failure run). Hoist the
+    # secret into job env and gate the steps on `env`, which IS allowed.
+    env:
+      ADMINATION_DS_TOKEN: ${{ secrets.ADMINATION_DS_TOKEN }}
+    steps:
+      - name: Checkout (with private submodule, if the token is available)
+        if: ${{ env.ADMINATION_DS_TOKEN != '' }}
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          token: ${{ secrets.ADMINATION_DS_TOKEN }}
+
+      - name: Checkout (no submodule token available)
+        if: ${{ env.ADMINATION_DS_TOKEN == '' }}
+        uses: actions/checkout@v4
+
+      - name: Require the design-system submodule
+        run: |
+          if [ ! -e vendor/Admination.02-Design/0-foundations/admination-design-system/package.json ]; then
+            echo "::error::vendor/Admination.02-Design is missing (app/layout.tsx imports admination-design-system CSS, so the app cannot compile). Add the ADMINATION_DS_TOKEN repository secret — the same fine-grained read-only PAT the Vercel project uses (gh secret set ADMINATION_DS_TOKEN) — so checkout can fetch the private submodule."
+            exit 1
+          fi
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium firefox webkit
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+
+      - name: Install Playwright OS dependencies (cache hit)
+        run: npx playwright install-deps chromium firefox webkit
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+
+      - name: Run Playwright tests
+        run: npx playwright test
+        env:
+          CI: true
+
+      - name: Upload Playwright report
+        if: ${{ !cancelled() && failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 14
+
+      - name: Upload test results (traces/videos)
+        if: ${{ !cancelled() && failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: test-results/
+          retention-days: 14
+
+  # AUTHENTICATED lane (_tests/e2e-authed) — a separate job on a separate
+  # runner from `e2e` above, so it can never affect that job's result and
+  # never touches the same test-results/playwright-report output paths.
+  # Boots a LOCAL Supabase stack (Docker, pre-installed on ubuntu-latest
+  # runners) and NEVER the remote/production project — see
+  # _tests/e2e-authed/README.md and scripts/setup.ts for the full mechanism.
+  # Chromium only, per the ticket: the authed lane's value is exercising
+  # real auth/DB/Realtime plumbing once, not cross-browser coverage a
+  # second time (already covered by the `e2e` job above).
+  e2e-authed:
+    runs-on: ubuntu-latest
+    env:
+      ADMINATION_DS_TOKEN: ${{ secrets.ADMINATION_DS_TOKEN }}
+    steps:
+      - name: Checkout (with private submodule, if the token is available)
+        if: ${{ env.ADMINATION_DS_TOKEN != '' }}
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          token: ${{ secrets.ADMINATION_DS_TOKEN }}
+
+      - name: Checkout (no submodule token available)
+        if: ${{ env.ADMINATION_DS_TOKEN == '' }}
+        uses: actions/checkout@v4
+
+      - name: Require the design-system submodule
+        run: |
+          if [ ! -e vendor/Admination.02-Design/0-foundations/admination-design-system/package.json ]; then
+            echo "::error::vendor/Admination.02-Design is missing (app/layout.tsx imports admination-design-system CSS, so the app cannot compile). Add the ADMINATION_DS_TOKEN repository secret — the same fine-grained read-only PAT the Vercel project uses (gh secret set ADMINATION_DS_TOKEN) — so checkout can fetch the private submodule."
+            exit 1
+          fi
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Cache Playwright Chromium
+        uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+
+      - name: Install Playwright OS dependencies (cache hit)
+        run: npx playwright install-deps chromium
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+
+      # `npm run test:e2e:authed` runs BOTH halves: scripts/setup.ts (starts
+      # the local stack, bootstraps prisma/contract.prisma + prisma/sql/ in
+      # preview-db.yml's exact step order, seeds two fresh users, writes
+      # .env.test.local) and then the authed-setup + authed-chromium
+      # Playwright projects — see package.json.
+      - name: Run authed Playwright tests (local Supabase stack)
+        run: npm run test:e2e:authed
+        env:
+          CI: true
+
+      - name: Upload Playwright report (authed)
+        if: ${{ !cancelled() && failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-authed
+          path: playwright-report/
+          retention-days: 14
+
+      - name: Upload test results (authed traces/videos)
+        if: ${{ !cancelled() && failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-authed
+          path: test-results/
+          retention-days: 14

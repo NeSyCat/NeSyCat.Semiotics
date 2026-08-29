@@ -103,3 +103,10 @@ jobs:
       # EXISTS + CREATE).
       - name: Apply out-of-contract SQL — guards
         run: psql "$PROD_DIRECT_URL" -v ON_ERROR_STOP=1 -f prisma/sql/02-guards.sql
+      # Out-of-contract SQL lane, part 3: Supabase Realtime publication
+      # membership for public.diagrams (live sidebar/content sync).
+      # Idempotent; inert against a DB without the supabase_realtime
+      # publication.
+      - name: Apply out-of-contract SQL — realtime publication
+        run: psql "$PROD_DIRECT_URL" -v ON_ERROR_STOP=1 -f prisma/sql/03-realtime.sql
+

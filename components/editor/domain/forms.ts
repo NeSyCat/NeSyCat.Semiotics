@@ -250,7 +250,7 @@ export function isInsideBody(body: Body, rx: number, ry: number): boolean {
 // the point-creation edge regions. Hit-test only: hovering the zone
 // highlights the form's WHOLE body (FormNode renders that separately), this
 // constant only decides where the zone's own boundary sits.
-export const CENTER_SHRINK = 0.55
+export const CENTER_SHRINK = 0.72
 
 // Whether (rx, ry) sits inside a `shrink`-scaled copy of the body, centred at
 // (0.5, 0.5) — scale the query point OUTWARD from centre and test it against
@@ -285,6 +285,72 @@ function insetSegment(
   const ux = dx / len, uy = dy / len
   return [[a[0] + ux * t, a[1] + uy * t], [b[0] - ux * t, b[1] - uy * t]]
 }
+
+// ── Vertex / interior "spot" slots (the generalized triangle-peak) ────
+// A spot is a single-slot attachment at a FIXED form-fraction point — a corner
+// vertex, or an interior centre point — exactly like the triangle's apex:
+// capacity 1, rendered AT the point, its own radial outward normal, no
+// ordering. Every shape's corners and the shared centre points reuse this
+// machinery so they behave identically to `peak`.
+export interface Spot { at: readonly [number, number]; position: Position }
+
+// Hit radius (form-fraction units) within which a cursor resolves to a spot —
+// same magnitude as the triangle apex's PEAK_R, for one consistent "near a
+// spot" feel across every shape.
+const SPOT_R = CORNER_R
+
+// THE hit radius for EVERY spot — corner, centre, and apex alike (one pipeline,
+// no exceptions): the drawn disc's own radius (POINT_SIZE/2). A spot activates,
+// hovers, and drags EXACTLY within its visible disc and nowhere else, so its
+// hover region coincides with its drag region coincides with its click target.
+const SPOT_DISC_R = POINT_SIZE / BASE_SIZE / 2
+
+function spotAnchor(spot: Spot, n: number): Anchor {
+  return { x: spot.at[0] * n, y: spot.at[1] * n, position: spot.position }
+}
+function spotNormal(spot: Spot, centroid: readonly [number, number]): Vec {
+  return normalizeVec(spot.at[0] - centroid[0], spot.at[1] - centroid[1])
+}
+// NEAREST spot in `spots` whose anchor is within SPOT_R of (rx, ry), else
+// undefined — the peak-style "vertex wins over side" hit-test, reused by every
+// shape's edgeAt (for corner spots) and by Canvas's centre zone (centre spots).
+// Nearest-wins (not first-match) so the three co-linear centre spots
+// (centre-up / centre / centre-down) split cleanly along the vertical midline.
+function spotAt(spots: Record<string, Spot>, rx: number, ry: number, radius: number = SPOT_R): EdgeKey | undefined {
+  let best: EdgeKey | undefined
+  let bestD = Infinity
+  for (const key of Object.keys(spots)) {
+    const [cx, cy] = spots[key].at
+    const d = Math.hypot(rx - cx, ry - cy)
+    if (d <= radius && d < bestD) { bestD = d; best = key }
+  }
+  return best
+}
+// Per-key capacity map (all 1) for a shape's spot keys — folded into
+// edgeCapacity so every spot caps at one point and REUSES it on a second drop,
+// exactly like `peak`/`self`.
+function spotCapacities(keys: readonly string[]): Partial<Record<EdgeKey, number>> {
+  return Object.fromEntries(keys.map((k) => [k, 1]))
+}
+
+// The `center` IDENTITY spot — dead-centre, where the name sits: every form has
+// one, and it represents the WHOLE form. Drawing a wire OUT of it places this
+// sysmer into another form's slot (F1.center → F2.corner-i ⇒ F2's i-corner
+// holds F1). At the centroid it has no outward direction, so its pointNormal is
+// null (a free end, like empty's self-point).
+const IDENTITY_SPOT: Record<string, Spot> = {
+  center: { at: [0.5, 0.5], position: Position.Bottom },
+}
+// The interior CENTRE spots. `center-up`/`center-down` (square/circle/rhombus)
+// sit halfway between the centre and the top/bottom; `center` (every form) is
+// the identity dot. Resolved by edgeAt within their disc, exactly like corners —
+// one pipeline; edgeAt returns a centre before falling back to the nearest side.
+const CENTER_SPOTS: Record<string, Spot> = {
+  'center-up': { at: [0.5, 0.25], position: Position.Top },
+  'center-down': { at: [0.5, 0.75], position: Position.Bottom },
+  ...IDENTITY_SPOT,
+}
+const CENTER_SPOT_KEYS = ['center-up', 'center-down', 'center'] as const
 
 // ── TRIANGLE — apex points RIGHT (the standard orientation). Sides:
 //   a = top slant (top-left → apex), b = bottom slant (bottom-left → apex),
@@ -325,21 +391,35 @@ const TRI_CENTROID: readonly [number, number] = [
   (TRI_APEX_X + TRI_BASE_X + TRI_BASE_X) / 3,
   (TRI_APEX_Y + TRI_BASE_Y_TOP + TRI_BASE_Y_BOT) / 3,
 ]
-// 'peak' is the triangle's apex vertex — a single point-attachment SLOT (at
-// most one point, like 'empty's middle point, but optional: the triangle
-// survives without it — see edgeCapacity/pointIsForm below) rather than an
-// ordinary side that fans out multiple points.
-const TRI_EDGES = ['a', 'b', 'c', 'peak'] as const
-// Radius (form-fraction units) within which a cursor near the apex resolves
-// to the 'peak' slot, checked BEFORE side (a/b/c) attribution — same
-// magnitude as CORNER_R (the side-stripe inset), for the same "near a
-// vertex" feel. Left unchanged even though the triangle shrank (~13%
-// linearly, going from footprint-maximizing to inscribed-circumradius
-// sizing): PEAK_R is a hit-radius in the SAME [0,1]² fraction space as the
-// vertices, so it shrinks right along with the triangle in absolute
-// (post-nodeSize) terms — its proportion relative to the triangle's own
-// size is unchanged, so it doesn't read as disproportionate.
-const PEAK_R = CORNER_R
+const TRI_EDGES = ['a', 'b', 'c', 'peak', 'corner-base-top', 'corner-base-bottom', 'center-up', 'center'] as const
+// The triangle's THREE vertices as spot slots — ONE pathway, no special apex.
+// 'peak' is the apex (kept as a distinct key for backward compat + the exporter),
+// just another corner spot: same capacity-1 recipe, resolved by the shared spot
+// machinery below exactly like the two base vertices.
+const TRI_CORNERS: Record<string, Spot> = {
+  peak: { at: [TRI_APEX_X, TRI_APEX_Y], position: Position.Right },
+  'corner-base-top': { at: [TRI_BASE_X, TRI_BASE_Y_TOP], position: Position.Top },
+  'corner-base-bottom': { at: [TRI_BASE_X, TRI_BASE_Y_BOT], position: Position.Bottom },
+}
+// The triangle's ONE interior point-spot: the midpoint between the centroid
+// (where the identity `center`/the form's name sits) and the apex. Position
+// matches 'peak' (Right) since it lies on the same centroid→apex ray — at the
+// usual -90°/270° rotation that puts the apex screen-up, this spot renders
+// directly ABOVE the name, "above the name" being the whole reason for the
+// key. Same spot machinery as every other slot, no special case.
+const TRI_CENTER_UP: Record<string, Spot> = {
+  // position Left — the label faces the CENTROID (the form's name), not the
+  // apex: at the usual apex-up rotation that means BELOW the point, in the
+  // open space between it and the name, instead of crowding the apex point's
+  // own label above. (Purely the spot's declared label direction — hover/
+  // click/drag/wire behavior all come from `at` and the shared machinery.)
+  'center-up': { at: [0.75, 0.5], position: Position.Left },
+}
+// The three vertices + the interior center-up + the identity `center` (at the
+// centroid, which for the inscribed equilateral triangle IS [0.5, 0.5]) — for
+// the position/region/param methods. edgeAt uses only TRI_CORNERS (the
+// vertices) plus TRI_CENTER_UP; `center` is interior/identity-only.
+const TRI_SPOTS: Record<string, Spot> = { ...TRI_CORNERS, ...TRI_CENTER_UP, ...IDENTITY_SPOT }
 
 // A point along slant 'a' (from the top-left base vertex) or 'b' (bottom-left),
 // running to the apex on the right.
@@ -358,23 +438,22 @@ const triangleGeometry: FormGeometry = {
   showName: true,
   hasCenterZone: true,
   nodeSize: () => BASE_SIZE,
-  edgeCapacity: { peak: 1 },
+  edgeCapacity: spotCapacities(Object.keys(TRI_SPOTS)),
   pointAnchor: (edgeKey, index, count, n) => {
-    // 'peak' has capacity 1 — always the apex itself, regardless of
-    // index/count (same "constant anchor" pattern as emptyGeometry's middle
-    // point). Facing Position.Right: the triangle points right, so its own
-    // label/handle should face further right, away from the body.
-    if (edgeKey === 'peak') return { x: TRI_APEX_X * n, y: TRI_APEX_Y * n, position: Position.Right }
+    // Every vertex (apex + base) and the centre are spots — one path.
+    const spot = TRI_SPOTS[edgeKey]
+    if (spot) return spotAnchor(spot, n)
     const t = (index + 1) / (count + 1)
     if (edgeKey === 'a') { const [x, y] = triSlant('a', t, n); return { x, y, position: Position.Top } }
     if (edgeKey === 'b') { const [x, y] = triSlant('b', t, n); return { x, y, position: Position.Bottom } }
     return { x: TRI_BASE_X * n, y: TRI_BASE_Y_TOP * n + t * (TRI_BASE_Y_BOT - TRI_BASE_Y_TOP) * n, position: Position.Left } // c = left vertical side
   },
   edgeAt: (rx, ry) => {
-    // The apex slot wins over side attribution within PEAK_R — checked
-    // first, since 'a' and 'b' both terminate exactly at the apex and would
-    // otherwise always claim a cursor there.
-    if (Math.hypot(rx - TRI_APEX_X, ry - TRI_APEX_Y) <= PEAK_R) return 'peak'
+    // Every spot (the three vertices AND the centre) wins over side attribution
+    // within its disc — checked first, since the slants and 'c' terminate at the
+    // vertices and would otherwise claim a cursor there.
+    const spot = spotAt(TRI_SPOTS, rx, ry, SPOT_DISC_R)
+    if (spot) return spot
     const da = distToSeg(rx, ry, TRI_BASE_X, TRI_BASE_Y_TOP, TRI_APEX_X, 0.5) // a = top slant
     const db = distToSeg(rx, ry, TRI_BASE_X, TRI_BASE_Y_BOT, TRI_APEX_X, 0.5) // b = bottom slant
     const dc = distToSeg(rx, ry, TRI_BASE_X, TRI_BASE_Y_TOP, TRI_BASE_X, TRI_BASE_Y_BOT) // c = left side
@@ -383,7 +462,7 @@ const triangleGeometry: FormGeometry = {
     return 'c'
   },
   regionShape: (edgeKey) => {
-    if (edgeKey === 'peak') return { kind: 'spot', at: [TRI_APEX_X, TRI_APEX_Y] }
+    if (TRI_SPOTS[edgeKey]) return { kind: 'spot', at: TRI_SPOTS[edgeKey].at }
     if (edgeKey === 'a') return { kind: 'polyline', points: insetSegment([TRI_BASE_X, TRI_BASE_Y_TOP], [TRI_APEX_X, 0.5], CORNER_R) }
     if (edgeKey === 'b') return { kind: 'polyline', points: insetSegment([TRI_BASE_X, TRI_BASE_Y_BOT], [TRI_APEX_X, 0.5], CORNER_R) }
     return { kind: 'polyline', points: insetSegment([TRI_BASE_X, TRI_BASE_Y_TOP], [TRI_BASE_X, TRI_BASE_Y_BOT], CORNER_R) } // c
@@ -394,7 +473,7 @@ const triangleGeometry: FormGeometry = {
   // (capacity 1, like 'empty's self) — the constant 0 is the trivial (and
   // only) valid inverse.
   edgeParam: (edgeKey, _rx, ry) => {
-    if (edgeKey === 'peak') return 0
+    if (TRI_SPOTS[edgeKey]) return 0
     if (edgeKey === 'a') return clamp01((ry - TRI_BASE_Y_TOP) / (0.5 - TRI_BASE_Y_TOP))
     if (edgeKey === 'b') return clamp01((TRI_BASE_Y_BOT - ry) / (TRI_BASE_Y_BOT - 0.5))
     return clamp01((ry - TRI_BASE_Y_TOP) / (TRI_BASE_Y_BOT - TRI_BASE_Y_TOP)) // c
@@ -407,7 +486,10 @@ const triangleGeometry: FormGeometry = {
   // (a straight edge has one direction regardless of where along it a point
   // sits) — index/count unused, unlike circle's pointNormal below.
   pointNormal: (edgeKey) => {
-    if (edgeKey === 'peak') return normalizeVec(TRI_APEX_X - TRI_CENTROID[0], TRI_APEX_Y - TRI_CENTROID[1])
+    if (edgeKey === 'center') return null
+    // Every vertex (apex + base) AND the interior center-up spot are radial
+    // from the centroid — one path.
+    if (TRI_SPOTS[edgeKey]) return spotNormal(TRI_SPOTS[edgeKey], TRI_CENTROID)
     if (edgeKey === 'a') return outwardEdgeNormal([TRI_BASE_X, TRI_BASE_Y_TOP], [TRI_APEX_X, 0.5], TRI_CENTROID)
     if (edgeKey === 'b') return outwardEdgeNormal([TRI_BASE_X, TRI_BASE_Y_BOT], [TRI_APEX_X, 0.5], TRI_CENTROID)
     return outwardEdgeNormal([TRI_BASE_X, TRI_BASE_Y_TOP], [TRI_BASE_X, TRI_BASE_Y_BOT], TRI_CENTROID) // c
@@ -415,7 +497,17 @@ const triangleGeometry: FormGeometry = {
 }
 
 // ── SQUARE (4 sides) ──────────────────────────────────────────────────
-const SQUARE_EDGES = ['top', 'right', 'bottom', 'left'] as const
+const SQUARE_EDGES = ['top', 'right', 'bottom', 'left', 'corner-tl', 'corner-tr', 'corner-br', 'corner-bl', 'center-up', 'center-down', 'center'] as const
+// The square's four corner vertices as spot slots (labels face away from the
+// body). Merged with the shared centre spots into SQUARE_SPOTS — edgeAt resolves
+// every spot (corner + centre) within its disc, uniformly.
+const SQUARE_CORNERS: Record<string, Spot> = {
+  'corner-tl': { at: [0, 0], position: Position.Left },
+  'corner-tr': { at: [1, 0], position: Position.Right },
+  'corner-br': { at: [1, 1], position: Position.Right },
+  'corner-bl': { at: [0, 1], position: Position.Left },
+}
+const SQUARE_SPOTS: Record<string, Spot> = { ...SQUARE_CORNERS, ...CENTER_SPOTS }
 
 const squareGeometry: FormGeometry = {
   shape: 'square',
@@ -426,7 +518,10 @@ const squareGeometry: FormGeometry = {
   showName: true,
   hasCenterZone: true,
   nodeSize: () => BASE_SIZE,
+  edgeCapacity: spotCapacities([...Object.keys(SQUARE_CORNERS), ...CENTER_SPOT_KEYS]),
   pointAnchor: (edgeKey, index, count, n) => {
+    const spot = SQUARE_SPOTS[edgeKey]
+    if (spot) return spotAnchor(spot, n)
     const t = (index + 1) / (count + 1)
     switch (edgeKey) {
       case 'top': return { x: t * n, y: 0, position: Position.Top }
@@ -436,10 +531,14 @@ const squareGeometry: FormGeometry = {
     }
   },
   edgeAt: (rx, ry) => {
+    const spot = spotAt(SQUARE_SPOTS, rx, ry, SPOT_DISC_R)
+    if (spot) return spot
     const d = { top: ry, right: 1 - rx, bottom: 1 - ry, left: rx }
     return (Object.keys(d) as Array<keyof typeof d>).reduce((a, b) => (d[b] < d[a] ? b : a))
   },
   regionShape: (edgeKey) => {
+    const spot = SQUARE_SPOTS[edgeKey]
+    if (spot) return { kind: 'spot', at: spot.at }
     switch (edgeKey) {
       case 'top': return { kind: 'polyline', points: insetSegment([0, 0], [1, 0], CORNER_R) }
       case 'right': return { kind: 'polyline', points: insetSegment([1, 0], [1, 1], CORNER_R) }
@@ -450,6 +549,7 @@ const squareGeometry: FormGeometry = {
   // Inverse of pointAnchor's t*n assignment: top/bottom run along x, left/
   // right run along y (see pointAnchor above).
   edgeParam: (edgeKey, rx, ry) => {
+    if (SQUARE_SPOTS[edgeKey]) return 0
     switch (edgeKey) {
       case 'top': case 'bottom': return clamp01(rx)
       default: return clamp01(ry) // left/right
@@ -460,7 +560,12 @@ const squareGeometry: FormGeometry = {
   // outwardEdgeNormal — reduces to the plain axis-aligned unit vectors
   // (0,-1)/(1,0)/(0,1)/(-1,0) for an unrotated square, matching the old
   // static Position mapping exactly; worldPointNormal rotates it from there.
+  // Spots (corners/centres) use their own radial normal from the body centre;
+  // the dead-centre identity spot has no direction (null, a free end).
   pointNormal: (edgeKey) => {
+    if (edgeKey === 'center') return null
+    const spot = SQUARE_SPOTS[edgeKey]
+    if (spot) return spotNormal(spot, [0.5, 0.5])
     switch (edgeKey) {
       case 'top': return outwardEdgeNormal([0, 0], [1, 0], [0.5, 0.5])
       case 'right': return outwardEdgeNormal([1, 0], [1, 1], [0.5, 0.5])
@@ -473,7 +578,7 @@ const squareGeometry: FormGeometry = {
 // ── CIRCLE (4 cardinal arcs up/right/down/left; no vertices) ─────────
 // Each arc spans 90° centred on a cardinal direction, with boundaries at the
 // diagonals: 'up' = the top quarter (NW→N→NE), etc.
-const CIRCLE_EDGES = ['up', 'right', 'down', 'left'] as const
+const CIRCLE_EDGES = ['up', 'right', 'down', 'left', 'center-up', 'center-down', 'center'] as const
 const ARC_START: Record<string, number> = {
   up: (3 * Math.PI) / 4, right: Math.PI / 4, down: -Math.PI / 4, left: -(3 * Math.PI) / 4,
 }
@@ -519,24 +624,34 @@ const circleGeometry: FormGeometry = {
   showName: true,
   hasCenterZone: true,
   nodeSize: () => BASE_SIZE,
+  edgeCapacity: spotCapacities(CENTER_SPOT_KEYS),
   pointAnchor: (edgeKey, index, count, n) => {
+    const spot = CENTER_SPOTS[edgeKey]
+    if (spot) return spotAnchor(spot, n)
     const t = (index + 1) / (count + 1)
     const [x, y] = arcPt(edgeKey, t, n)
     return { x, y, position: ARC_POSITION[edgeKey] }
   },
   edgeAt: (rx, ry) => {
+    const spot = spotAt(CENTER_SPOTS, rx, ry, SPOT_DISC_R)
+    if (spot) return spot
     const ang = Math.atan2(-(ry - 0.5), rx - 0.5)
     if (ang > Math.PI / 4 && ang <= (3 * Math.PI) / 4) return 'up'
     if (ang > -Math.PI / 4 && ang <= Math.PI / 4) return 'right'
     if (ang > -(3 * Math.PI) / 4 && ang <= -Math.PI / 4) return 'down'
     return 'left'
   },
-  regionShape: (edgeKey) => ({ kind: 'polyline', points: arcRegionPoints(edgeKey) }),
+  regionShape: (edgeKey) => {
+    const spot = CENTER_SPOTS[edgeKey]
+    if (spot) return { kind: 'spot', at: spot.at }
+    return { kind: 'polyline', points: arcRegionPoints(edgeKey) }
+  },
   // Inverse of arcPt's θ = ARC_START[edgeKey] − t·(π/2): recover θ, then
   // undo that subtraction — normalized into [0, 2π) first since 'left'
   // wraps across the ±π seam (ARC_START.left = −3π/4, so its far end lands
   // past π).
   edgeParam: (edgeKey, rx, ry) => {
+    if (CENTER_SPOTS[edgeKey]) return 0
     const theta = angleFromFraction(rx, ry)
     const raw = ARC_START[edgeKey] - theta
     const norm = ((raw % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI)
@@ -547,6 +662,9 @@ const circleGeometry: FormGeometry = {
   // Unlike the other shapes, this genuinely varies by index/count (each
   // point along the arc faces its own direction, not one constant per edgeKey).
   pointNormal: (edgeKey, index, count) => {
+    if (edgeKey === 'center') return null
+    const spot = CENTER_SPOTS[edgeKey]
+    if (spot) return spotNormal(spot, [0.5, 0.5])
     const t = (index + 1) / (count + 1)
     const theta = arcTheta(edgeKey, t)
     return { x: Math.cos(theta), y: -Math.sin(theta) }
@@ -558,7 +676,17 @@ const circleGeometry: FormGeometry = {
 //   only internally to define each side's endpoints — v0 = top, v1 = right,
 //   v2 = bottom, v3 = left. Sides run clockwise between adjacent vertices.
 const RHOMBUS_VERTS = { v0: [0.5, 0], v1: [1, 0.5], v2: [0.5, 1], v3: [0, 0.5] } as const
-const RHOMBUS_EDGES = ['top-right', 'bottom-right', 'bottom-left', 'top-left'] as const
+const RHOMBUS_EDGES = ['top-right', 'bottom-right', 'bottom-left', 'top-left', 'corner-top', 'corner-right', 'corner-bottom', 'corner-left', 'center-up', 'center-down', 'center'] as const
+// The rhombus's four vertices as spot slots (labels face outward), merged with
+// the shared centre spots into RHOMBUS_SPOTS — edgeAt resolves every spot within
+// its disc, uniformly.
+const RHOMBUS_CORNERS: Record<string, Spot> = {
+  'corner-top': { at: RHOMBUS_VERTS.v0, position: Position.Top },
+  'corner-right': { at: RHOMBUS_VERTS.v1, position: Position.Right },
+  'corner-bottom': { at: RHOMBUS_VERTS.v2, position: Position.Bottom },
+  'corner-left': { at: RHOMBUS_VERTS.v3, position: Position.Left },
+}
+const RHOMBUS_SPOTS: Record<string, Spot> = { ...RHOMBUS_CORNERS, ...CENTER_SPOTS }
 const RHOMBUS_SIDES: Record<string, { a: readonly [number, number]; b: readonly [number, number]; position: Position }> = {
   'top-right': { a: RHOMBUS_VERTS.v0, b: RHOMBUS_VERTS.v1, position: Position.Top },
   'bottom-right': { a: RHOMBUS_VERTS.v1, b: RHOMBUS_VERTS.v2, position: Position.Bottom },
@@ -577,13 +705,18 @@ const rhombusGeometry: FormGeometry = {
   showName: true,
   hasCenterZone: true,
   nodeSize: () => BASE_SIZE,
+  edgeCapacity: spotCapacities([...Object.keys(RHOMBUS_CORNERS), ...CENTER_SPOT_KEYS]),
   pointAnchor: (edgeKey, index, count, n) => {
+    const spot = RHOMBUS_SPOTS[edgeKey]
+    if (spot) return spotAnchor(spot, n)
     const side = RHOMBUS_SIDES[edgeKey]
     const t = (index + 1) / (count + 1)
     const [x, y] = lerp(side.a, side.b, t)
     return { x: x * n, y: y * n, position: side.position }
   },
   edgeAt: (rx, ry) => {
+    const spot = spotAt(RHOMBUS_SPOTS, rx, ry, SPOT_DISC_R)
+    if (spot) return spot
     let best: EdgeKey = 'top-right'
     let bestDist = Infinity
     for (const key of Object.keys(RHOMBUS_SIDES)) {
@@ -594,6 +727,8 @@ const rhombusGeometry: FormGeometry = {
     return best
   },
   regionShape: (edgeKey) => {
+    const spot = RHOMBUS_SPOTS[edgeKey]
+    if (spot) return { kind: 'spot', at: spot.at }
     const side = RHOMBUS_SIDES[edgeKey]
     return { kind: 'polyline', points: insetSegment(side.a, side.b, CORNER_R) }
   },
@@ -612,8 +747,12 @@ const rhombusGeometry: FormGeometry = {
   },
   // Same RHOMBUS_SIDES vertex pairs regionShape's hover stripe uses, outward
   // via outwardEdgeNormal — constant per edgeKey, like triangle/square (a
-  // straight side has one direction).
+  // straight side has one direction). Spots (corners/centres) use their own
+  // radial normal from the body centre; the dead-centre identity spot is null.
   pointNormal: (edgeKey) => {
+    if (edgeKey === 'center') return null
+    const spot = RHOMBUS_SPOTS[edgeKey]
+    if (spot) return spotNormal(spot, [0.5, 0.5])
     const side = RHOMBUS_SIDES[edgeKey]
     return outwardEdgeNormal(side.a, side.b, [0.5, 0.5])
   },

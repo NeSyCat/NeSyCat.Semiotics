@@ -1,6 +1,5 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
 import { useEffect, useRef, useState, useTransition } from 'react'
 import { renameDiagram } from '@/lib/actions/diagrams'
 import type { Diagram } from '@/lib/db'
@@ -16,6 +15,7 @@ export default function DiagramItem({
   onSelect,
   triggerEdit,
   onDoneEditing,
+  onRenamePendingChange,
 }: {
   d: Diagram
   active: boolean
@@ -23,14 +23,26 @@ export default function DiagramItem({
   onSelect: () => void
   triggerEdit: boolean
   onDoneEditing: () => void
+  // Reports true right before the rename server action fires and false once
+  // it settles (success or failure) — lets EditorSidebar hold back a remote
+  // realtime title patch for this row while our own optimistic rename is
+  // still in flight. Optional so existing/other callers are unaffected.
+  onRenamePendingChange?: (pending: boolean) => void
 }) {
-  const router = useRouter()
   const [editing, setEditing] = useState(false)
   const [title, setTitle] = useState(d.title || 'Untitled')
+  // Set only when a commit's server round trip fails; cleared as soon as
+  // editing starts again so a stale hint doesn't linger under a fresh edit.
+  const [renameError, setRenameError] = useState<string | null>(null)
   const [, startRowTransition] = useTransition()
   const inputRef = useRef<HTMLInputElement>(null)
 
-  useEffect(() => { setTitle(d.title || 'Untitled') }, [d.title])
+  // Sync from the server prop (fresh navigation, or a REMOTE rename arriving
+  // over the realtime channel) — but never while THIS row is being edited:
+  // clobbering the half-typed input with another member's concurrent rename
+  // would throw away the user's in-progress text. Their commit then wins
+  // last-write-wins, same as any concurrent edit.
+  useEffect(() => { if (!editing) setTitle(d.title || 'Untitled') }, [d.title, editing])
 
   // Toolbar rename button sets triggerEdit → activate inline editing
   useEffect(() => {
@@ -44,14 +56,31 @@ export default function DiagramItem({
     }
   }, [editing])
 
+  useEffect(() => { if (editing) setRenameError(null) }, [editing])
+
   const commit = () => {
+    const previous = d.title || 'Untitled'
     const next = title.trim() || 'Untitled'
     setEditing(false)
     onDoneEditing()
-    if (next === d.title) return
+    if (next === previous) return
+    // Optimistic: the trimmed title is already showing (title state tracked
+    // every keystroke) — commit it and fire the action in a transition with
+    // NO router.refresh() on success. The action's own revalidatePath keeps
+    // the next real navigation fresh; only a failure needs a reaction here,
+    // so revert the text and surface an inline hint.
+    setTitle(next)
+    onRenamePendingChange?.(true)
     startRowTransition(async () => {
-      await renameDiagram(d.id, next)
-      router.refresh()
+      try {
+        await renameDiagram(d.id, next)
+      } catch (err) {
+        console.error('renameDiagram failed', err)
+        setTitle(previous)
+        setRenameError("Couldn't rename — please try again.")
+      } finally {
+        onRenamePendingChange?.(false)
+      }
     })
   }
 
@@ -118,6 +147,14 @@ export default function DiagramItem({
           </div>
         )}
       </div>
+      {renameError && (
+        <p
+          className="t-small truncate"
+          style={{ color: 'var(--color-destructive)', margin: '2px 10px 0', fontSize: 11 }}
+        >
+          {renameError}
+        </p>
+      )}
     </div>
   )
 }

@@ -48,3 +48,9 @@ next-env.d.ts
 
 # Supabase CLI runtime cache under the symlinked supabase/ folder
 /supabase/.temp
+
+# Playwright run artifacts
+/playwright-report/
+/test-results/
+# foreman session state
+/.foreman/

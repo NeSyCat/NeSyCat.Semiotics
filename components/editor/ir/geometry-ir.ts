@@ -208,10 +208,15 @@ const LINE_STROKE_PT = 0.4
 // (domain/forms.ts, also the on-screen glyph/hover/grab-pad size) — so
 // canvas <-> TikZ <-> HTML stay in visual lockstep.
 const POINT_GLYPH_R = POINT_SIZE / 2
-const LABEL_GAP_PX = 16 // matches PointVisual.tsx GAP; clears the POINT_SIZE/2=13px glyph so labels do not touch the form
+// Matches PointVisual.tsx's GAP_H/GAP_V (kept in sync by hand): a label
+// nearly borders its glyph (13px half + ~1px), and the vertical offset is
+// smaller because a TeX label's layout box carries dead strut space above/
+// below the ink (~15% each way) that the horizontal directions don't have.
+const LABEL_GAP_H_PX = 14
+const LABEL_GAP_V_PX = 11
 // Extra along-EDGE nudge for a point's label when it shares its edge with
 // other points — see edgeLabelSplayLocal below. Matches FormNode.tsx's own
-// SPLAY_PX (kept in sync by hand, same pattern as LABEL_GAP_PX/GAP above).
+// SPLAY_PX (kept in sync by hand, same pattern as LABEL_GAP_H/V_PX above).
 const SPLAY_PX = 40
 // White, as a Color triple — the export glyph's default (uncolored) fill,
 // and the backing every colored glyph's tint flattens over (see
@@ -248,10 +253,10 @@ function glyphLocalPoints(shape: Shape): Array<[number, number]> | null {
 
 function labelAnchorFor(cardinal: string): { offset: Vec; anchor: 'east' | 'west' | 'north' | 'south' } {
   switch (cardinal) {
-    case 'left': return { offset: { x: -LABEL_GAP_PX, y: 0 }, anchor: 'east' } // label sits to the LEFT -> its own east edge touches the point
-    case 'right': return { offset: { x: LABEL_GAP_PX, y: 0 }, anchor: 'west' }
-    case 'top': return { offset: { x: 0, y: -LABEL_GAP_PX }, anchor: 'south' }
-    default: return { offset: { x: 0, y: LABEL_GAP_PX }, anchor: 'north' } // bottom
+    case 'left': return { offset: { x: -LABEL_GAP_H_PX, y: 0 }, anchor: 'east' } // label sits to the LEFT -> its own east edge touches the point
+    case 'right': return { offset: { x: LABEL_GAP_H_PX, y: 0 }, anchor: 'west' }
+    case 'top': return { offset: { x: 0, y: -LABEL_GAP_V_PX }, anchor: 'south' }
+    default: return { offset: { x: 0, y: LABEL_GAP_V_PX }, anchor: 'north' } // bottom
   }
 }
 
@@ -344,7 +349,7 @@ function buildFormCmds(form: Form, cmds: DrawCmd[]) {
 // already spaced apart by pointAnchor there).
 //
 // Mirror EXACTLY in ui/FormNode.tsx's edgeLabelSplay — canvas and exports
-// must agree pixel-for-pixel (same rule as LABEL_GAP_PX/GAP above).
+// must agree pixel-for-pixel (same rule as LABEL_GAP_H/V_PX above).
 function edgeLabelSplayLocal(px: PointPx): Vec {
   const { edgeKey, siblingIndex: index, siblingCount: count, layout } = px
   if (count <= 1) return { x: 0, y: 0 }

@@ -15,19 +15,35 @@ import contractJson from '@/prisma/contract.json'
 // encrypt-without-verify; `no-verify` restores exactly those semantics.
 // URLs without an sslmode (local Docker) pass through untouched. Proper
 // future hardening: pin Supabase's CA cert and use verify-full.
-const rawUrl = (process.env.POSTGRES_URL ?? process.env.DATABASE_URL)!
-const db = postgres<Contract>({
-  contractJson,
-  url: rawUrl.replace(/sslmode=(require|prefer|verify-ca)\b/, 'sslmode=no-verify'),
-})
+const rawUrl = process.env.POSTGRES_URL ?? process.env.DATABASE_URL
 
-export type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
+// The client is constructed LAZILY (first transaction), NOT at module load:
+// this module is transitively imported by pages whose anonymous branches
+// never touch the DB (app/editor/page.tsx → lib/actions/*), and an env-less
+// boot (CI e2e, a fresh checkout — see lib/supabase/env.ts) must not crash
+// on import. Actually USING the DB without a URL fails at the call site
+// with a clear message instead of `undefined.replace` on every request.
+function mkDb() {
+  if (!rawUrl) {
+    throw new Error(
+      'POSTGRES_URL / DATABASE_URL is not set — database access is unavailable on an env-less (anonymous-only) boot; see lib/supabase/env.ts',
+    )
+  }
+  return postgres<Contract>({
+    contractJson,
+    url: rawUrl.replace(/sslmode=(require|prefer|verify-ca)\b/, 'sslmode=no-verify'),
+  })
+}
+let _db: ReturnType<typeof mkDb> | null = null
+const db = () => (_db ??= mkDb())
+
+export type Tx = Parameters<Parameters<ReturnType<typeof mkDb>['transaction']>[0]>[0]
 
 export async function withRLS<T>(
   jwt: string | null,
   fn: (tx: Tx) => Promise<T>,
 ): Promise<T> {
-  return db.transaction(async (tx) => {
+  return db().transaction(async (tx) => {
     if (jwt) {
       const claims = JSON.parse(
         Buffer.from(jwt.split('.')[1], 'base64url').toString(),
@@ -49,7 +65,7 @@ export async function withRLS<T>(
 }
 
 export async function withServiceRole<T>(fn: (tx: Tx) => Promise<T>): Promise<T> {
-  return db.transaction(async (tx) => {
+  return db().transaction(async (tx) => {
     await tx.execute(tx.sql.raw`SET LOCAL ROLE service_role`.affectedCount().build())
     return fn(tx)
   })

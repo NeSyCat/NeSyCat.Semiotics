@@ -242,16 +242,19 @@ export function deleteLineTarget(d: Diagram, lineId: string, idx: number): Diagr
 // Renaming a wire affects ONLY that wire — no propagation to siblings
 // sharing its source point, and no cascade downstream through copy points.
 export function renameLine(d: Diagram, id: string, name: string): Diagram {
+  // Keep '' (do NOT collapse to undefined) — the SAME rule as renamePoints:
+  // undefined = "never named" → the id (L1, L2, …) shows as a default
+  // placeholder; '' = "name removed" → the wire renders with NO label at all
+  // (Canvas.tsx's lineLabel already maps '' to no-label/no-mask). Clearing
+  // the name field is how you remove a line's label — it must not spring
+  // back to the id.
   const set = new Set([id])
-  // '' clears the name (undefined).
-  const nm = name === '' ? undefined : name
-  return { ...d, lines: d.lines.map((l) => (set.has(l.id) ? { ...l, name: nm } : l)) }
+  return { ...d, lines: d.lines.map((l) => (set.has(l.id) ? { ...l, name } : l)) }
 }
 
 export function renameLines(d: Diagram, ids: string[], name: string): Diagram {
-  const set = new Set(ids)
-  const nm = name === '' ? undefined : name
-  return { ...d, lines: d.lines.map((l) => (set.has(l.id) ? { ...l, name: nm } : l)) }
+  const set = new Set(ids) // '' kept, same as renameLine above
+  return { ...d, lines: d.lines.map((l) => (set.has(l.id) ? { ...l, name } : l)) }
 }
 
 // Color rail — null clears back to the undefined default (no colour).

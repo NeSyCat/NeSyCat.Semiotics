@@ -102,12 +102,12 @@ describe('co-edge point-label splay', () => {
     }
     const pos = pointPositionsPx(d).get('P1')!.pos
     const lbl = findLabel(buildDrawCmds(d), 'x')
-    // Pre-splay formula: cardinal 'top' -> offset (0, -LABEL_GAP_PX=11),
+    // Pre-splay formula: cardinal 'top' -> offset (0, -LABEL_GAP_V_PX=11),
     // anchor 'south' — with count=1 the splay bias is exactly {0,0}, so this
     // must land exactly where the un-splayed formula always has.
     expect(lbl.anchor, "lone top-edge point keeps anchor 'south' (unchanged)").toBe('south')
     expect(lbl.at.x, 'lone point label x is UNCHANGED (no horizontal splay)').toBeCloseTo(pos.x, 6)
-    expect(lbl.at.y, 'lone point label y is UNCHANGED (still point.y - 16)').toBeCloseTo(pos.y - 16, 6)
+    expect(lbl.at.y, 'lone point label y is UNCHANGED (still point.y - 11)').toBeCloseTo(pos.y - 11, 6)
   })
 
   it('the exact-centre point of an odd-count edge also gets zero bias', () => {
@@ -124,7 +124,7 @@ describe('co-edge point-label splay', () => {
     const pos = pointPositionsPx(d).get('M')!.pos
     const midLbl = findLabel(buildDrawCmds(d), 'mid')
     expect(midLbl.at.x, 'the middle of 3 same-edge points is unbiased horizontally').toBeCloseTo(pos.x, 6)
-    expect(midLbl.at.y, 'the middle of 3 same-edge points keeps its normal vertical offset').toBeCloseTo(pos.y - 16, 6)
+    expect(midLbl.at.y, 'the middle of 3 same-edge points keeps its normal vertical offset').toBeCloseTo(pos.y - 11, 6)
 
     // Its two siblings, in contrast, DO get pushed apart (both grow south
     // -- 'top' cardinal centers horizontally already, so the pre-fix

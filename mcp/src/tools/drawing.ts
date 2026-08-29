@@ -64,7 +64,7 @@ export function registerDrawingTools(server: McpServer, getClient: () => Supabas
     {
       title: 'Add point',
       description:
-        'Add a point on one of a form\'s edges. The edgeKey must be valid for that form\'s shape (e.g. square: top/right/bottom/left; triangle: a/b/c/peak; circle: up/right/down/left; empty: self) — an invalid edgeKey is rejected with the valid list for that shape.',
+        "Add a point on one of a form's edges, corners, or centre spots. The edgeKey must be valid for that form's shape — sides plus vertex/centre spots: square top/right/bottom/left + corners corner-tl/corner-tr/corner-br/corner-bl + centres center-up/center-down; rhombus top-right/bottom-right/bottom-left/top-left + corners corner-top/corner-right/corner-bottom/corner-left + center-up/center-down; triangle a/b/c + apex peak + base corners corner-base-top/corner-base-bottom; circle up/right/down/left + center-up/center-down; empty self. Corner and centre spots hold at most one point each. An invalid edgeKey is rejected with the valid list for that shape.",
       inputSchema: {
         diagramId: z.string().uuid(),
         formId: z.string(),

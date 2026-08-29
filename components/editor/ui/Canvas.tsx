@@ -22,7 +22,7 @@ import FormNode, { DRAG_HANDLE_CLASS } from './FormNode'
 import LineEdge from './LineEdge'
 import { useStore, initStore } from '../state/store'
 import { useAutosave, useLocalAutosave } from '../persist/save'
-import { geometryFor, pointIdsAt, isInsideBody, isInCenterZone, insertionIndex, bodyCentroid, worldPointNormal, BASE_SIZE, CENTER_SHRINK, type FormGeometry } from '../domain/forms'
+import { geometryFor, pointIdsAt, isInsideBody, isInCenterZone, insertionIndex, bodyCentroid, worldPointNormal, BASE_SIZE, CENTER_SHRINK, POINT_SIZE, type FormGeometry } from '../domain/forms'
 import type { Dir } from '../domain/wirepath'
 import { encodeHandle, decodeHandle, decodePhantomHandle } from '../domain/handles'
 import { GRID_SIZE, snapCenterPosition } from '../domain/grid'
@@ -90,8 +90,21 @@ function nodeLocalFraction(
 
 // Radius (local/unrotated px) within which an existing point's own drag
 // handle takes priority over the form's region/center hover — see
-// nearestPointWithin below.
-const POINT_HOVER_RADIUS = 14
+// nearestPointWithin below. Also the click-to-select catch radius used by
+// the capture-phase selection pipeline (see the pressRef/onClickCapture
+// useEffect further down).
+//
+// EXACTLY the drawn disc's radius (POINT_SIZE/2) — THE general rule: a point
+// is activated, hovered, clickable, and draggable when the cursor is inside
+// its visible hover region, and ONLY then; a cursor just outside the disc
+// still belongs to whatever is underneath (the form's centre zone — whole-
+// form hover/drag — or an edge region). Everything a point reacts through
+// coincides on this one circle: this proximity radius (hover + click-
+// select), the grab pad (PointVisual REGION_CORNER_SIZE = POINT_SIZE), an
+// empty spot's hit disc (forms.ts SPOT_DISC_R = POINT_SIZE/BASE_SIZE/2),
+// and the drawn indicator itself. No invisible slack anywhere — one
+// mechanism, every point kind.
+const POINT_HOVER_RADIUS = POINT_SIZE / 2
 
 // The closest existing point on `form` to a local pixel (lx, ly), if within
 // POINT_HOVER_RADIUS — checked BEFORE any inside/outside or center-zone
@@ -109,6 +122,30 @@ function nearestPointWithin(form: Form, geom: FormGeometry, lx: number, ly: numb
     })
   }
   return best
+}
+
+// A click (no drag) on or beside an EXISTING point resolves to that point
+// purely from WHERE the press landed — never from which handle React Flow
+// happened to start the gesture on. That handle id is the fragile part (a
+// phantom spot handle shadowing a real point, an off-by-one edge index, a
+// press RF attributed to a neighbouring handle), but the pointer's LOCATION is
+// ground truth. So this is the ONE geometric selection resolver every point
+// kind shares — the fallback half of the capture-phase selection pipeline's
+// resolution order (see the pressRef/onClickCapture useEffect further down),
+// used when the press didn't land directly on a `[data-point-id]` label.
+// Returns null on an empty spot — nothing to select there; point creation
+// stays double-click / drag.
+function existingPointAtClient(
+  clientX: number, clientY: number, nodeId: string,
+  screenToFlowPosition: (p: { x: number; y: number }) => { x: number; y: number },
+  getNodes: () => Node[],
+): string | null {
+  const node = getNodes().find((nd) => nd.id === nodeId)
+  const form = useStore.getState().diagram.forms.find((f) => f.id === nodeId)
+  if (!node || !form) return null
+  const flow = screenToFlowPosition({ x: clientX, y: clientY })
+  const { lx, ly, n } = nodeLocalFraction(flow.x, flow.y, node, form)
+  return nearestPointWithin(form, geometryFor(form.shape), lx, ly, n)
 }
 
 // Resolves a screen drop position into a point id — an existing form under
@@ -150,11 +187,12 @@ function resolveDropPoint(
   if (!targetForm) return null
   const geom = geometryFor(targetForm.shape)
   const { rx, ry } = nodeLocalFraction(position.x, position.y, dropTarget, targetForm)
-  // Dropped in the center zone — that's the whole-form-selection region, not
-  // point-creation territory, so this is a no-op, same as a center-zone
-  // double-click.
-  if (geom.hasCenterZone && isInCenterZone(geom.body, rx, ry)) return null
   const edgeKey = geom.edgeAt(clamp01(rx), clamp01(ry))
+  const onSpot = !!edgeKey && geom.regionShape(edgeKey).kind === 'spot'
+  // A drop on a spot (corner/centre/apex) attaches there even inside the centre
+  // zone; a bare centre-zone drop (a side there) is whole-form-selection
+  // territory and is rejected.
+  if (!onSpot && geom.hasCenterZone && isInCenterZone(geom.body, rx, ry)) return null
   if (!edgeKey) return null
   const index = insertionIndex(targetForm, edgeKey, clamp01(rx), clamp01(ry))
   return useStore.getState().addPoint(dropTarget.id, edgeKey, undefined, index) || null
@@ -195,15 +233,15 @@ function pointWorldNormal(d: Diagram, pointId: string): Dir {
   return worldPointNormal(form, pt.edgeKey, index, ids.length)
 }
 
-// '' (an explicitly cleared line name that bypassed store's own renameLine
-// safeguard — e.g. a raw JSON import via persist/io.ts's canonLine, which
-// does not collapse '' to undefined the way the store does) must render
-// NEITHER text NOR mask, same as a blank POINT name (PointVisual's own
-// `labelText !== ''` guard) — NOT fall back to the line's id the way a
-// genuinely undefined name does. LineEdge.tsx's `d.label != null` check
-// already treats undefined as "render nothing"; this is what makes '' do
-// the same instead of leaking through as a literal empty-string label
-// (which IS != null, and would render an empty masked box on the wire).
+// A line's name has TWO distinct empty-ish states, the SAME rule points use
+// (renamePoints/renameLine both store '' verbatim): undefined = "never
+// named" → the id (L1, L2, …) renders as the default label; '' = "name
+// removed" (cleared via the name field, or a raw JSON import) → the wire
+// renders NEITHER text NOR mask, matching PointVisual's own
+// `labelText !== ''` guard. LineEdge.tsx's `d.label != null` check already
+// treats undefined as "render nothing"; this is what makes '' do the same
+// instead of leaking through as a literal empty-string label (which IS
+// != null, and would render an empty masked box on the wire).
 function lineLabel(name: string | undefined, id: string): string | undefined {
   return name === '' ? undefined : (name ?? id)
 }
@@ -457,6 +495,16 @@ function Canvas({ topRight }: CanvasContentProps) {
         return { value: diagram.points[midId]?.name ?? '', placeholder: midId, sig: 'points:' + midId, disabled: false }
       }
     }
+    // The identity CENTRE point has NO name of its own — it IS the form, so its
+    // name IS the form's name (one field, read/written on the form). Selecting it
+    // shows/edits form.name, never a separate point name.
+    if (selectionTarget.kind === 'points' && selectionTarget.ids.length === 1) {
+      const pt = diagram.points[selectionTarget.ids[0]]
+      if (pt?.edgeKey === 'center') {
+        const form = diagram.forms.find((f) => f.id === pt.formId)
+        if (form) return { value: form.name ?? '', placeholder: form.id, sig: 'forms:' + form.id, disabled: false }
+      }
+    }
     const id0 = selectionTarget.ids[0]
     const single = selectionTarget.ids.length === 1
     const name = selectionTarget.kind === 'points' ? diagram.points[id0]?.name
@@ -478,6 +526,14 @@ function Canvas({ topRight }: CanvasContentProps) {
         const midId = pointIdsAt(form, geometryFor(form.shape).edgeKeys[0])[0]
         if (midId) renamePoints([midId], value)
         return // no point yet -> the field is disabled, nothing to do
+      }
+    }
+    // Identity centre point → rename the FORM (its name is the form's name).
+    if (selectionTarget.kind === 'points' && selectionTarget.ids.length === 1) {
+      const pt = diagram.points[selectionTarget.ids[0]]
+      if (pt?.edgeKey === 'center') {
+        if (pt.formId) renameForms([pt.formId], value)
+        return
       }
     }
     if (selectionTarget.kind === 'points') renamePoints(selectionTarget.ids, value)
@@ -613,6 +669,83 @@ function Canvas({ topRight }: CanvasContentProps) {
     [screenToFlowPosition, clearSelection, createForm, activeShape],
   )
 
+  // ── THE ONE point-selection pipeline ────────────────────────────────
+  // A click on ANY existing point — corner, apex ('peak'), identity centre,
+  // centre-up/down, or a plain side point — must select THAT POINT, never
+  // the form. React Flow's own click-to-select is wired at the React root
+  // via BUBBLE-phase delegation: by the time a bubble-phase onClick we
+  // attach anywhere (a Handle, a label div, onNodeClick) would run, React
+  // Flow's node-click handler has ALREADY selected the node, which fires
+  // onSelectionChange (above) → clearSelection(), wiping out a point
+  // selection made in the very same tick. `e.stopPropagation()` from a
+  // bubble-phase React handler is too late to stop that — it only stops
+  // OTHER bubble listeners on the same DOM node/ancestors, not a sibling
+  // listener React already attached earlier at the root.
+  //
+  // The fix: listen at the CAPTURE phase, on `document`. Capture runs
+  // top-down BEFORE any bubble-phase handler anywhere, including React's
+  // root-delegated ones — so by calling stopPropagation() here, React Flow's
+  // click-to-select never even sees the event, onSelectionChange never
+  // fires for this click, and there is nothing to revert. This is the SAME
+  // trick that made LABEL clicks work before this pipeline existed
+  // (FormNode's old selectPoint called stopPropagation from a REACT handler
+  // on the label div itself, which — being on the label's own listener,
+  // ahead of the node's in DOM order — happened to run first; that was a
+  // coincidence of DOM structure, not a general mechanism, which is why
+  // dot/body clicks never got the same protection). This capture pipeline
+  // generalizes it properly to every point kind and every click path.
+  //
+  // Resolution is DOM-first, geometry-second — same order as the hover
+  // tracker (onNodeMouseMove above): a point's name label can extend well
+  // beyond POINT_HOVER_RADIUS (its own rendered text width), so a DOM hit on
+  // `[data-point-id]` is checked before falling back to the radius-based
+  // geometric resolver (existingPointAtClient — the same one onConnectEnd
+  // used to use, and the module-level resolver everything else still uses
+  // for "which point is at this position"). A click that resolves to no
+  // point at all (empty canvas, form body away from any point) is left
+  // completely alone — it falls through to onNodeClick/onPaneClick exactly
+  // as before, so the form's center-zone selection and pane-dblclick-create
+  // gestures are untouched.
+  //
+  // THIS IS THE ONLY PLACE A CLICK MAY SELECT A POINT. onConnectEnd's old
+  // click branch and onNodeClick's old point branch are deleted — see their
+  // own comments below for why a zero-move press still has to be a safe
+  // no-op there now that this pipeline already consumed the click.
+  const pressRef = useRef<{ x: number; y: number; pid: string | null } | null>(null)
+  useEffect(() => {
+    const onPointerDownCapture = (e: PointerEvent) => {
+      if (e.button !== 0) { pressRef.current = null; return } // primary button only
+      const target = e.target as HTMLElement
+      const labelPid = target.closest?.('[data-point-id]')?.getAttribute('data-point-id') ?? null
+      let pid = labelPid
+      if (!pid) {
+        const nodeEl = target.closest?.('.react-flow__node') as HTMLElement | null
+        const nodeId = nodeEl?.getAttribute('data-id')
+        if (nodeId) pid = existingPointAtClient(e.clientX, e.clientY, nodeId, screenToFlowPosition, getNodes)
+      }
+      pressRef.current = { x: e.clientX, y: e.clientY, pid }
+    }
+    const onClickCapture = (e: MouseEvent) => {
+      const press = pressRef.current
+      pressRef.current = null // always clear — a press is consumed by (at most) one click
+      if (!press || !press.pid) return
+      const moved = Math.hypot(e.clientX - press.x, e.clientY - press.y)
+      if (moved >= 5) return // a drag, not a click — wire-drawing/nothing handles this, not selection
+      e.stopPropagation() // kills RF's node click-select AND every bubble-phase app onClick for this event — intended
+      setNodes((nds) => (nds.some((n) => n.selected) ? nds.map((n) => (n.selected ? { ...n, selected: false } : n)) : nds))
+      if (e.metaKey || e.ctrlKey) useStore.getState().toggleSelectedPoint(press.pid)
+      else useStore.getState().setSelectedPoints([press.pid])
+    }
+    document.addEventListener('pointerdown', onPointerDownCapture, { capture: true })
+    document.addEventListener('click', onClickCapture, { capture: true })
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDownCapture, { capture: true })
+      document.removeEventListener('click', onClickCapture, { capture: true })
+    }
+    // screenToFlowPosition/getNodes (useReactFlow) and setNodes (useNodesState) are
+    // all stable identities across renders — this attaches exactly once per mount.
+  }, [screenToFlowPosition, getNodes, setNodes])
+
   // Selecting form(s) clears any selected point (the other half of exclusivity).
   const onSelectionChange = useCallback(({ nodes: sel }: { nodes: Node[] }) => {
     if (sel.length === 0) return
@@ -680,9 +813,24 @@ function Canvas({ topRight }: CanvasContentProps) {
   const onConnectEnd = useCallback((event: MouseEvent | TouchEvent, connectionState: any) => {
     window.removeEventListener('pointermove', onConnectPointerMove)
     if (connectionState.isValid || !connectionState.fromNode || !connectionState.fromHandle?.id) return
-    const fromPointId = resolvePointForHandle(connectionState.fromNode.id, connectionState.fromHandle.id, connectStartRef.current, screenToFlowPosition, getNodes)
-    if (!fromPointId) return
+    const hid = connectionState.fromHandle.id as string
     const { clientX, clientY } = 'changedTouches' in event ? (event as TouchEvent).changedTouches[0] : (event as MouseEvent)
+    // Click-vs-drag on a point's handle. React Flow consumes the pointer on a
+    // handle for connection-dragging, so this still fires on a zero-move
+    // press (a plain click on a point's dot) even though the capture-phase
+    // pipeline above (see pressRef/onClickCapture) already selected the
+    // point and stopped the click from propagating — stopping `click` does
+    // NOT stop React Flow's OWN internal pointerup->onConnectEnd handling,
+    // since that's driven by 'pointerup'/'pointercancel' listeners RF
+    // attaches itself, not by the DOM 'click' event this component
+    // intercepts. So a near-zero move here must be a deliberate NO-OP —
+    // selection already happened; falling through into resolveDropPoint
+    // would wrongly create a new point/line from a plain click.
+    const start = connectStartRef.current
+    const moved = start ? Math.hypot(clientX - start.clientX, clientY - start.clientY) : Infinity
+    if (moved < 5) return
+    const fromPointId = resolvePointForHandle(connectionState.fromNode.id, hid, connectStartRef.current, screenToFlowPosition, getNodes)
+    if (!fromPointId) return
     const newPtId = resolveDropPoint(clientX, clientY, connectionState.fromNode.id, screenToFlowPosition, getNodes)
     if (!newPtId) return
     useStore.getState().addLine(fromPointId, newPtId)
@@ -710,12 +858,20 @@ function Canvas({ topRight }: CanvasContentProps) {
   // frame in between). This naturally covers every case: a plain click on
   // the ring, both clicks of a double-click, and a no-op center-zone
   // double-click — none of them were ever going to select the form anyway.
+  //
+  // A click ON a point never reaches here at all any more — the capture-
+  // phase pipeline above (pressRef/onClickCapture) already resolved and
+  // selected it and called stopPropagation before React Flow's own
+  // click-to-select (and therefore this handler) ever saw the event. So
+  // there is no point-select branch left here; every case onNodeClick still
+  // sees is by definition "not on a point".
   const onNodeClick = useCallback((event: React.MouseEvent, node: Node) => {
     const d = useStore.getState().diagram
     const form = d.forms.find((f) => f.id === node.id)
     if (!form) return
     const geom = geometryFor(form.shape)
     const { rx, ry } = formLocalPoint(event, node, form)
+    // A bare centre-zone click keeps the form selected; a ring click reverts it.
     if (!geom.hasCenterZone || isInCenterZone(geom.body, rx, ry)) return
     setNodes((nds) => (nds.some((n) => n.selected) ? nds.map((n) => (n.selected ? { ...n, selected: false } : n)) : nds))
   }, [formLocalPoint, setNodes])
@@ -729,8 +885,12 @@ function Canvas({ topRight }: CanvasContentProps) {
     if (!form) return
     const geom = geometryFor(form.shape)
     const { rx, ry } = formLocalPoint(event, node, form)
-    if (geom.hasCenterZone && isInCenterZone(geom.body, rx, ry)) return
     const edgeKey = geom.edgeAt(clamp01(rx), clamp01(ry))
+    const onSpot = !!edgeKey && geom.regionShape(edgeKey).kind === 'spot'
+    // A spot (corner/centre/apex) is always addable, even inside the centre
+    // zone; a bare centre-zone double-click (a side there) is whole-form
+    // selection, a no-op.
+    if (!onSpot && geom.hasCenterZone && isInCenterZone(geom.body, rx, ry)) return
     if (!edgeKey) return
     const index = insertionIndex(form, edgeKey, clamp01(rx), clamp01(ry))
     useStore.getState().addPoint(node.id, edgeKey, undefined, index)
@@ -767,6 +927,17 @@ function Canvas({ topRight }: CanvasContentProps) {
       useStore.getState().setHover({ kind: 'point', pointId: nearPoint })
       return
     }
+    // ONE pipeline: edgeAt resolves ANY spot (corner / centre / apex) within its
+    // own disc, or else the nearest side. A SPOT wins from any direction —
+    // resolved BEFORE the inside-body / centre-zone logic, so it activates
+    // exactly within its disc whether the cursor came from inside or outside the
+    // form. A SIDE only lives inside the body; the rest of the centre zone is
+    // whole-form selection.
+    const edgeKey = geom.edgeAt(clamp01(rx), clamp01(ry))
+    if (edgeKey && geom.regionShape(edgeKey).kind === 'spot') {
+      useStore.getState().setHover({ kind: 'edge', formId: node.id, edgeKey, rx: clamp01(rx), ry: clamp01(ry) })
+      return
+    }
     if (!isInsideBody(geom.body, rx, ry)) {
       useStore.getState().clearHover()
       return
@@ -775,7 +946,6 @@ function Canvas({ topRight }: CanvasContentProps) {
       useStore.getState().setHover({ kind: 'center', formId: node.id })
       return
     }
-    const edgeKey = geom.edgeAt(clamp01(rx), clamp01(ry))
     if (!edgeKey) {
       useStore.getState().clearHover()
       return
@@ -922,9 +1092,17 @@ function Canvas({ topRight }: CanvasContentProps) {
         {/* Grid ON: quiver-style grid lines at the same GRID_SIZE pitch
             snapping uses — purely visual, React Flow's Background component
             doesn't itself constrain node placement (that's the snapping
-            logic above). */}
+            logic above).
+            offset={GRID_SIZE/2} makes the rendered lines land EXACTLY on
+            flow multiples of GRID_SIZE — the same lattice snapCoord snaps
+            to — instead of 1 CSS px shy of it. React Flow's Background
+            computes its pattern shift as `offset*zoom || 1 + scaledGap/2`
+            (sic — precedence makes that `(offset*zoom) || (1+scaledGap/2)`),
+            so the default offset 0 falls into the fudged `1 + gap/2` branch;
+            passing gap/2 yields offset*zoom === scaledGap/2, the exact
+            value, no +1. Verified against the rendered pattern transform. */}
         {gridEnabled && (
-          <Background variant={BackgroundVariant.Lines} gap={GRID_SIZE} color={theme.canvas.gridColor} />
+          <Background variant={BackgroundVariant.Lines} gap={GRID_SIZE} offset={GRID_SIZE / 2} color={theme.canvas.gridColor} />
         )}
       </ReactFlow>
 
