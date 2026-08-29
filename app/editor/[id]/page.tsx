@@ -1,5 +1,6 @@
 import { notFound, redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { supabaseConfigured } from '@/lib/supabase/env'
 import CanvasRoot from '@/components/editor/ui/Canvas'
 import UserMenu from '@/components/UserMenu'
 import { loadDiagram } from '@/lib/actions/diagrams'
@@ -10,8 +11,11 @@ import { serverCallbackUrl, serverEditorHref } from '@/lib/editor-url.server'
 
 export default async function EditorDiagramPage(props: { params: Promise<{ id: string }> }) {
   const { id } = await props.params
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  // Env-less boot (CI, fresh checkout): nobody can be signed in — fall
+  // through to the anonymous redirect below. See lib/supabase/env.ts.
+  const user = supabaseConfigured()
+    ? (await (await createClient()).auth.getUser()).data.user
+    : null
   // Diagram ids are DB rows — anonymous visitors have none. Browsers
   // re-apply a URL fragment across a redirect when the Location header has
   // no fragment of its own, so a shared `/editor/<id>#d=…` link still lands

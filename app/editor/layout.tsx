@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { supabaseConfigured } from '@/lib/supabase/env'
 import { listDiagrams } from '@/lib/actions/diagrams'
 import { getMe } from '@/lib/actions/organizations'
 import { resolveActiveOrg } from '@/lib/active-org'
@@ -8,8 +9,12 @@ import StarPrompt from '@/components/StarPrompt'
 import ImportSharedHash from '@/components/ImportSharedHash'
 
 export default async function EditorLayout({ children }: { children: React.ReactNode }) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  // No Supabase env (CI, fresh checkout) → nobody can be signed in; render
+  // the anonymous shell instead of crashing on client creation.
+  // See lib/supabase/env.ts.
+  const user = supabaseConfigured()
+    ? (await (await createClient()).auth.getUser()).data.user
+    : null
   // Anonymous visitors get the same shell minus the sidebar — the editor
   // itself (AnonymousEditor, resolved by app/editor/page.tsx) runs auth-free,
   // keeping its data in localStorage / the URL fragment instead of the DB.
