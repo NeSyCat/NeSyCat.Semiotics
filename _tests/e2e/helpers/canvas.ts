@@ -1,5 +1,51 @@
 import { expect, type Page } from '@playwright/test'
 
+// ── Visibility scoping (Activity-preserved routes) ──────────────────────
+//
+// This lane runs against a cacheComponents-enabled app (see the root
+// CLAUDE.md / next-cache-components). Next.js 16 doesn't unmount a route you
+// navigate away from — it hides it with React's <Activity mode="hidden">
+// instead, leaving the WHOLE previous route's DOM (canvas, toolbar, react-flow
+// nodes/handles, everything) sitting in the document at `display: none`. See
+// node_modules/next/dist/docs/01-app/02-guides/preserving-ui-state.md,
+// section "Testing": raw CSS locators match hidden Activity content just
+// like visible content — only role/accessibility-tree-based queries
+// (getByRole et al.) are naturally immune, because hidden elements are
+// excluded from the accessibility tree.
+//
+// This app's anonymous lane never actually keeps two ROUTES alive at once
+// (there's only ever one `/editor` shell for anonymous visitors — no
+// per-diagram-id navigation), so no helper below has ever needed this in
+// practice here; the authed lane (`_tests/e2e-authed/`), which navigates
+// between distinct `/editor/[id]` routes, is where a hidden duplicate
+// route's stale toolbar/canvas actually shows up as a second match. This
+// file is SHARED by both lanes (`_tests/e2e-authed/lib/canvas.ts` re-exports
+// it wholesale), so every locator here that could ever resolve against more
+// than one route's DOM is hardened the same way, rather than only where the
+// anonymous lane happens to need it — a helper written against a single
+// preserved route today silently breaks the day a second route is added.
+//
+// THE ONE MECHANISM: every locator built from a raw CSS selector in this
+// file is scoped with `.filter({ visible: true })` before it's counted,
+// clicked, read, or measured — this is Playwright's own documented fallback
+// for exactly this situation (see the docs file above, "Use visibility-aware
+// selectors": `getByRole` filters automatically; `.filter({ visible: true })`
+// is the explicit equivalent for a plain `.locator()`). Applied uniformly, at
+// the point each locator is CONSTRUCTED, so every caller gets the hardening
+// for free with no ad-hoc filter sprinkled at individual call sites. The one
+// helper that can't go through a Locator at all (`realHandleIds`'s
+// `page.waitForFunction`, which queries the DOM directly inside the browser
+// via `querySelectorAll`) uses the DOM-native equivalent of "visible":
+// `(el as HTMLElement).offsetParent !== null`, which is false for any
+// element inside a `display: none` ancestor (exactly what Activity sets on a
+// hidden route's root) — see that function's own comment.
+//
+// Behavior-neutral for the anonymous lane specifically BECAUSE it has no
+// Activity duplicates: `.filter({ visible: true })` only narrows a match set
+// that already contains a hidden element, so it's a no-op wherever an
+// existing locator already resolved to exactly the one visible match it
+// always has.
+
 // ── Domain vocabulary mirrored from components/editor/domain (read-only —
 // this file must NOT import app source; see the ticket's WRITE SET fence).
 // Keep these in sync by hand if the app's own geometry ever changes; a
@@ -97,7 +143,7 @@ export async function gotoFreshEditor(page: Page): Promise<void> {
     }
   })
   await page.reload()
-  await page.locator('.react-flow__pane').waitFor({ state: 'visible' })
+  await page.locator('.react-flow__pane').filter({ visible: true }).waitFor({ state: 'visible' })
   // Point LABELS are hidden by default — `pointsVisible` starts `false` in
   // the store (components/editor/state/store.ts) and is plain in-memory UI
   // state, not a persisted preference, so this is true on every fresh load,
@@ -124,7 +170,7 @@ const CATEGORY_LABEL: Record<string, string> = {
 // category pill toggles closed on a second click of the SAME key, so this
 // checks `is-active` first rather than blindly clicking.
 export async function ensureCategory(page: Page, key: keyof typeof CATEGORY_LABEL): Promise<void> {
-  const btn = page.locator(`[role="toolbar"] button[title="${CATEGORY_LABEL[key]}"]`)
+  const btn = page.locator(`[role="toolbar"] button[title="${CATEGORY_LABEL[key]}"]`).filter({ visible: true })
   const active = await btn.evaluate((el) => el.classList.contains('is-active'))
   if (!active) await btn.click()
 }
@@ -135,7 +181,7 @@ export async function ensureCategory(page: Page, key: keyof typeof CATEGORY_LABE
 // always-visible selection readout. Every oracle read below opens it first.
 async function nameInput(page: Page) {
   await ensureCategory(page, 'name')
-  return page.locator('.toolbar-second-pill input[type="text"]')
+  return page.locator('.toolbar-second-pill input[type="text"]').filter({ visible: true })
 }
 
 // Types the given value into the (currently selected target's) Name field —
@@ -156,7 +202,7 @@ export async function expectNothingSelected(page: Page): Promise<void> {
 export async function expectPointSelected(page: Page, pointId: string): Promise<void> {
   const input = await nameInput(page)
   await expect(input).toHaveAttribute('placeholder', pointId)
-  await expect(page.locator('.react-flow__node.selected')).toHaveCount(0)
+  await expect(page.locator('.react-flow__node.selected').filter({ visible: true })).toHaveCount(0)
 }
 
 // Form (or a form's identity-centre point) selected: placeholder is the
@@ -165,12 +211,12 @@ export async function expectPointSelected(page: Page, pointId: string): Promise<
 export async function expectFormSelected(page: Page, formId: string, formName?: string): Promise<void> {
   const input = await nameInput(page)
   await expect(input).toHaveAttribute('placeholder', formId)
-  await expect(page.locator(`.react-flow__node[data-id="${formId}"]`)).toHaveClass(/\bselected\b/)
+  await expect(page.locator(`.react-flow__node[data-id="${formId}"]`).filter({ visible: true })).toHaveClass(/\bselected\b/)
   if (formName !== undefined) await expect(input).toHaveValue(formName)
 }
 
 export async function selectedNodeIds(page: Page): Promise<string[]> {
-  const ids = await page.locator('.react-flow__node.selected').evaluateAll((els) => els.map((e) => e.getAttribute('data-id') ?? ''))
+  const ids = await page.locator('.react-flow__node.selected').filter({ visible: true }).evaluateAll((els) => els.map((e) => e.getAttribute('data-id') ?? ''))
   return ids.filter(Boolean)
 }
 
@@ -182,11 +228,11 @@ export async function selectedNodeIds(page: Page): Promise<string[]> {
 export async function selectShapeTile(page: Page, shape: Shape): Promise<void> {
   await ensureCategory(page, 'shape')
   const label = SHAPE_LABEL[shape]
-  await page.locator(`[role="group"][aria-label="Shape"] button[title^="${label}"]`).click()
+  await page.locator(`[role="group"][aria-label="Shape"] button[title^="${label}"]`).filter({ visible: true }).click()
 }
 
 async function allNodeIds(page: Page): Promise<string[]> {
-  const ids = await page.locator('.react-flow__node').evaluateAll((els) => els.map((e) => e.getAttribute('data-id') ?? ''))
+  const ids = await page.locator('.react-flow__node').filter({ visible: true }).evaluateAll((els) => els.map((e) => e.getAttribute('data-id') ?? ''))
   return ids.filter(Boolean)
 }
 
@@ -231,6 +277,7 @@ function fractionPoint(box: { x: number; y: number; width: number; height: numbe
 async function realHandleIds(page: Page, nodeId: string): Promise<string[]> {
   const ids = await page
     .locator(`.react-flow__handle[data-nodeid="${nodeId}"]`)
+    .filter({ visible: true })
     .evaluateAll((els) => els.map((e) => e.getAttribute('data-handleid') ?? ''))
   // Exclude the hover-only phantom handle ('phantom:<edgeKey>') — it can
   // appear/disappear purely from the cursor resting on the spot, unrelated
@@ -241,6 +288,7 @@ async function realHandleIds(page: Page, nodeId: string): Promise<string[]> {
 async function pointLabelIds(page: Page, nodeId: string): Promise<string[]> {
   const ids = await page
     .locator(`.react-flow__node[data-id="${nodeId}"] [data-point-id]`)
+    .filter({ visible: true })
     .evaluateAll((els) => els.map((e) => e.getAttribute('data-point-id') ?? ''))
   return [...new Set(ids.filter(Boolean))]
 }
@@ -262,7 +310,7 @@ export interface AddedPoint {
 // Double-clicks the form `nodeId` at fraction (fx, fy) of its own live
 // (unrotated) bounding box to add a point there.
 export async function addPointAt(page: Page, nodeId: string, fx: number, fy: number): Promise<AddedPoint> {
-  const node = page.locator(`.react-flow__node[data-id="${nodeId}"]`)
+  const node = page.locator(`.react-flow__node[data-id="${nodeId}"]`).filter({ visible: true })
   const box = await node.boundingBox()
   if (!box) throw new Error(`addPointAt: node ${nodeId} has no bounding box`)
   const { x, y } = fractionPoint(box, fx, fy)
@@ -279,7 +327,17 @@ export async function addPointAt(page: Page, nodeId: string, fx: number, fy: num
   try {
     await page.waitForFunction(
       ({ selector, before }) => {
-        const els = Array.from(document.querySelectorAll(selector))
+        // Runs inside the browser via raw DOM APIs, not a Playwright
+        // Locator — `.filter({ visible: true })` (this file's one
+        // visibility-scoping mechanism, see the header comment) isn't
+        // reachable here, so this uses the DOM-native equivalent instead:
+        // `offsetParent === null` is false only for an element inside a
+        // `display: none` ancestor — exactly what Activity sets on a hidden
+        // route's root — so it excludes a stale duplicate node's handles the
+        // same way `.filter({ visible: true })` would.
+        const els = Array.from(document.querySelectorAll(selector)).filter(
+          (e) => (e as HTMLElement).offsetParent !== null,
+        )
         const ids = els
           .map((e) => e.getAttribute('data-handleid') ?? '')
           .filter((id) => id && !id.startsWith('phantom:'))
@@ -310,7 +368,10 @@ export async function handleIds(page: Page, nodeId: string): Promise<string[]> {
 // (source/target) `.first()` resolves to, since both sit at the identical
 // anchor.
 export async function handleCenter(page: Page, nodeId: string, handleId: string): Promise<{ x: number; y: number }> {
-  const handle = page.locator(`.react-flow__handle[data-nodeid="${nodeId}"][data-handleid="${handleId}"]`).first()
+  // .filter({ visible: true }) BEFORE .first() — without it, `.first()` could
+  // resolve to one of a hidden Activity duplicate's two same-id DOM nodes
+  // (source/target) instead of the live, visible one.
+  const handle = page.locator(`.react-flow__handle[data-nodeid="${nodeId}"][data-handleid="${handleId}"]`).filter({ visible: true }).first()
   const box = await handle.boundingBox()
   if (!box) throw new Error(`handleCenter: handle ${nodeId}/${handleId} not found`)
   return { x: box.x + box.width / 2, y: box.y + box.height / 2 }
@@ -320,7 +381,7 @@ export async function handleCenter(page: Page, nodeId: string, handleId: string)
 // the node's LIVE bounding box every call so it stays correct across
 // zoom/pan.
 export async function nodeSpot(page: Page, nodeId: string, fx: number, fy: number): Promise<{ x: number; y: number }> {
-  const box = await page.locator(`.react-flow__node[data-id="${nodeId}"]`).boundingBox()
+  const box = await page.locator(`.react-flow__node[data-id="${nodeId}"]`).filter({ visible: true }).boundingBox()
   if (!box) throw new Error(`nodeSpot: node ${nodeId} has no bounding box`)
   return fractionPoint(box, fx, fy)
 }
@@ -348,7 +409,7 @@ export async function clickPointDot(page: Page, nodeId: string, handleId: string
 // non-empty rendered label (every point defaults to its own id as the label
 // text, so this is always present right after creation).
 export async function clickPointLabel(page: Page, pointId: string): Promise<void> {
-  await page.locator(`[data-point-id="${pointId}"]`).click()
+  await page.locator(`[data-point-id="${pointId}"]`).filter({ visible: true }).click()
 }
 
 // ── Drag (stepped — React Flow's d3-drag needs intermediate moves to
@@ -365,11 +426,11 @@ export async function dragFromTo(page: Page, from: { x: number; y: number }, to:
 }
 
 export async function edgeCount(page: Page): Promise<number> {
-  return page.locator('.react-flow__edge').count()
+  return page.locator('.react-flow__edge').filter({ visible: true }).count()
 }
 
 export async function nodeCount(page: Page): Promise<number> {
-  return page.locator('.react-flow__node').count()
+  return page.locator('.react-flow__node').filter({ visible: true }).count()
 }
 
 // ── Selection / deselection helpers ──────────────────────────────────────
@@ -383,7 +444,7 @@ export async function clickEmptyCanvas(page: Page, point: { x: number; y: number
 // ── Zoom / pan ─────────────────────────────────────────────────────────
 
 export async function getZoom(page: Page): Promise<number> {
-  const transform = await page.locator('.react-flow__viewport').evaluate((el) => (el as HTMLElement).style.transform)
+  const transform = await page.locator('.react-flow__viewport').filter({ visible: true }).evaluate((el) => (el as HTMLElement).style.transform)
   const m = transform.match(/scale\(([-\d.]+)\)/)
   return m ? parseFloat(m[1]) : 1
 }
@@ -457,7 +518,7 @@ async function settleFrame(page: Page): Promise<void> {
 }
 
 export async function panCanvasBy(page: Page, dx: number, dy: number): Promise<void> {
-  const box = await page.locator('.react-flow__pane').boundingBox()
+  const box = await page.locator('.react-flow__pane').filter({ visible: true }).boundingBox()
   if (!box) throw new Error('panCanvasBy: pane not found')
   const start = { x: box.x + box.width / 2, y: box.y + Math.min(box.height - 40, box.height / 2 + 150) }
   await dragFromTo(page, start, { x: start.x + dx, y: start.y + dy })
@@ -472,5 +533,5 @@ export async function panCanvasBy(page: Page, dx: number, dy: number): Promise<v
 // data-testid. Scoped to the given node so it can't match an unrelated
 // element elsewhere on the page.
 export function hoverIndicator(page: Page, nodeId: string) {
-  return page.locator(`.react-flow__node[data-id="${nodeId}"] div[style*="var(--color-hover)"]`)
+  return page.locator(`.react-flow__node[data-id="${nodeId}"] div[style*="var(--color-hover)"]`).filter({ visible: true })
 }
