@@ -1234,13 +1234,29 @@ export default function CanvasRoot({ diagramId, initialData, topRight, localDraf
   // instead of silently trusting years-stale (well, navigations-stale)
   // props.
   const router = useRouter()
-  const hasMountedRef = useRef(false)
+  // "Was this tree HIDDEN when the effect last tore down?" — the signal that
+  // distinguishes a real Activity reveal from every other effect re-fire.
+  // The naive "second firing = reveal" heuristic misfires under React
+  // StrictMode (dev double-invokes effects on EVERY mount), which turned
+  // every dev-mode canvas mount into a router.refresh() — a refresh storm
+  // that chromium absorbed but broke Firefox/WebKit e2e (navigation aborts,
+  // interrupted double-click creation). Instead: at CLEANUP time we probe
+  // the container's `offsetParent` — when Activity hides a route it wraps it
+  // in `display: none` FIRST and then runs cleanups, so a cleanup that sees
+  // offsetParent === null is a HIDE; a StrictMode remount or a genuine
+  // unmount cleans up while still visible/detached and never sets the flag.
+  // Only an effect firing AFTER a flagged hide is a reveal → refresh then.
+  const rootRef = useRef<HTMLDivElement>(null)
+  const wasHiddenRef = useRef(false)
   useEffect(() => {
-    if (!hasMountedRef.current) {
-      hasMountedRef.current = true
-      return
+    if (wasHiddenRef.current) {
+      wasHiddenRef.current = false
+      router.refresh()
     }
-    router.refresh()
+    return () => {
+      const el = rootRef.current
+      if (el && el.isConnected && el.offsetParent === null) wasHiddenRef.current = true
+    }
   }, [router])
 
   useAutosave(ready ? diagramId : null)
@@ -1251,7 +1267,7 @@ export default function CanvasRoot({ diagramId, initialData, topRight, localDraf
     // server had the data; a visible loading indicator otherwise (anonymous
     // mode loads from localStorage/fragment, which the server cannot see).
     return (
-      <div aria-busy="true" style={{ width: '100%', height: '100%', position: 'relative', overflow: 'hidden' }}>
+      <div ref={rootRef} aria-busy="true" style={{ width: '100%', height: '100%', position: 'relative', overflow: 'hidden' }}>
         {ssrPreview
           ? <div style={{ position: 'absolute', inset: 0 }} dangerouslySetInnerHTML={{ __html: ssrPreview }} />
           : <LoadingScreen message="Loading diagram…" position="absolute" />}
@@ -1259,7 +1275,7 @@ export default function CanvasRoot({ diagramId, initialData, topRight, localDraf
     )
   }
   return (
-    <div style={{ width: '100%', height: '100%', position: 'relative' }}>
+    <div ref={rootRef} style={{ width: '100%', height: '100%', position: 'relative' }}>
       <ReactFlowProvider>
         <Canvas topRight={topRight} />
       </ReactFlowProvider>
