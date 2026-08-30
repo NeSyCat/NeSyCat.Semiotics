@@ -202,6 +202,30 @@ export function diagramToHtmlCore(diagram: Diagram, fragment?: string): string {
 </svg>`
 }
 
+// SSR first-paint preview: the SAME drawing the export produces, but
+// positioned ABSOLUTELY at its flow coordinates so it overlays exactly where
+// the live React Flow canvas will draw (the canvas boots at viewport
+// {x:0,y:0,zoom:1} — no fitView — so flow px map 1:1 to container px).
+// CanvasRoot (ui/Canvas.tsx) shows this server-rendered snapshot from the
+// very first byte of HTML and swaps in the interactive canvas when the
+// client store is ready — pixel-continuous, so the swap is invisible.
+// Pure + synchronous (buildDrawCmds only), safe in a server component.
+export function diagramSsrPreview(diagram: Diagram): string {
+  const cmds = buildDrawCmds(diagram)
+  if (cmds.length === 0) return ''
+  const allVecs = cmds.flatMap(cmdBoundsVecs)
+  const minX = Math.min(...allVecs.map((v) => v.x))
+  const minY = Math.min(...allVecs.map((v) => v.y))
+  const maxX = Math.max(...allVecs.map((v) => v.x))
+  const maxY = Math.max(...allVecs.map((v) => v.y))
+  const w = Math.max(1, maxX - minX + PAD * 2)
+  const h = Math.max(1, maxY - minY + PAD * 2)
+  const body = cmds.map(emitCmd).join('\n  ')
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${round(minX - PAD)} ${round(minY - PAD)} ${round(w)} ${round(h)}" width="${round(w)}" height="${round(h)}" style="position:absolute;left:${round(minX - PAD)}px;top:${round(minY - PAD)}px;pointer-events:none">
+  ${body}
+</svg>`
+}
+
 export async function diagramToHtml(diagram: Diagram): Promise<string> {
   const fragment = await encodeDiagramToFragment(diagram)
   return diagramToHtmlCore(diagram, fragment)

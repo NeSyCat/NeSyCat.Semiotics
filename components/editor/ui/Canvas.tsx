@@ -36,6 +36,7 @@ import { TopRightPills } from './toolbars/TopRightPills'
 import { MainToolbar } from './toolbars/MainToolbar'
 import { SecondToolbar } from './toolbars/SecondToolbar'
 import { useEditorKeyboard } from './hooks/useEditorKeyboard'
+import LoadingScreen from '@/components/LoadingScreen'
 
 const nodeTypes: NodeTypes = { form: FormNode }
 const edgeTypes: EdgeTypes = { line: LineEdge }
@@ -1160,9 +1161,18 @@ interface CanvasProps {
   initialData: Diagram
   topRight?: ReactNode
   localDraft?: boolean
+  // Server-rendered static SVG snapshot of initialData (export/html.ts's
+  // diagramSsrPreview), absolutely positioned at its flow coordinates. Shown
+  // from the FIRST BYTE of HTML until the client store hydrates — without
+  // it, the canvas area is a BLANK VOID for the whole
+  // download+hydrate+initStore window (the "site loads forever" complaint:
+  // the network finishes in <1s, then nothing paints for seconds). The live
+  // canvas boots at viewport {0,0,zoom:1}, the same frame the preview is
+  // positioned in, so the swap is pixel-continuous.
+  ssrPreview?: string
 }
 
-export default function CanvasRoot({ diagramId, initialData, topRight, localDraft }: CanvasProps) {
+export default function CanvasRoot({ diagramId, initialData, topRight, localDraft, ssrPreview }: CanvasProps) {
   const [ready, setReady] = useState(false)
   useLayoutEffect(() => {
     initStore(initialData)
@@ -1170,7 +1180,19 @@ export default function CanvasRoot({ diagramId, initialData, topRight, localDraf
   }, [initialData])
   useAutosave(ready ? diagramId : null)
   useLocalAutosave(ready && !!localDraft)
-  if (!ready) return null
+  if (!ready) {
+    // Never `null` here: null = a blank screen for the entire hydration
+    // window, in the SSR HTML itself. The real diagram (ssrPreview) when the
+    // server had the data; a visible loading indicator otherwise (anonymous
+    // mode loads from localStorage/fragment, which the server cannot see).
+    return (
+      <div aria-busy="true" style={{ width: '100%', height: '100%', position: 'relative', overflow: 'hidden' }}>
+        {ssrPreview
+          ? <div style={{ position: 'absolute', inset: 0 }} dangerouslySetInnerHTML={{ __html: ssrPreview }} />
+          : <LoadingScreen message="Loading diagram…" position="absolute" />}
+      </div>
+    )
+  }
   return (
     <div style={{ width: '100%', height: '100%', position: 'relative' }}>
       <ReactFlowProvider>
