@@ -7,6 +7,7 @@ import { loadDiagram } from '@/lib/actions/diagrams'
 import { getCachedMe } from '@/lib/actions/read-cache'
 import { resolveActiveOrg } from '@/lib/active-org'
 import { restoreDiagram } from '@/components/editor/persist/io'
+import { diagramSsrPreview } from '@/components/editor/export/html'
 import { serverCallbackUrl, serverEditorHref } from '@/lib/editor-url.server'
 
 export default async function EditorDiagramPage(props: { params: Promise<{ id: string }> }) {
@@ -30,10 +31,21 @@ export default async function EditorDiagramPage(props: { params: Promise<{ id: s
   const activeOrgId = await resolveActiveOrg(me)
   // Routes load arbitrary persisted JSON; restoreDiagram normalizes the shape
   // (default fields, version migration) before the store ever sees it.
+  const initialData = restoreDiagram(row.data)
+  // Static first-paint snapshot, rendered into the SSR HTML — see
+  // CanvasRoot's ssrPreview prop. Best-effort: a drawing bug in the preview
+  // must never take down the page itself.
+  let ssrPreview: string | undefined
+  try {
+    ssrPreview = diagramSsrPreview(initialData)
+  } catch (err) {
+    console.error('diagramSsrPreview failed, loading without first-paint snapshot:', err)
+  }
   return (
     <CanvasRoot
       diagramId={id}
-      initialData={restoreDiagram(row.data)}
+      initialData={initialData}
+      ssrPreview={ssrPreview}
       topRight={
         <UserMenu me={me} activeOrgId={activeOrgId} callbackUrl={await serverCallbackUrl()} />
       }
