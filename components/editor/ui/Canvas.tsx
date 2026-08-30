@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useMemo, useCallback, useRef, useEffect, useLayoutEffect, type ReactNode } from 'react'
+import { useRouter } from 'next/navigation'
 import {
   ReactFlow,
   ReactFlowProvider,
@@ -1178,6 +1179,70 @@ export default function CanvasRoot({ diagramId, initialData, topRight, localDraf
     initStore(initialData)
     setReady(true)
   }, [initialData])
+
+  // ── Reveal-resync: re-pull server props when Activity restores this route
+  // from hidden ────────────────────────────────────────────────────────────
+  //
+  // With cacheComponents on, Next 16 doesn't unmount a route you navigate
+  // away from — it wraps it in React's <Activity mode="hidden"> instead (see
+  // node_modules/next/dist/docs/01-app/02-guides/preserving-ui-state.md), so
+  // /editor/[A] → /editor/[B] leaves A's whole component tree (this
+  // CanvasRoot included, with its ORIGINAL server-rendered `initialData`
+  // prop) sitting in the DOM at `display: none`. Per that doc's "Testing"
+  // section and its own "Effects" behavior notes, Effects (both useEffect
+  // AND useLayoutEffect) are cleaned up when Activity hides a subtree and
+  // RE-FIRE — from scratch, with whatever props that fiber still holds —
+  // the moment it's revealed again (e.g. a browser back-nav to A). A plain
+  // `useRef` is NOT reset by this hide/show cycle (refs are untouched by
+  // Activity, unlike state), which is exactly what makes it usable as a
+  // "have I already mounted once" flag that survives being hidden.
+  //
+  // Without this effect: the useLayoutEffect above re-runs on reveal with
+  // A's STALE closed-over `initialData` (the props captured at A's original
+  // render — Activity does not re-invoke the Server Component or refresh
+  // props on its own) and calls `initStore(initialData)`. initStore resets
+  // the GLOBAL zustand store — not scoped to this route — to that stale
+  // snapshot. If the user made edits to diagram A before navigating away,
+  // those edits vanish from view the instant they land back on A (a visible
+  // regression), AND — worse — if they then edit from this stale base, their
+  // next autosave write silently overwrites whatever they'd saved before
+  // navigating away with older data: a lost-update window, not just a
+  // cosmetic flash.
+  //
+  // The fix: a `useRef(false)` marks whether this is the FIRST time this
+  // component instance has mounted. The first firing (real mount, ref still
+  // false) just flips the ref and returns — nothing to correct, initialData
+  // is fresh here. Every firing AFTER that first one only happens because
+  // Activity tore down and re-fired this effect, i.e. this route was just
+  // REVEALED — so it calls `router.refresh()` (next/navigation), which
+  // re-runs the Server Component for this route with the CURRENT request,
+  // streaming down fresh props. When that resolves, `initialData` actually
+  // changes, so the useLayoutEffect above fires AGAIN — this time with
+  // current data — and re-inits the store correctly, overwriting the
+  // momentary stale reset. That effect ordering is safe specifically because
+  // it's sequenced, not racing: the layoutEffect above always runs FIRST and
+  // SYNCHRONOUSLY on every reveal (React flushes layout effects before
+  // passive ones), so any staleness it introduces happens before this
+  // effect's router.refresh() even fires; router.refresh() itself is async
+  // (a network round-trip to re-render the server tree), so the corrected
+  // props/second layoutEffect pass always lands strictly after, never
+  // interleaved with or undone by the first pass.
+  //
+  // Net effect: identical to Next.js's pre-Activity behavior, where a
+  // back-nav to A was a full remount that always refetched the server
+  // payload — this restores exactly that guarantee for a preserved route,
+  // instead of silently trusting years-stale (well, navigations-stale)
+  // props.
+  const router = useRouter()
+  const hasMountedRef = useRef(false)
+  useEffect(() => {
+    if (!hasMountedRef.current) {
+      hasMountedRef.current = true
+      return
+    }
+    router.refresh()
+  }, [router])
+
   useAutosave(ready ? diagramId : null)
   useLocalAutosave(ready && !!localDraft)
   if (!ready) {
