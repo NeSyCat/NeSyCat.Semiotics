@@ -1,0 +1,19 @@
+# Keeps the production Vercel function (and its DB connection pool) warm —
+# without traffic, every visit pays a ~1.5s serverless cold start (measured);
+# warm, the same page answers in ~0.6s. GitHub's cron is best-effort (5min
+# schedule can drift to ~10-15min under load), which is fine: the goal is
+# "usually warm", not an SLO. curl failures are ignored — a missed ping just
+# means one cold visit, not a red workflow.
+name: Keep warm
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping production
+        run: |
+          curl -s -o /dev/null -m 20 https://semiotics.nesycat.org/api/warm || true
+          curl -s -o /dev/null -m 20 https://semiotics.nesycat.org/editor || true
