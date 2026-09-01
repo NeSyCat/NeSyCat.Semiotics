@@ -204,7 +204,7 @@ describe('HTML/SVG exporter', () => {
     expect(fsvg, 'form-name label carries no preceding white backing rect').not.toMatch(/<rect[^>]*fill="white"\/>\s*<text[^>]*>Bool<\/text>/)
   })
 
-  it('named point labels carry a white backing rect (masked), matching wire-name labels', () => {
+  it('a named point label keeps its white backing, but painted BEFORE the form body', () => {
     const p: Diagram = {
       schemaVersion: 1,
       forms: [{ id: 'PF1', shape: 'square', position: { x: 0, y: 0 }, edges: { top: [], right: [], bottom: [], left: ['PP1'] } }],
@@ -212,7 +212,18 @@ describe('HTML/SVG exporter', () => {
       lines: [],
     }
     const psvg = diagramToHtmlCore(p)
-    expect(psvg, "the point-name label's white backing rect immediately precedes its <text>").toMatch(
+    // The backing still exists (it hides a wire running under the label), but it
+    // is no longer glued to the <text>: it is emitted first, the body paints over
+    // it, and the text comes last WITHOUT a rect of its own. Glued together — as
+    // this used to assert — the backing sat on top of the outline and punched a
+    // hole in the shape the label belongs to.
+    const rect = psvg.indexOf('<rect')
+    const body = psvg.indexOf('<polygon')
+    const text = psvg.indexOf('>x</text>')
+    expect(rect, 'the backing rect is emitted').toBeGreaterThan(-1)
+    expect(rect, 'the backing rect comes BEFORE the form body').toBeLessThan(body)
+    expect(body, 'the form body comes before the label text').toBeLessThan(text)
+    expect(psvg, 'the label text itself carries no rect of its own').not.toMatch(
       /<rect[^>]*fill="white"\/>\s*<text[^>]*>x<\/text>/,
     )
   })

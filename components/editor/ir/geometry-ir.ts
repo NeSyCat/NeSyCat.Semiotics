@@ -395,7 +395,10 @@ function buildPointLabelCmd(pt: Point, px: PointPx): DrawCmd | null {
   const splay = edgeLabelSplayLocal(px)
   const base = px.layout.toAbs({ x: px.local.x + splay.x, y: px.local.y + splay.y })
   const at = { x: base.x + offset.x, y: base.y + offset.y }
-  return { kind: 'label', at, text: mathWrap(pt.name), anchor, masked: true }
+  // masked: false — the white backing is a SEPARATE command (below), painted
+  // earlier so the form body covers it again. Leaving the backing on the text
+  // too would re-punch the same hole this split exists to avoid.
+  return { kind: 'label', at, text: mathWrap(pt.name), anchor, masked: false }
 }
 
 // A point label's white backing, as its own command so buildDrawCmds can paint
@@ -406,7 +409,7 @@ function buildPointLabelCmd(pt: Point, px: PointPx): DrawCmd | null {
 function buildPointLabelMaskCmd(pt: Point, px: PointPx): DrawCmd | null {
   const label = buildPointLabelCmd(pt, px)
   if (!label || label.kind !== 'label') return null
-  return { ...label, maskOnly: true }
+  return { ...label, masked: true, maskOnly: true }
 }
 
 // Wires are drawn full-length, endpoint to endpoint — no gap/shortening
