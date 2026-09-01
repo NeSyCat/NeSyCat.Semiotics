@@ -143,6 +143,10 @@ function emitCmd(cmd: DrawCmd): string {
       const rectW = left + right + MASK_PAD * 2
       const rectH = LABEL_HALF_H * 2 + MASK_PAD * 2
       const rect = `<rect x="${round(rectX)}" y="${round(rectY)}" width="${round(rectW)}" height="${round(rectH)}" fill="white"/>`
+      // maskOnly: the backing alone, emitted earlier in the list so the form
+      // bodies paint back over it; its text comes as a separate, unmasked
+      // command later on.
+      if (cmd.maskOnly) return rect
       return `${rect}\n  ${textEl}`
     }
   }

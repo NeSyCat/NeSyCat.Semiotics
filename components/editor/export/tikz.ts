@@ -124,7 +124,12 @@ function emitCmd(cmd: DrawCmd, registry: ColorRegistry, minX: number, maxY: numb
       // text, matching the canvas band's own tightness. Form-name labels
       // stay unmasked (masked: false) — a white box over a colored form's
       // tint would look wrong, and canvas doesn't mask form names either.
-      const opts = [...(cmd.masked ? ['fill=white', 'inner sep=2pt'] : []), ...(cmd.anchor ? [`anchor=${cmd.anchor}`] : [])]
+      // maskOnly: the SAME node, sized by the same text, but with the glyphs
+      // made invisible — so the white backing lands exactly where the text
+      // will, while being painted earlier (under the form bodies).
+      const opts = [...(cmd.masked ? ['fill=white', 'inner sep=2pt'] : []),
+        ...(cmd.maskOnly ? ['text opacity=0'] : []),
+        ...(cmd.anchor ? [`anchor=${cmd.anchor}`] : [])]
       const opt = opts.length ? `[${opts.join(', ')}] ` : ' '
       return `\\node${opt}at (${c(cmd.at)}) {${cmd.text}};`
     }
