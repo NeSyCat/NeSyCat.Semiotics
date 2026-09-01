@@ -19,7 +19,7 @@
 //   2. Backend-specific unit conversion (px -> TikZ cm, or raw px for SVG)
 //      happens downstream, in each backend module — not here.
 
-import { geometryFor, pointIdsAt, bodyCentroid, POINT_SIZE, worldPointNormal, type Body } from '../domain/forms'
+import { geometryFor, pointIdsAt, bodyCentroid, screenCardinal, POINT_SIZE, worldPointNormal, type Body } from '../domain/forms'
 import { wirePath, smoothstepElbowPoints, isNearlyStraight, type Dir, type EdgeStyle, type ElbowPlacement, type Vec } from '../domain/wirepath'
 import type { Diagram, Form, Point, Shape, Color, EdgeKey } from '../domain/types'
 
@@ -381,9 +381,18 @@ function edgeLabelSplayLocal(px: PointPx): Vec {
 // outward" — deliberately narrower than forms/lines.
 function buildPointLabelCmd(pt: Point, px: PointPx): DrawCmd | null {
   if (!pt.name) return null
-  const { offset, anchor } = labelAnchorFor(px.cardinal)
+  // The label faces the point's edge direction AS ROTATED ON SCREEN, matching
+  // PointVisual.tsx (both go through domain/forms.ts's screenCardinal). The
+  // outward offset is therefore a SCREEN vector, added AFTER layout.toAbs —
+  // toAbs is translation+rotation only, so this is exactly "rotate the local
+  // offset". The splay stays LOCAL and rides through toAbs, which rotates it.
+  // Reading the anchor off the UNROTATED cardinal (as this used to) pinned a
+  // rotated form's labels by the wrong side, so canvas and export disagreed.
+  const screenDir = screenCardinal(px.cardinal, px.layout.rotation)
+  const { offset, anchor } = labelAnchorFor(screenDir)
   const splay = edgeLabelSplayLocal(px)
-  const at = px.layout.toAbs({ x: px.local.x + offset.x + splay.x, y: px.local.y + offset.y + splay.y })
+  const base = px.layout.toAbs({ x: px.local.x + splay.x, y: px.local.y + splay.y })
+  const at = { x: base.x + offset.x, y: base.y + offset.y }
   return { kind: 'label', at, text: mathWrap(pt.name), anchor, masked: true }
 }
 
