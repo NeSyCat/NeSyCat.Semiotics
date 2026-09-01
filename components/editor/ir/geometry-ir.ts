@@ -190,7 +190,9 @@ export type DrawCmd =
   // FORM names are never masked: a white box over a colored form's own tint
   // would look wrong, and canvas doesn't mask them either (FormNode.tsx's
   // name label has no mask sibling).
-  | { kind: 'label'; at: Vec; text: string; anchor?: 'east' | 'west' | 'north' | 'south'; masked: boolean }
+  // `maskOnly` emits JUST the white backing (text invisible) so a point label's
+  // mask can be painted at a different depth than its text — see buildDrawCmds.
+  | { kind: 'label'; at: Vec; text: string; anchor?: 'east' | 'west' | 'north' | 'south'; masked: boolean; maskOnly?: boolean }
 
 // Form body: fill 0.18 opacity (theme.node.fillOpacity — see FormNode.tsx's
 // BodyView, unselected state; export has no "selected" concept), border
@@ -396,6 +398,17 @@ function buildPointLabelCmd(pt: Point, px: PointPx): DrawCmd | null {
   return { kind: 'label', at, text: mathWrap(pt.name), anchor, masked: true }
 }
 
+// A point label's white backing, as its own command so buildDrawCmds can paint
+// it UNDER the form bodies (canvas keeps this mask at zIndex -1, below the body
+// and above the wires). Emitting it fused with the text — as this used to —
+// punched a white hole through whatever border the label overlapped, which is
+// what erased a chunk of the triangle's slanted side next to its Theta port.
+function buildPointLabelMaskCmd(pt: Point, px: PointPx): DrawCmd | null {
+  const label = buildPointLabelCmd(pt, px)
+  if (!label || label.kind !== 'label') return null
+  return { ...label, maskOnly: true }
+}
+
 // Wires are drawn full-length, endpoint to endpoint — no gap/shortening
 // needed in exports (unlike canvas's LineEdge): a terminating point's own
 // glyph fill is opaque (WHITE, or a color flattened over white — see
@@ -513,26 +526,37 @@ export const SHARE_BASE = 'https://semiotics.nesycat.org/editor'
 // a color flattened over white) is what visually masks a wire's end/a form's
 // border underneath it, with no separate gap geometry needed (see
 // buildLineCmds's own comment).
+// Paint order mirrors the canvas's z-stack, which is what keeps a point label
+// from erasing the very shape it labels:
+//   wires -> point-label MASKS -> form bodies -> point glyphs -> label TEXT
+// The mask therefore hides a wire running under a label (canvas: zIndex -1,
+// above the edges layer) while the body, drawn after it, paints straight back
+// over it (canvas: the body is part of the node, above zIndex -1). Bodies are
+// stroked outlines with a transparent-or-tinted fill, so moving them after the
+// wires does not hide any wire that reaches their border.
 export function buildDrawCmds(diagram: Diagram): DrawCmd[] {
   const cmds: DrawCmd[] = []
-  for (const form of diagram.forms) buildFormCmds(form, cmds)
-
   const positions = pointPositionsPx(diagram)
+
   buildLineCmds(diagram, positions, cmds)
 
-  for (const form of diagram.forms) {
-    const geom = geometryFor(form.shape)
-    for (const edgeKey of geom.edgeKeys) {
-      pointIdsAt(form, edgeKey).forEach((pid) => {
-        const pt = diagram.points[pid]
-        const px = positions.get(pid)
-        if (!pt || !px) return
-        buildPointCmds(pt, px, cmds)
-        const label = buildPointLabelCmd(pt, px)
-        if (label) cmds.push(label)
-      })
+  const eachPoint = (fn: (pt: Point, px: PointPx) => void) => {
+    for (const form of diagram.forms) {
+      const geom = geometryFor(form.shape)
+      for (const edgeKey of geom.edgeKeys) {
+        pointIdsAt(form, edgeKey).forEach((pid) => {
+          const pt = diagram.points[pid]
+          const px = positions.get(pid)
+          if (pt && px) fn(pt, px)
+        })
+      }
     }
   }
+
+  eachPoint((pt, px) => { const m = buildPointLabelMaskCmd(pt, px); if (m) cmds.push(m) })
+  for (const form of diagram.forms) buildFormCmds(form, cmds)
+  eachPoint((pt, px) => buildPointCmds(pt, px, cmds))
+  eachPoint((pt, px) => { const l = buildPointLabelCmd(pt, px); if (l) cmds.push(l) })
 
   return cmds
 }
