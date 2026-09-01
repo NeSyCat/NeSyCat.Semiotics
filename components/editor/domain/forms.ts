@@ -182,6 +182,27 @@ export function worldPointNormal(form: Form, edgeKey: EdgeKey, index: number, co
   return rotateVec(local, form.rotation ?? 0)
 }
 
+// THE single function both ui/PointVisual.tsx (canvas) and ir/geometry-ir.ts
+// (exports) call to decide which way a point's LABEL faces: the screen-space
+// cardinal a form-local edge direction points at once the node is rotated by
+// `rotation` (CSS rotate — clockwise in screen Y-down space). A label must
+// always sit OUTSIDE the body, so it has to turn with the form: an apex-up
+// triangle sits at rotation 270, where its 'peak' (form-local Right) points UP
+// on screen and its label belongs above the apex, and by the same token that
+// triangle's BASE points (form-local Left) belong below it, not to its side.
+// Takes the raw Position string (what PointPx.cardinal carries) so both
+// callers can pass what they already have.
+export function screenCardinal(position: string, rotation: number): 'left' | 'right' | 'top' | 'bottom' {
+  const base: [number, number] =
+    position === Position.Left ? [-1, 0]
+      : position === Position.Right ? [1, 0]
+        : position === Position.Top ? [0, -1]
+          : [0, 1]
+  const { x, y } = rotateVec({ x: base[0], y: base[1] }, rotation)
+  // snap to the nearest screen cardinal (exact for 90° multiples)
+  return Math.abs(x) >= Math.abs(y) ? (x >= 0 ? 'right' : 'left') : y >= 0 ? 'bottom' : 'top'
+}
+
 // Where a NEW point's gesture (rx, ry) should land in an edge's existing
 // ordered point list — the fix for "wires cross instead of running parallel"
 // when two points get created on facing sides in the wrong relative order.

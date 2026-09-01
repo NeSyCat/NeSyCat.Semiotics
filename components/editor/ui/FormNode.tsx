@@ -65,7 +65,13 @@ function edgeLabelSplay(geom: FormGeometry, edgeKey: EdgeKey, index: number, cou
   const sx = tx * Math.cos(th) - ty * Math.sin(th)
   const sy = tx * Math.sin(th) + ty * Math.cos(th)
   if (Math.abs(sy) > Math.abs(sx)) return { x: 0, y: 0 }
-  return { x: (sign * SPLAY_PX * tx) / len, y: (sign * SPLAY_PX * ty) / len }
+  // Return the ROTATED tangent: PointVisual adds this straight to a screen-space
+  // label offset (it never re-rotates), so handing back the LOCAL tangent pushed
+  // a rotated form's labels along the wrong axis — a rotated triangle's two base
+  // labels flew apart vertically, one landing inside the body. (geometry-ir's
+  // edgeLabelSplayLocal keeps returning LOCAL on purpose: there the splay is
+  // added before layout.toAbs, which applies the same rotation itself.)
+  return { x: (sign * SPLAY_PX * sx) / len, y: (sign * SPLAY_PX * sy) / len }
 }
 
 // The visual hover tint for a point-creation region — an INDICATOR of which

@@ -1,8 +1,8 @@
 'use client'
 
-import { Handle, Position } from '@xyflow/react'
+import { Handle } from '@xyflow/react'
 import theme from './theme'
-import { geometryFor, POINT_SIZE, type Anchor } from '../domain/forms'
+import { geometryFor, screenCardinal, POINT_SIZE, type Anchor } from '../domain/forms'
 import { toRgbTriple } from '../domain/color'
 import { Tex } from './Tex'
 import { LabelMask } from './LabelMask'
@@ -14,27 +14,6 @@ const POINT_NAME_SIZE = 12 // points a little smaller than the form name
 // (POINT_SIZE, domain/forms.ts), so a point's draggable area and visual
 // glyph coincide exactly.
 const REGION_CORNER_SIZE = POINT_SIZE
-
-// The screen-space cardinal that a form-local edge direction faces once the
-// node is rotated by `rotation` (CSS rotate — clockwise in screen Y-down
-// space). Used to place a point's label outward ON SCREEN, not in the
-// unrotated frame: e.g. an apex-up triangle sits at rotation 270, where its
-// 'peak' edge (form-local Right) points UP on screen, so its label belongs
-// above the apex — not off to one side.
-function screenCardinal(position: Position, rotation: number): 'left' | 'right' | 'top' | 'bottom' {
-  const base: [number, number] =
-    position === Position.Left ? [-1, 0]
-      : position === Position.Right ? [1, 0]
-        : position === Position.Top ? [0, -1]
-          : [0, 1]
-  const th = (rotation * Math.PI) / 180
-  const c = Math.cos(th)
-  const s = Math.sin(th)
-  const x = base[0] * c - base[1] * s
-  const y = base[0] * s + base[1] * c
-  // snap to the nearest screen cardinal (exact for 90° multiples)
-  return Math.abs(x) >= Math.abs(y) ? (x >= 0 ? 'right' : 'left') : y >= 0 ? 'bottom' : 'top'
-}
 
 // A point's glyph reuses the SAME geometry a form of that shape draws its
 // own body from (geometryFor(shape).body — domain/forms.ts's registry) and
