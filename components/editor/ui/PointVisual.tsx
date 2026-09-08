@@ -1,6 +1,6 @@
 'use client'
 
-import { Handle } from '@xyflow/react'
+import { Handle, Position } from '@xyflow/react'
 import theme from './theme'
 import { geometryFor, screenCardinal, POINT_SIZE, type Anchor } from '../domain/forms'
 import { toRgbTriple } from '../domain/color'
@@ -183,8 +183,8 @@ export function PointVisual({ pid, pt, anchor, labelSplay, hid, isSelected, isHo
           Only the form's BODY still can't spawn a wire/new point — see
           FormNode's phantom-skip, which is what makes plain node-drag
           reachable there at all.) */}
-      <Handle type="target" position={anchor.position} id={hid} style={dotStyle} />
-      <Handle type="source" position={anchor.position} id={hid} style={dotStyle}>
+      <Handle type="target" position={anchor.position as Position} id={hid} style={dotStyle} />
+      <Handle type="source" position={anchor.position as Position} id={hid} style={dotStyle}>
         {/* grab pad — easy to grab; events bubble to the handle above. No
             onClick here any more — selecting a point is handled ENTIRELY by
             Canvas.tsx's capture-phase pipeline (pressRef/onClickCapture),

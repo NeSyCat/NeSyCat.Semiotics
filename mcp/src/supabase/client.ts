@@ -12,7 +12,23 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createFileStorage } from './session-storage.js'
 
-const MCP_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
+// Resolve the package root by walking UP to the directory that holds this
+// package's package.json, rather than by counting directories from this file.
+// Depth-counting breaks under bundling: this source sits at mcp/src/supabase/
+// (two levels down) but the bundled entry points sit at mcp/dist/ (one level
+// down), so a fixed '../..' would climb out of the package and lose .env /
+// .session.json in every installed copy. Walking up is correct from both.
+function findPackageRoot(startDir: string): string {
+  let dir = startDir
+  for (;;) {
+    if (existsSync(path.join(dir, 'package.json'))) return dir
+    const parent = path.dirname(dir)
+    if (parent === dir) return startDir // filesystem root: give up, stay put
+    dir = parent
+  }
+}
+
+const MCP_ROOT = findPackageRoot(path.dirname(fileURLToPath(import.meta.url)))
 export const ENV_PATH = path.join(MCP_ROOT, '.env')
 export const SESSION_PATH = path.join(MCP_ROOT, '.session.json')
 

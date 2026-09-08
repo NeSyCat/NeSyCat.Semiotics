@@ -6,11 +6,5 @@
   "repository": "https://github.com/NeSyCat/NeSyCat.Semiotics",
   "license": "MIT",
   "keywords": ["nesycat", "semiotics", "diagrams", "prisma", "knowledge", "mcp", "sysmer"],
-  "skills": "./skills/",
-  "mcpServers": {
-    "nesycat-semiotics": {
-      "command": "${CLAUDE_PLUGIN_ROOT}/node_modules/.bin/tsx",
-      "args": ["${CLAUDE_PLUGIN_ROOT}/src/index.ts"]
-    }
-  }
+  "skills": "./skills/"
 }

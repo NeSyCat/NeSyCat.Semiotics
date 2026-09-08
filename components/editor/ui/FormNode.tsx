@@ -1,7 +1,7 @@
 'use client'
 
 import { memo, useEffect, useRef } from 'react'
-import { Handle, useConnection, useUpdateNodeInternals, type NodeProps } from '@xyflow/react'
+import { Handle, Position, useConnection, useUpdateNodeInternals, type NodeProps } from '@xyflow/react'
 import theme from './theme'
 import { geometryFor, pointIdsAt, insertionIndex, shrunkBodyPoints, bodyCentroid, CENTER_SHRINK, POINT_SIZE, type Body, type FormGeometry, type RegionShape } from '../domain/forms'
 import { encodeHandle, encodePhantomHandle, decodePhantomHandle } from '../domain/handles'
@@ -443,10 +443,10 @@ function FormNode({ id, data, selected }: NodeProps) {
         }
         return (
           <span key="phantom">
-            <Handle type="target" position={anchor.position} id={hid} style={dotStyle}>
+            <Handle type="target" position={anchor.position as Position} id={hid} style={dotStyle}>
               {hitArea}
             </Handle>
-            <Handle type="source" position={anchor.position} id={hid} style={dotStyle}>
+            <Handle type="source" position={anchor.position as Position} id={hid} style={dotStyle}>
               {hitArea}
             </Handle>
           </span>
