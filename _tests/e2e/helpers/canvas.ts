@@ -324,8 +324,9 @@ export async function addPointAt(page: Page, nodeId: string, fx: number, fy: num
   // which is trivially already true before the click's effect ever lands
   // (handle count never DECREASES), so it would resolve on the very first
   // check and race the real mutation.
+  let newHandleId: string | null = null
   try {
-    await page.waitForFunction(
+    const found = await page.waitForFunction(
       ({ selector, before }) => {
         // Runs inside the browser via raw DOM APIs, not a Playwright
         // Locator — `.filter({ visible: true })` (this file's one
@@ -341,22 +342,83 @@ export async function addPointAt(page: Page, nodeId: string, fx: number, fy: num
         const ids = els
           .map((e) => e.getAttribute('data-handleid') ?? '')
           .filter((id) => id && !id.startsWith('phantom:'))
-        return ids.some((id) => !before.includes(id))
+        // Return the winning id ITSELF, not a boolean. waitForFunction
+        // resolves on any truthy value, and handing the id back makes
+        // "detect" and "use" ONE DOM snapshot. Re-querying afterwards was a
+        // race: FormNode's updateNodeInternals effect makes React Flow
+        // re-measure this node's handles on every point add, and for a few
+        // ms the node's handle set reads as EMPTY. A second read landing in
+        // that window returned no handles at all — so a correctly-created
+        // point reported handleId: null. WebKit was slow enough to straddle
+        // it; Chromium/Firefox usually were not (issue #124's "flakiness").
+        return ids.find((id) => !before.includes(id)) ?? null
       },
       { selector: `.react-flow__handle[data-nodeid="${nodeId}"]`, before: [...beforeHandles] },
       { timeout: 3000 },
     )
+    newHandleId = await found.jsonValue()
   } catch {
     /* no new handle within the window — the legitimate steady state for a
        capacity-1 spot's repeat double-click; a caller that expected growth
        fails its own assertion on the returned (null) handleId instead. */
   }
-  const afterHandles = await realHandleIds(page, nodeId)
-  const afterLabels = await pointLabelIds(page, nodeId)
-  return {
-    handleId: afterHandles.find((id) => !beforeHandles.has(id)) ?? null,
-    pointId: afterLabels.find((id) => !beforeLabels.has(id)) ?? null,
+  // Same atomicity rule as the handle above: poll until the NEW label id is
+  // visible and return that id from inside the page, rather than resolving a
+  // condition and then re-reading the DOM in a second, unsynchronized query.
+  // The re-measure churn that empties the handle set also makes a plain
+  // follow-up read return no labels, which reported pointId: null for a
+  // point that had in fact been created.
+  //
+  // A timeout here is a LEGITIMATE outcome, not a failure: the identity
+  // centre point renders with `suppressLabel` (FormNode.tsx:368), so it has
+  // no [data-point-id] at all and correctly yields pointId: null. Bounded
+  // shorter than the handle wait since that case pays it on every run.
+  let newPointId: string | null = null
+  try {
+    const foundLabel = await page.waitForFunction(
+      ({ selector, before }) => {
+        const els = Array.from(document.querySelectorAll(selector)).filter(
+          (e) => (e as HTMLElement).offsetParent !== null,
+        )
+        const ids = els.map((e) => e.getAttribute('data-point-id') ?? '').filter(Boolean)
+        return ids.find((id) => !before.includes(id)) ?? null
+      },
+      {
+        selector: `.react-flow__node[data-id="${nodeId}"] [data-point-id]`,
+        before: [...beforeLabels],
+      },
+      { timeout: 1500 },
+    )
+    newPointId = await foundLabel.jsonValue()
+  } catch {
+    /* no new label within the window — correct for the identity centre
+       (suppressLabel), and for a repeat double-click that created nothing. */
   }
+  // Don't hand control back mid-churn. React Flow's re-measure (triggered by
+  // FormNode's updateNodeInternals effect) briefly detaches this node's
+  // handles — and, at its widest, the node elements themselves read as
+  // absent. Callers that immediately measure something (handleCenter's
+  // boundingBox, nodeCount for a baseline) would then sample the empty
+  // window: an observed failure had `nodeCount()` return 0 for a canvas that
+  // already held one form, so a later `before + 1` assertion expected 1 and
+  // saw 2. Waiting for the node's own handles to be present again ends the
+  // churn window HERE, once, instead of leaving every downstream helper to
+  // rediscover it.
+  await page
+    .waitForFunction(
+      (selector) =>
+        Array.from(document.querySelectorAll(selector)).some(
+          (e) => (e as HTMLElement).offsetParent !== null,
+        ),
+      `.react-flow__handle[data-nodeid="${nodeId}"]`,
+      { timeout: 3000 },
+    )
+    .catch(() => {
+      /* Best-effort settle. A form with no handles at all is a legitimate
+         state (nothing was created), and the caller's own assertions — not
+         this wait — are what decide the test's outcome. */
+    })
+  return { handleId: newHandleId, pointId: newPointId }
 }
 
 export async function handleIds(page: Page, nodeId: string): Promise<string[]> {
