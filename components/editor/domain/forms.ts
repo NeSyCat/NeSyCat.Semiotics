@@ -1,4 +1,4 @@
-import { Position } from '@xyflow/react'
+import { Position } from './position'
 import type { Form, Shape, EdgeKey } from './types'
 import type { Vec } from './wirepath'
 

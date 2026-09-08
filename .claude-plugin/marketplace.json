@@ -1,0 +1,19 @@
+{
+  "name": "nesycat",
+  "owner": {
+    "name": "NeSyCat",
+    "url": "https://github.com/NeSyCat"
+  },
+  "description": "NeSyCat's own plugins, carried by the NeSyCat.Semiotics repo.",
+  "plugins": [
+    {
+      "name": "nesycat-semiotics",
+      "source": "./mcp",
+      "description": "Draw and manage NeSyCat Semiotics diagrams as knowledge: a user-authenticated MCP server (full diagram CRUD, RLS-scoped) bundled with a skill for turning Prisma Next contracts into sysmer diagrams.",
+      "version": "0.1.0",
+      "author": {
+        "name": "NeSyCat"
+      }
+    }
+  ]
+}
