@@ -413,7 +413,9 @@ describe('TikZ exporter', () => {
   it("edgeStyle: 'bezier' emits '.. controls (c1) and (c2) ..' with wirePath's own control points", () => {
     // targetY=120: the two points' actual dx/dy (100/120, NOT the forms'
     // own 300px x-offset — WF1's point sits at x=200, WF2's at x=300) is
-    // clearly past the STRAIGHT_ANGLE_DEG guard, so the curve actually renders.
+    // clearly diagonal, so the control points sit visibly off the chord.
+    // (Bezier is not subject to the angular guard; a level pair would emit
+    // a cubic too — see wirepath.ts.)
     const d = wireDiagram('bezier', 120)
     const positions = pointPositionsPx(d)
     const src = positions.get('WP1')!

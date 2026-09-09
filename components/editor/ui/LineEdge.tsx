@@ -28,9 +28,10 @@ interface LineEdgeData {
   // rotated by the form's own rotation), computed by Canvas.tsx's builtEdges
   // (pointWireGeometry) and handed straight to wirePath below. null for a
   // free end (a 'self'-edgeKey empty-form point — worldPointNormal itself
-  // already returns null there) — wirePath reads that as "leave straight
-  // toward the other endpoint" (bezier) / "no stub, turn exactly at this
-  // point" (smoothstep). NOT derived from sourcePosition/targetPosition
+  // already returns null there) — wirePath reads that as "borrow an axis
+  // from the other end, or the chord's dominant axis if both are free"
+  // (bezier; see bezierPath in wirepath.ts) / "no stub, turn exactly at
+  // this point" (smoothstep). NOT derived from sourcePosition/targetPosition
   // (React Flow's own Position enum) any more — that's a coarse, STATIC
   // per-edgeKey cardinal, wrong for a slanted triangle edge and blind to
   // form.rotation entirely.

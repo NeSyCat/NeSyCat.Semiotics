@@ -812,9 +812,10 @@ const emptyGeometry: FormGeometry = {
   // the trivial (and only) valid inverse of pointAnchor's own constant.
   edgeParam: () => 0,
   // The one middle point IS the form (pointIsForm) — a free end, no
-  // meaningful direction. worldPointNormal/wirePath read this null as "leave
-  // straight toward the other endpoint" (bezier) / "no stub, turn exactly at
-  // this point" (smoothstep).
+  // meaningful direction. worldPointNormal/wirePath read this null as
+  // "borrow an axis from the other end, or the chord's dominant axis if both
+  // are free" (bezier; see bezierPath in wirepath.ts) / "no stub, turn
+  // exactly at this point" (smoothstep).
   pointNormal: () => null,
 }
 

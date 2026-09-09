@@ -370,7 +370,7 @@ describe('wirepath.ts', () => {
       }
     })
 
-    it('past the angular threshold (≥12°), bezier draws a real curve (control points defined)', () => {
+    it('a clearly diagonal chord (≈12°) in bezier mode draws a real curve too (control points defined)', () => {
       const { d, c1, c2 } = wirePath(0, 100, dirFromLegacy('right'), 300, 165, dirFromLegacy('left'), 'bezier')
       expect(d).toMatch(/^M .+ C .+$/)
       expect(c1).toBeDefined()
