@@ -48,6 +48,9 @@ next-env.d.ts
 
 # Supabase CLI runtime cache under the symlinked supabase/ folder
 /supabase/.temp
+# Supabase CLI's record of which branch DB this checkout points at — local
+# runtime state, not project config.
+/supabase/.branches
 
 # Playwright run artifacts
 /playwright-report/
