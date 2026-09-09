@@ -63,9 +63,9 @@ describe('wirepath.ts', () => {
 
   describe('bezier', () => {
     it('control points leave along each Dir, scaled by clamp(0.5*dist, 24, 220)', () => {
-      // (0,0)->(200,70): angle atan(70/200)=19.3° — clear of the straightness
-      // guard's 10° threshold, so the curve actually renders. k is derived
-      // from the formula, not hardcoded, so this stays exact regardless.
+      // (0,0)->(200,70): a clearly diagonal chord (atan(70/200)=19.3°), so
+      // the control points sit visibly off it. k is derived from the
+      // formula, not hardcoded, so this stays exact regardless.
       const sx = 0, sy = 0, tx = 200, ty = 70
       const dist = Math.hypot(tx - sx, ty - sy)
       const k = Math.max(24, Math.min(220, 0.5 * dist))
@@ -84,15 +84,15 @@ describe('wirepath.ts', () => {
     })
 
     it('k is clamped to a minimum of 24 for very short wires', () => {
-      // (0,0)->(10,3): short, but angle atan(3/10)=16.7° clears the
-      // straightness guard (crossDelta=3 > max(1, tan4°*10)=1).
+      // (0,0)->(10,3): short, and diagonal enough (atan(3/10)=16.7°) that
+      // the control points sit visibly off the chord.
       const { c1 } = wirePath(0, 0, dirFromLegacy('right'), 10, 3, dirFromLegacy('left'), 'bezier')
       expect(c1).toBeDefined()
       if (c1) expect(approx(c1.x, 24)).toBe(true) // clamp(0.5*hypot(10,3), 24, 220) = 24
     })
 
     it('k is clamped to a maximum of 220 for very long wires', () => {
-      // (0,0)->(1000,250): angle atan(250/1000)=14° clears the 10° guard.
+      // (0,0)->(1000,250): a clearly diagonal chord (atan(250/1000)=14°).
       const { c1 } = wirePath(0, 0, dirFromLegacy('right'), 1000, 250, dirFromLegacy('left'), 'bezier')
       expect(c1).toBeDefined()
       if (c1) expect(approx(c1.x, 220)).toBe(true) // clamp(0.5*hypot(1000,250), 24, 220) = 220
@@ -209,7 +209,7 @@ describe('wirepath.ts', () => {
     })
 
     it('mid is the cubic Bezier point at t=0.5: P0/8 + 3C1/8 + 3C2/8 + P3/8', () => {
-      const sx = 0, sy = 0, tx = 200, ty = 70 // angle 19.3° clears the straightness guard
+      const sx = 0, sy = 0, tx = 200, ty = 70 // a clearly diagonal chord (19.3°)
       const { c1, c2, mid } = wirePath(sx, sy, dirFromLegacy('right'), tx, ty, dirFromLegacy('left'), 'bezier')
       expect(c1).toBeDefined()
       expect(c2).toBeDefined()
