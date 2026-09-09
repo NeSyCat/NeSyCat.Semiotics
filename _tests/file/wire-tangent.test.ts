@@ -243,16 +243,30 @@ describe('angular straightness guard combined with a REAL (non-cardinal) worldPo
   // (DEFECT A); this checks the guard still does the right thing when fed a
   // genuinely diagonal Dir from worldPointNormal, not a legacy/cardinal
   // adapter — the guard is purely a function of the raw chord, independent
-  // of Dir, so a near-axis chord snaps straight EVEN THOUGH the triangle
-  // edge's own true Dir is diagonal.
-  it('a near-axis chord still snaps straight even when sDir is a diagonal triangle-edge normal', () => {
+  // of Dir, so a near-axis chord snaps straight (smoothstep) EVEN THOUGH the
+  // triangle edge's own true Dir is diagonal. Bezier is exempt from the
+  // guard altogether: it always draws its cubic along the true Dir.
+  it('a near-axis chord still snaps straight (smoothstep) even when sDir is a diagonal triangle-edge normal', () => {
     const sDir = worldPointNormal(bareForm('T', 'triangle', { edges: { a: ['P'], b: [], c: [], peak: [] } }), 'a', 0, 1)
     expect(sDir).not.toBeNull()
     // mainDelta=300, crossDelta=15 -> well within the STRAIGHT_ANGLE_DEG guard (see
     // wirepath.test.ts for the exact threshold math).
-    const { d, c1 } = wirePath(0, 100, sDir, 300, 115, null, 'bezier')
+    const { d, c1 } = wirePath(0, 100, sDir, 300, 115, null, 'smoothstep')
     expect(d).toBe('M 0 100 L 300 115')
     expect(c1).toBeUndefined()
+  })
+
+  it('the same near-axis chord in bezier mode still curves along the diagonal triangle-edge normal', () => {
+    const sDir = worldPointNormal(bareForm('T', 'triangle', { edges: { a: ['P'], b: [], c: [], peak: [] } }), 'a', 0, 1)
+    expect(sDir).not.toBeNull()
+    const { d, c1 } = wirePath(0, 100, sDir, 300, 115, null, 'bezier')
+    expect(d).toMatch(/^M 0 100 C .+, .+, 300 115$/)
+    expect(c1).toBeDefined()
+    if (c1 && sDir) {
+      const k = Math.max(24, Math.min(220, 0.5 * Math.hypot(300, 15)))
+      expect(approx(c1.x, sDir.x * k, 1e-6)).toBe(true)
+      expect(approx(c1.y, 100 + sDir.y * k, 1e-6)).toBe(true)
+    }
   })
 
   it('geometryFor is the single per-shape registry both worldPointNormal and pointAnchor read from', () => {

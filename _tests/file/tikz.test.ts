@@ -377,10 +377,12 @@ describe('TikZ exporter', () => {
   // Diagram.edgeStyle — the SAME two points (source faces 'right', target
   // faces 'left') for every style, so only the wire's drawn shape varies.
   // `targetY` defaults to 0 (the two points then land perfectly level) — the
-  // bezier/smoothstep cases below override it, since a level pair is now
-  // (correctly, post wirepath.ts's angular straightness guard) collapsed to
-  // a plain straight line, and exercising an actual curve/elbow needs the
+  // smoothstep case below overrides it, since a level pair is (correctly,
+  // per wirepath.ts's angular straightness guard) collapsed to a plain
+  // straight line for that style, and exercising an actual elbow needs the
   // two endpoints off-axis from one another by more than STRAIGHT_ANGLE_DEG.
+  // Bezier is NOT guarded (it always emits a cubic); its case overrides
+  // targetY too, only so the control points are visibly off the chord.
   function wireDiagram(edgeStyle?: EdgeStyle, targetY = 0): Diagram {
     const d = emptyDiagram()
     const f1 = bareSquare('WF1', { x: 0, y: 0 }, { edges: { top: [], right: ['WP1'], bottom: [], left: [] } })
@@ -519,6 +521,110 @@ describe('TikZ exporter', () => {
       const dc2 = deltaCm(expected.c2.x - src.pos.x, expected.c2.y - src.pos.y)
       expect(approx(c2x - fx, dc2.x, 1e-3) && approx(c2y - fy, dc2.y, 1e-3), 'emitted c2 matches wirePath (directed target end)').toBe(true)
       expect(approx(expected.c2.y, tgt.pos.y, 1e-6), "target control point's y is unchanged (offset is purely along x, its Dir)").toBe(true)
+    }
+  })
+
+  // Bezier ALWAYS emits a cubic — including the two shapes that used to
+  // come out as a bare '--' segment in a paper's TikZ figure: a box wired to
+  // a free end a few px off level (the angular guard used to intercept it),
+  // and a free end wired to another free end (both Dir null used to fall
+  // back to the chord, which collapses the cubic to its own straight line).
+  it("edgeStyle: 'bezier', box right-edge port to a free end a few px off level: emits '.. controls' with c1 level with the source, never a '--' segment", () => {
+    const d = emptyDiagram()
+    const sq = bareSquare('NLSQ', { x: 0, y: 0 }, { edges: { top: [], right: ['NLP'], bottom: [], left: [] } })
+    // The free end sits 6px below the square's right-edge port over a 240px
+    // run — a ≈1.5° chord, well inside the 10° angular guard. An 'empty'
+    // form's 'self' point sits at the form's own center, not its position,
+    // so probe both offsets first and place the form so its self point
+    // lands exactly where we want it.
+    const probe = pointPositionsPx({
+      ...emptyDiagram(),
+      forms: [sq, { id: 'NLEMPTY', shape: 'empty', position: { x: 0, y: 0 }, edges: { self: ['NLSELF'] } }],
+      points: {
+        NLP: { id: 'NLP', shape: 'empty', formId: 'NLSQ', edgeKey: 'right' },
+        NLSELF: { id: 'NLSELF', shape: 'empty', formId: 'NLEMPTY', edgeKey: 'self' },
+      },
+    })
+    const port = probe.get('NLP')!
+    const selfOffset = probe.get('NLSELF')!.pos
+    const emptyForm: Form = {
+      id: 'NLEMPTY', shape: 'empty',
+      position: { x: port.pos.x + 240 - selfOffset.x, y: port.pos.y + 6 - selfOffset.y },
+      edges: { self: ['NLSELF'] },
+    }
+    d.forms.push(sq, emptyForm)
+    d.points['NLP'] = { id: 'NLP', shape: 'empty', formId: 'NLSQ', edgeKey: 'right' }
+    d.points['NLSELF'] = { id: 'NLSELF', shape: 'empty', formId: 'NLEMPTY', edgeKey: 'self' }
+    d.lines.push({ id: 'NLL1', source: 'NLP', targets: ['NLSELF'] })
+    d.edgeStyle = 'bezier'
+
+    const positions = pointPositionsPx(d)
+    const src = positions.get('NLP')!
+    const tgt = positions.get('NLSELF')!
+    const dx = tgt.pos.x - src.pos.x
+    const dy = tgt.pos.y - src.pos.y
+    expect(Math.abs(dy) <= Math.tan((10 * Math.PI) / 180) * Math.abs(dx), 'fixture sanity: the chord is within the 10° angular guard').toBe(true)
+    expect(Math.abs(dy), 'fixture sanity: the free end is a few px off level, not exactly level').toBeGreaterThan(1)
+
+    const tikz = diagramToTikzCore(d)
+    const wireLines = tikz.split('\n').filter((l) => l.trim().startsWith('\\draw[') && !l.includes('cycle') && !l.includes('draw='))
+    expect(wireLines.length, 'exactly one wire draw command').toBe(1)
+    expect(wireLines[0], 'the wire is a cubic, not a straight segment').toContain('.. controls')
+    expect(wireLines[0]).not.toMatch(/\) -- \(/)
+    const m = wireLines[0].match(
+      /\(([-\d.]+),([-\d.]+)\) \.\. controls \(([-\d.]+),([-\d.]+)\) and \(([-\d.]+),([-\d.]+)\) \.\. \(([-\d.]+),([-\d.]+)\)/,
+    )
+    expect(!!m).toBe(true)
+    if (m) {
+      const [, fx, fy, c1x, c1y, c2x, c2y, tx, ty] = m.map(Number) as unknown as number[]
+      // c1 is on the horizontal through the source (the box's 'right' Dir);
+      // c2 is on the horizontal through the free target (borrowed, mirrored).
+      expect(approx(c1y, fy, 1e-3), 'c1 is level with the source').toBe(true)
+      expect(c1x, 'c1 lies to the right of the source').toBeGreaterThan(fx)
+      expect(approx(c2y, ty, 1e-3), 'c2 is level with the free target').toBe(true)
+      expect(c2x, 'c2 lies to the left of the target').toBeLessThan(tx)
+    }
+  })
+
+  it("edgeStyle: 'bezier', free end to free end (both 'self' points): emits '.. controls' with both control points horizontal from their own endpoint", () => {
+    const d = emptyDiagram()
+    const e1: Form = { id: 'FFE1', shape: 'empty', position: { x: 0, y: 0 }, edges: { self: ['FFS1'] } }
+    const e2: Form = { id: 'FFE2', shape: 'empty', position: { x: 300, y: 80 }, edges: { self: ['FFS2'] } }
+    d.forms.push(e1, e2)
+    d.points['FFS1'] = { id: 'FFS1', shape: 'empty', formId: 'FFE1', edgeKey: 'self' }
+    d.points['FFS2'] = { id: 'FFS2', shape: 'empty', formId: 'FFE2', edgeKey: 'self' }
+    d.lines.push({ id: 'FFL1', source: 'FFS1', targets: ['FFS2'] })
+    d.edgeStyle = 'bezier'
+
+    const positions = pointPositionsPx(d)
+    const src = positions.get('FFS1')!
+    const tgt = positions.get('FFS2')!
+    expect(Math.abs(tgt.pos.x - src.pos.x), 'fixture sanity: |dx| > |dy| so the dominant axis is horizontal').toBeGreaterThan(Math.abs(tgt.pos.y - src.pos.y))
+    const expected = wirePath(src.pos.x, src.pos.y, null, tgt.pos.x, tgt.pos.y, null, 'bezier')
+    expect(expected.c1).toBeDefined()
+    expect(expected.c2).toBeDefined()
+
+    const tikz = diagramToTikzCore(d)
+    const wireLines = tikz.split('\n').filter((l) => l.trim().startsWith('\\draw[') && !l.includes('cycle') && !l.includes('draw='))
+    expect(wireLines.length, 'exactly one wire draw command').toBe(1)
+    expect(wireLines[0], 'the wire is a cubic, not a straight segment').toContain('.. controls')
+    const m = wireLines[0].match(
+      /\(([-\d.]+),([-\d.]+)\) \.\. controls \(([-\d.]+),([-\d.]+)\) and \(([-\d.]+),([-\d.]+)\) \.\. \(([-\d.]+),([-\d.]+)\)/,
+    )
+    expect(!!m).toBe(true)
+    if (m && expected.c1 && expected.c2) {
+      const [, fx, fy, c1x, c1y, c2x, c2y, tx, ty] = m.map(Number) as unknown as number[]
+      expect(approx(c1y, fy, 1e-3), 'c1 is horizontal from the source').toBe(true)
+      expect(c1x).toBeGreaterThan(fx)
+      expect(approx(c2y, ty, 1e-3), 'c2 is horizontal from the target').toBe(true)
+      expect(c2x).toBeLessThan(tx)
+      // And the emitted control points match wirePath's own, as px->cm
+      // deltas off the emitted `from` (same technique as the tests above).
+      const deltaCm = (rawDx: number, rawDy: number) => ({ x: rawDx / 100, y: -rawDy / 100 })
+      const dc1 = deltaCm(expected.c1.x - src.pos.x, expected.c1.y - src.pos.y)
+      const dc2 = deltaCm(expected.c2.x - src.pos.x, expected.c2.y - src.pos.y)
+      expect(approx(c1x - fx, dc1.x, 1e-3) && approx(c1y - fy, dc1.y, 1e-3), 'emitted c1 matches wirePath').toBe(true)
+      expect(approx(c2x - fx, dc2.x, 1e-3) && approx(c2y - fy, dc2.y, 1e-3), 'emitted c2 matches wirePath').toBe(true)
     }
   })
 
