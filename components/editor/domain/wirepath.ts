@@ -90,13 +90,19 @@ function vfmt(v: Vec): string {
 }
 
 // ── Straightness guard (angular, not a fixed pixel snap) ──────────────
-// Both curved styles (bezier, smoothstep) fall back to a plain straight line
+// The orthogonal router (smoothstep) falls back to a plain straight line
 // when the CHORD's deviation from its own dominant axis is at most
-// STRAIGHT_ANGLE_DEG — a near-axis-aligned wire drawing a "curve"/"elbow"
-// for a few stray degrees reads as a visible bump/squiggle, not a real bend
+// STRAIGHT_ANGLE_DEG — a near-axis-aligned wire drawing an "elbow" for a
+// few stray degrees reads as a visible bump/squiggle, not a real bend
 // (this replaces an earlier fixed-1px snap that was too timid — a wire
 // could be many px off-axis over a long run and still read as "basically
 // straight"; the RIGHT measure is the angle, not the raw pixel delta).
+// Bezier is deliberately NOT guarded: a cubic whose tangents leave and
+// arrive along an axis IS visually a straight line with a rounded
+// departure when the chord is nearly axis-aligned — the intended
+// string-diagram look — whereas snapping it to the chord draws a slanted
+// diagonal that ignores the ports' own directions (visible on box-to-
+// free-end wires that sit a few px off level). See wirePath below.
 // Recalibrated from 4° to 10°: real-world bumpy wires measured ~11-17px
 // cross-delta over ~100-150px runs (≈6-10°) — still jogging under a 4°
 // threshold, since those all sit ABOVE it. 10° comfortably covers that
@@ -147,11 +153,17 @@ function bezierPath(sx: number, sy: number, sDir: Dir, tx: number, ty: number, t
   // Falling back to the chord instead — as this did before — puts BOTH control
   // points on the segment, and a cubic with four collinear control points IS
   // the straight line, so every wire touching a free end rendered straight.
-  // Only when NEITHER end is directed is there no axis to borrow; then the
-  // chord is the honest answer (and such a wire is straight either way).
-  const chordS = { x: dx / dist, y: dy / dist }
-  const su = sDir ?? (tDir ? { x: -tDir.x, y: -tDir.y } : chordS)
-  const tu = tDir ?? (sDir ? { x: -sDir.x, y: -sDir.y } : { x: -chordS.x, y: -chordS.y })
+  // When NEITHER end is directed (free end to free end — e.g. a fork hub on
+  // an empty form wired to a loose end) there is no Dir to borrow, so the
+  // wire takes the chord's DOMINANT AXIS instead: it departs the source
+  // along that axis and arrives at the target along its mirror, curving in
+  // between exactly like every other bezier wire. Every wire in bezier mode
+  // leaves and arrives axis-aligned, no matter what it's drawn to.
+  const axisS: Vec = Math.abs(dx) >= Math.abs(dy)
+    ? { x: dx >= 0 ? 1 : -1, y: 0 }
+    : { x: 0, y: dy >= 0 ? 1 : -1 }
+  const su = sDir ?? (tDir ? { x: -tDir.x, y: -tDir.y } : axisS)
+  const tu = tDir ?? (sDir ? { x: -sDir.x, y: -sDir.y } : { x: -axisS.x, y: -axisS.y })
   const c1: Vec = { x: sx + su.x * k, y: sy + su.y * k }
   const c2: Vec = { x: tx + tu.x * k, y: ty + tu.y * k }
   // Cubic Bezier point at t=0.5: B(.5) = P0/8 + 3P1/8 + 3P2/8 + P3/8.
@@ -448,9 +460,12 @@ export function wirePath(
   elbow: ElbowPlacement = 'mid',
 ): WirePathResult {
   if (style === 'straight') return straightPath(sx, sy, tx, ty)
-  // The angular straightness guard applies to BOTH curved styles, ahead of
-  // their own Dir-driven geometry — see isNearlyStraight's own comment.
-  if (isNearlyStraight(sx, sy, tx, ty)) return straightPath(sx, sy, tx, ty)
+  // Bezier ALWAYS draws a cubic — a wire in bezier mode leaves and arrives
+  // along an axis wherever it's drawn to (a port, a free end, another free
+  // end), so a nearly level chord renders as a straight run with a rounded
+  // departure, never as a bare slanted segment. See isNearlyStraight's own
+  // comment for why the angular guard is a smoothstep-only concern.
   if (style === 'bezier') return bezierPath(sx, sy, sDir, tx, ty, tDir)
+  if (isNearlyStraight(sx, sy, tx, ty)) return straightPath(sx, sy, tx, ty)
   return smoothstepPath(sx, sy, sDir, tx, ty, tDir, elbow)
 }

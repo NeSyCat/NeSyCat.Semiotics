@@ -63,9 +63,9 @@ describe('wirepath.ts', () => {
 
   describe('bezier', () => {
     it('control points leave along each Dir, scaled by clamp(0.5*dist, 24, 220)', () => {
-      // (0,0)->(200,70): angle atan(70/200)=19.3° — clear of the straightness
-      // guard's 10° threshold, so the curve actually renders. k is derived
-      // from the formula, not hardcoded, so this stays exact regardless.
+      // (0,0)->(200,70): a clearly diagonal chord (atan(70/200)=19.3°), so
+      // the control points sit visibly off it. k is derived from the
+      // formula, not hardcoded, so this stays exact regardless.
       const sx = 0, sy = 0, tx = 200, ty = 70
       const dist = Math.hypot(tx - sx, ty - sy)
       const k = Math.max(24, Math.min(220, 0.5 * dist))
@@ -84,35 +84,84 @@ describe('wirepath.ts', () => {
     })
 
     it('k is clamped to a minimum of 24 for very short wires', () => {
-      // (0,0)->(10,3): short, but angle atan(3/10)=16.7° clears the
-      // straightness guard (crossDelta=3 > max(1, tan4°*10)=1).
+      // (0,0)->(10,3): short, and diagonal enough (atan(3/10)=16.7°) that
+      // the control points sit visibly off the chord.
       const { c1 } = wirePath(0, 0, dirFromLegacy('right'), 10, 3, dirFromLegacy('left'), 'bezier')
       expect(c1).toBeDefined()
       if (c1) expect(approx(c1.x, 24)).toBe(true) // clamp(0.5*hypot(10,3), 24, 220) = 24
     })
 
     it('k is clamped to a maximum of 220 for very long wires', () => {
-      // (0,0)->(1000,250): angle atan(250/1000)=14° clears the 10° guard.
+      // (0,0)->(1000,250): a clearly diagonal chord (atan(250/1000)=14°).
       const { c1 } = wirePath(0, 0, dirFromLegacy('right'), 1000, 250, dirFromLegacy('left'), 'bezier')
       expect(c1).toBeDefined()
       if (c1) expect(approx(c1.x, 220)).toBe(true) // clamp(0.5*hypot(1000,250), 24, 220) = 220
     })
 
-    it('a null Dir leaves straight toward the other endpoint', () => {
-      // (0,0)->(200,80): angle atan(80/200)=21.8°, clear of the straightness
-      // guard — source Dir null -> control point continues along the chord
-      // toward the target (collinear), not an arbitrary axis.
+    it('free end to free end (both Dir null), |dx| > |dy|: control points are HORIZONTAL from each endpoint — a real curve, not the chord', () => {
+      // A fork hub on an 'empty' form wired to a loose end: NEITHER endpoint
+      // has an edge to take a normal from. The wire must still leave and
+      // arrive along an axis like every other bezier wire — here the chord's
+      // dominant axis is x (dx=200 > dy=80), so both control points sit on
+      // the horizontal through their own endpoint. The old behaviour put
+      // both control points ON the chord, which collapsed the cubic to the
+      // straight segment.
       const sx = 0, sy = 0, tx = 200, ty = 80
+      const dist = Math.hypot(tx - sx, ty - sy)
+      const k = Math.max(24, Math.min(220, 0.5 * dist))
+      const { d, c1, c2 } = wirePath(sx, sy, null, tx, ty, null, 'bezier')
+      expect(d).toMatch(/^M 0 0 C .+, .+, 200 80$/)
+      expect(c1).toBeDefined()
+      expect(c2).toBeDefined()
+      if (c1 && c2) {
+        expect(approx(c1.y, sy), 'c1 is level with the source (horizontal departure)').toBe(true)
+        expect(approx(c1.x, sx + k), 'c1 is k to the right of the source (toward the target)').toBe(true)
+        expect(approx(c2.y, ty), 'c2 is level with the target (horizontal arrival)').toBe(true)
+        expect(approx(c2.x, tx - k), 'c2 is k to the left of the target (back toward the source)').toBe(true)
+        const cross1 = (c1.x - sx) * (ty - sy) - (c1.y - sy) * (tx - sx)
+        expect(approx(cross1, 0, 1e-6), 'c1 is NOT on the chord').toBe(false)
+      }
+    })
+
+    it('free end to free end, |dy| > |dx|: control points are VERTICAL from each endpoint, sign following the chord', () => {
+      // Same rule, other axis: the chord runs mostly upward (dy=-200 < 0),
+      // so the source departs (0,-1) and the target arrives from (0,+1).
+      const sx = 100, sy = 300, tx = 160, ty = 100
+      const dist = Math.hypot(tx - sx, ty - sy)
+      const k = Math.max(24, Math.min(220, 0.5 * dist))
       const { c1, c2 } = wirePath(sx, sy, null, tx, ty, null, 'bezier')
       expect(c1).toBeDefined()
       expect(c2).toBeDefined()
       if (c1 && c2) {
-        const cross1 = (c1.x - sx) * (ty - sy) - (c1.y - sy) * (tx - sx)
-        expect(approx(cross1, 0, 1e-6), 'c1 collinear with the source->target chord').toBe(true)
-        expect(c1.x).toBeGreaterThan(sx) // toward the target
-        const cross2 = (c2.x - tx) * (sy - ty) - (c2.y - ty) * (sx - tx)
-        expect(approx(cross2, 0, 1e-6), 'c2 collinear with the target->source chord').toBe(true)
-        expect(c2.x).toBeLessThan(tx) // toward the source
+        expect(approx(c1.x, sx)).toBe(true)
+        expect(approx(c1.y, sy - k)).toBe(true)
+        expect(approx(c2.x, tx)).toBe(true)
+        expect(approx(c2.y, ty + k)).toBe(true)
+      }
+    })
+
+    it('box right-edge port to a free end a few px off level: still a cubic whose first control point is on the horizontal through the source', () => {
+      // The paper-figure case: a box's right edge wired to a dangling free
+      // end that sits 6px lower over a 200px run (≈1.7°). The angular
+      // straightness guard used to intercept this and draw a bare slanted
+      // segment; in bezier mode a wire ALWAYS curves — the result is a level
+      // stub out of the box that gently bends onto the free end.
+      const sx = 0, sy = 100, tx = 200, ty = 106
+      expect(isNearlyStraight(sx, sy, tx, ty), 'fixture sanity: this chord IS within the angular guard').toBe(true)
+      const dist = Math.hypot(tx - sx, ty - sy)
+      const k = Math.max(24, Math.min(220, 0.5 * dist))
+      const { d, c1, c2 } = wirePath(sx, sy, dirFromLegacy('right'), tx, ty, null, 'bezier')
+      expect(d).toMatch(/^M 0 100 C .+, .+, 200 106$/)
+      expect(d).not.toContain(' L ')
+      expect(c1).toBeDefined()
+      expect(c2).toBeDefined()
+      if (c1 && c2) {
+        expect(approx(c1.y, sy), 'c1 lies on the horizontal through the source').toBe(true)
+        expect(approx(c1.x, sx + k)).toBe(true)
+        // The free target borrows the source's Dir mirrored, so it arrives
+        // horizontally too.
+        expect(approx(c2.y, ty), 'c2 lies on the horizontal through the target').toBe(true)
+        expect(approx(c2.x, tx - k)).toBe(true)
       }
     })
 
@@ -160,7 +209,7 @@ describe('wirepath.ts', () => {
     })
 
     it('mid is the cubic Bezier point at t=0.5: P0/8 + 3C1/8 + 3C2/8 + P3/8', () => {
-      const sx = 0, sy = 0, tx = 200, ty = 70 // angle 19.3° clears the straightness guard
+      const sx = 0, sy = 0, tx = 200, ty = 70 // a clearly diagonal chord (19.3°)
       const { c1, c2, mid } = wirePath(sx, sy, dirFromLegacy('right'), tx, ty, dirFromLegacy('left'), 'bezier')
       expect(c1).toBeDefined()
       expect(c2).toBeDefined()
@@ -286,8 +335,11 @@ describe('wirepath.ts', () => {
   // from an initial 4° once real bumpy-wire measurements — ~11-17px over
   // ~100-150px, ≈6-10° — turned out to sit ABOVE 4°, so those wires were
   // still jogging) / STRAIGHT_MIN_PX (a 1px floor for very short wires,
-  // where even a shallow angle is only a couple of px). Applies to BOTH
-  // curved styles.
+  // where even a shallow angle is only a couple of px). Applies to
+  // smoothstep ONLY: bezier always draws its cubic, since axis-aligned
+  // tangents already make a near-level chord read as a straight run with a
+  // rounded departure (the intended look), while snapping to the chord drew
+  // a slanted segment that ignored the ports' directions.
   describe('angular straightness guard (isNearlyStraight)', () => {
     it('a chord within ~10° of its dominant axis snaps straight (smoothstep)', () => {
       // mainDelta=300 -> angular threshold = 300*tan(10°) ≈ 52.9px;
@@ -303,14 +355,22 @@ describe('wirepath.ts', () => {
       expect(d).toContain('A ')
     })
 
-    it('the SAME angular guard applies to bezier, not just smoothstep — a near-axis wire no longer draws a curve', () => {
+    it('the angular guard does NOT apply to bezier — a near-axis wire still draws its cubic, tangents on the axes', () => {
+      // Same chord as the smoothstep case above (≈7.6°, inside the guard):
+      // bezier keeps its control points, each level with its own endpoint,
+      // so the wire is a level departure that eases onto the target — not
+      // a bare diagonal from (0,100) to (300,140).
       const { d, c1, c2 } = wirePath(0, 100, dirFromLegacy('right'), 300, 140, dirFromLegacy('left'), 'bezier')
-      expect(d).toBe('M 0 100 L 300 140')
-      expect(c1).toBeUndefined()
-      expect(c2).toBeUndefined()
+      expect(d).toMatch(/^M 0 100 C .+, .+, 300 140$/)
+      expect(c1).toBeDefined()
+      expect(c2).toBeDefined()
+      if (c1 && c2) {
+        expect(approx(c1.y, 100)).toBe(true)
+        expect(approx(c2.y, 140)).toBe(true)
+      }
     })
 
-    it('past the angular threshold (≥12°), bezier draws a real curve (control points defined)', () => {
+    it('a clearly diagonal chord (≈12°) in bezier mode draws a real curve too (control points defined)', () => {
       const { d, c1, c2 } = wirePath(0, 100, dirFromLegacy('right'), 300, 165, dirFromLegacy('left'), 'bezier')
       expect(d).toMatch(/^M .+ C .+$/)
       expect(c1).toBeDefined()

@@ -336,8 +336,10 @@ describe('HTML/SVG exporter', () => {
   })
 
   it("edgeStyle: 'bezier' renders the wire as a cubic <path> matching wirePath's own `d`", () => {
-    // targetY=120 (off-axis from the source's y=100) so the wire clears
-    // wirepath.ts's angular straightness guard and the curve actually renders.
+    // targetY=120 (off-axis from the source's y=100) only so the cubic's
+    // control points sit visibly off the chord — bezier is not subject to
+    // wirepath.ts's angular straightness guard (smoothstep-only) and would
+    // emit a cubic for a level pair too.
     const w = wireDiagram('bezier', 120)
     const wsvg = diagramToHtmlCore(w)
     const expectedD = expectedWireD(w, 'bezier')
